@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Dark Theme: Graphite/Black */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-panel: rgba(16, 16, 16, 0.85);
+  --text-primary: #e5e5e5;
+  --text-secondary: #737373;
+  --accent: #9ca3af;
+  --accent-glow: rgba(156, 163, 175, 0.15);
+  --success: #22c55e;
+  --border: rgba(255, 255, 255, 0.05);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: rgba(255, 255, 255, 0.9);
+  --bg-panel: rgba(255, 255, 255, 0.8);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --accent: #4b5563;
+  --accent-glow: rgba(75, 85, 99, 0.2);
+  --success: #16a34a;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Undborned', 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+#root { width: 100vw; height: 100vh; position: relative; }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes floatUp { 0% { transform: translate(-50%, -50%) translateY(0); opacity: 1; } 100% { transform: translate(-50%, -50%) translateY(-40px); opacity: 0; } }
+
+.fan-spin { animation: spin 1.5s linear infinite; }
+.earnings-anim { animation: floatUp 1s ease-out forwards; }
+
+.ios-toggle {
+  width: 52px; height: 32px; background: var(--text-secondary);
+  border-radius: 16px; position: relative; cursor: pointer; transition: background 0.3s;
+}
+.ios-toggle.active { background: var(--accent); }
+.ios-toggle-knob {
+  position: absolute; top: 2px; left: 2px; width: 28px; height: 28px;
+  background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ios-toggle.active .ios-toggle-knob { transform: translateX(20px); }
+
+input[type="range"] {
+  -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+  background: var(--border); outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; box-shadow: 0 0 8px var(--accent-glow);
+}
