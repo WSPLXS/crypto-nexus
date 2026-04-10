@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { currencies } from '../data/currencies';
 import type { Currency } from '../types';
