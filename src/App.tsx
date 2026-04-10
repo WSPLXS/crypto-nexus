@@ -11,7 +11,40 @@ import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 
+// 🔑 Ключ для localStorage
+const STORAGE_KEY = 'cryptoNexus_save';
+
 function App() {
+  // 📥 Загрузка сохранённого прогресса при старте
+  const getInitialState = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          balance: parsed.balance ?? 100,
+          maxBalance: parsed.maxBalance ?? 100,
+          ownedCurrencies: parsed.ownedCurrencies ?? [],
+          priceMultipliers: parsed.priceMultipliers ?? {},
+          selectedCurrencyId: parsed.selectedCurrencyId ?? 'btc',
+          isDark: parsed.isDark ?? true
+        };
+      }
+    } catch (e) {
+      console.error('❌ Ошибка загрузки сохранения:', e);
+    }
+    return {
+      balance: 100,
+      maxBalance: 100,
+      ownedCurrencies: [],
+      priceMultipliers: {},
+      selectedCurrencyId: 'btc',
+      isDark: true
+    };
+  };
+
+  const initial = getInitialState();
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -21,20 +54,32 @@ function App() {
   
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsAmount, setEarningsAmount] = useState(0);
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(initial.isDark);
 
-  const [balance, setBalance] = useState(100);
-  const [maxBalance, setMaxBalance] = useState(100);
-  const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
-  const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
-  
-  // Динамические множители цен (растут на 15% за каждую покупку)
-  const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
+  const [balance, setBalance] = useState(initial.balance);
+  const [maxBalance, setMaxBalance] = useState(initial.maxBalance);
+  const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>(initial.ownedCurrencies);
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState(initial.selectedCurrencyId);
+  const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>(initial.priceMultipliers);
 
+  // 💾 Авто-сохранение при любом изменении ключевых данных
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      balance,
+      maxBalance,
+      ownedCurrencies,
+      priceMultipliers,
+      selectedCurrencyId,
+      isDark
+    }));
+  }, [balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, isDark]);
+
+  // 🎨 Применение темы
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
+  // 🤖 Инициализация Telegram SDK
   useEffect(() => {
     if (WebApp && typeof WebApp.ready === 'function') {
       WebApp.ready();
@@ -56,13 +101,15 @@ function App() {
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
+  // ⏱ Игровой цикл (доход каждую секунду)
   useEffect(() => {
     if (!isAuthenticated) return;
     const interval = setInterval(() => {
       if (totalIncome > 0) {
-        setBalance(prev => {
+        // ✅ Явно указываем типы, чтобы TS не ругался
+        setBalance((prev: number) => {
           const newBal = prev + totalIncome;
-          setMaxBalance(max => Math.max(max, newBal));
+          setMaxBalance((max: number) => Math.max(max, newBal));
           return newBal;
         });
         
@@ -90,15 +137,18 @@ function App() {
     const totalPrice = currentPrice * amount;
 
     if (balance >= totalPrice) {
-      setBalance(prev => prev - totalPrice);
-      setOwnedCurrencies(prev => {
+      setBalance((prev: number) => prev - totalPrice);
+      
+      // ✅ Явно указываем тип массива
+      setOwnedCurrencies((prev: OwnedCurrency[]) => {
         const existing = prev.find(c => c.currencyId === currencyId);
         return existing 
           ? prev.map(c => c.currencyId === currencyId ? { ...c, amount: c.amount + amount } : c) 
           : [...prev, { currencyId, amount }];
       });
-      // Увеличиваем цену на 15% за покупку
-      setPriceMultipliers(prev => ({
+
+      // ✅ Явно указываем тип объекта
+      setPriceMultipliers((prev: Record<string, number>) => ({
         ...prev,
         [currencyId]: currentMult * 1.15
       }));
