@@ -16,7 +16,6 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // --- ID ЛОГИКА ---
   let userIdNum: number;
   try {
     if (WebApp?.initDataUnsafe?.user?.id) userIdNum = Number(WebApp.initDataUnsafe.user.id);
@@ -27,7 +26,6 @@ function App() {
     }
   } catch { userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000); }
 
-  // --- СОСТОЯНИЯ АВТОРИЗАЦИИ И ИГРЫ ---
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
   const [isLoading, setIsLoading] = useState(true);
   const [isDark, setIsDark] = useState(true);
@@ -35,7 +33,6 @@ function App() {
   const [offlineAmount, setOfflineAmount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
-  // --- СОСТОЯНИЯ БАЛАНСА И ПРОГРЕССА ---
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
@@ -45,14 +42,12 @@ function App() {
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
 
-  // --- СОСТОЯНИЯ МЕНЮ И МОДАЛОК ---
   const [showSettings, setShowSettings] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
   
-  // --- СОЦИАЛЬНЫЕ СИСТЕМЫ (КЛАНЫ, ДРУЗЬЯ, ПРОФИЛЬ) ---
   const [showClan, setShowClan] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
@@ -60,7 +55,6 @@ function App() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showCreateClan, setShowCreateClan] = useState(false);
 
-  // --- ДАННЫЕ КЛАНОВ И ДРУЗЕЙ ---
   const [myClan, setMyClan] = useState<any>(null);
   const [myClanRole, setMyClanRole] = useState<number>(0);
   const [clanMembers, setClanMembers] = useState<any[]>([]);
@@ -70,7 +64,6 @@ function App() {
 
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
 
-  // --- ФУНКЦИИ БД ---
   const saveNicknameToDB = async () => {
     try {
       const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single();
@@ -102,16 +95,15 @@ function App() {
     }, 0) * 60;
   };
 
-  // --- ЗАГРУЗКА СОЦИАЛЬНЫХ ДАННЫХ ---
   const fetchClanData = async () => {
     if (!isAuthenticated) return;
-    const {  member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
+    const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
     if (member) {
-      const {  clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
+      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
       if (clan) {
-        const {  members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
-        const enrichedMembers = await Promise.all((members || []).map(async m => {
-          const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
+        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
+          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
           return { ...m, ...u, incomePerMin: calculateIncome(u) };
         }));
         const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
@@ -121,8 +113,8 @@ function App() {
 
         if (member.role === 4) {
           const { data: apps } = await supabase.from('clan_applications').select('id, user_id, status').eq('clan_id', clan.id).eq('status', 'pending');
-          const enrichedApps = await Promise.all((apps || []).map(async a => {
-            const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
+          const enrichedApps = await Promise.all((apps || []).map(async (a: any) => {
+            const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
             return { ...a, ...u, incomePerMin: calculateIncome(u) };
           }));
           setClanApplications(enrichedApps);
@@ -137,13 +129,13 @@ function App() {
 
   const fetchFriendsData = async () => {
     if (!isAuthenticated) return;
-    const {  reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
-    const incoming = (reqs || []).filter(r => r.receiver_id === userIdNum);
-    setMessages(incoming.map(r => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
+    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
+    const incoming = (reqs || []).filter((r: any) => r.receiver_id === userIdNum);
+    setMessages(incoming.map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
 
     const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
-    const friendIds = (accepted || []).map(r => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
-    const friendsData = await Promise.all(friendIds.map(async id => {
+    const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
+    const friendsData = await Promise.all(friendIds.map(async (id: number) => {
       const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
       return { ...u, incomePerMin: calculateIncome(u) };
     }));
@@ -227,7 +219,6 @@ function App() {
     }
   };
 
-  // --- ФУНКЦИИ КЛАНОВ ---
   const handleCreateClan = async () => {
     if (balance < 100000) return alert('Нужно $100,000!');
     setBalance(p => p - 100000);
@@ -253,7 +244,6 @@ function App() {
     fetchClanData();
   };
 
-  // --- ФУНКЦИИ ДРУЗЕЙ ---
   const handleAddFriend = async (targetId: number) => {
     await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' });
     alert('Заявка отправлена!'); setShowProfile(false);
@@ -269,7 +259,6 @@ function App() {
     fetchFriendsData();
   };
 
-  // --- UI HELPERS ---
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
@@ -279,10 +268,8 @@ function App() {
   return (
     <>
       <div style={styles.container}>
-        {/* УРОВЕНЬ */}
         <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
 
-        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
         <div style={styles.topBar}>
           <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl })}>
             <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
@@ -290,33 +277,26 @@ function App() {
           </div>
           <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => setShowClan(true)} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
         </div>
-
-        {/* ЛЕВЫЕ КНОПКИ */}
+        
         <div style={styles.leftButtons}>
           <button onClick={() => setShowMessages(true)} style={styles.leftBtn}><MessageCircle size={20} color="var(--text-primary)" /></button>
           <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
         </div>
 
-        {/* ЦЕНТР */}
         <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
         
-        {/* ОФФЛАЙН ЗАРАБОТОК */}
         {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
 
-        {/* НИЖНЯЯ ПАНЕЛЬ */}
         <div style={styles.bottomBar}><div style={styles.bottomSection}><span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span></div><button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button><div style={styles.bottomSection}></div></div>
 
-        {/* --- МОДАЛКИ --- */}
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
         <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
         
-        {/* ПРОФИЛЬ ИГРОКА */}
         <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
 
-        {/* КЛАН */}
         {showClan && (
           <div style={styles.overlay} onClick={() => setShowClan(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -364,7 +344,6 @@ function App() {
           </div>
         )}
 
-        {/* ДРУЗЬЯ */}
         {showFriends && (
           <div style={styles.overlay} onClick={() => setShowFriends(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -382,7 +361,6 @@ function App() {
           </div>
         )}
 
-        {/* СООБЩЕНИЯ / ЗАЯВКИ */}
         {showMessages && (
           <div style={styles.overlay} onClick={() => setShowMessages(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -406,7 +384,6 @@ function App() {
           </div>
         )}
 
-        {/* СОЗДАНИЕ КЛАНА */}
         {showCreateClan && (
           <div style={styles.overlay} onClick={() => setShowCreateClan(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
