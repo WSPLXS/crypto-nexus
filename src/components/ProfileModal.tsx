@@ -19,7 +19,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen, onClose, user, currentUserId, isFriend, isInSameClan, myRole,
   onAddFriend, onRemoveFriend, onKick, friends
 }) => {
-  const [income, setIncome] = useState(user?.incomePerMin || 0);
+  const [income, setIncome] = useState(0);
   
   useEffect(() => {
     if (user) setIncome(user.incomePerMin || 0);
@@ -28,7 +28,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   useEffect(() => {
     if (!isOpen || !user || user.id === currentUserId) return;
     const interval = setInterval(() => {
-      setIncome(prev => prev + (user.incomePerMin / 60));
+      setIncome((prev: number) => prev + (user.incomePerMin / 60));
     }, 1000);
     return () => clearInterval(interval);
   }, [isOpen, user, currentUserId]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus } from 'lucide-react';
 import { Auth } from './components/Auth';
@@ -82,8 +82,8 @@ function App() {
 
   const saveNicknameToDB = async () => {
     try {
-      const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single();
-      if (!data?.nickname || data.nickname !== currentNickname) {
+      const {  data } = await supabase.from('users').select('nickname, disable_requests').eq('id', userIdNum).single();
+      if (!data?.nickname || data.nickname !== currentNickname || data.disable_requests !== disableRequests) {
         await supabase.from('users').upsert({ id: userIdNum, nickname: currentNickname, disable_requests: disableRequests }, { onConflict: 'id' });
       }
     } catch {}
@@ -114,10 +114,10 @@ function App() {
 
   const fetchLeaderboard = async () => {
     try {
-      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url');
+      const {  data } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url');
       if (error) throw error;
       const sorted = (data || [])
-        .map(u => ({
+        .map((u: any) => ({
           id: u.id,
           nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
           incomePerMin: calculateIncome(u),
@@ -135,7 +135,7 @@ function App() {
     if (member) {
       const {  clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
       if (clan) {
-        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+        const {  members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
         const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
           const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
           return { ...m, ...u, incomePerMin: calculateIncome(u) };
@@ -192,7 +192,7 @@ function App() {
   useEffect(() => {
     async function loadProgress() {
       try {
-        const { data } = await supabase.from('users').select('*').eq('id', userIdNum).single();
+        const {  data } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (data) {
           setBalance(data.balance || 100); setMaxBalance(data.max_balance || 100);
           setOwnedCurrencies(data.owned_currencies || []); setPriceMultipliers(data.price_multipliers || {});
@@ -261,7 +261,7 @@ function App() {
   const handleCreateClan = async (clanData: any) => {
     if (balance < 100000) return alert('Нужно $100,000!');
     setBalance(p => p - 100000);
-    const { data } = await supabase.from('clans').insert({ 
+    const {  data } = await supabase.from('clans').insert({ 
       name: clanData.name, emoji: clanData.emoji, description: clanData.description,
       min_level: clanData.minLevel, max_members: clanData.maxMembers, 
       creator_id: userIdNum, total_income: 0, require_approval: clanData.requireApproval
@@ -335,14 +335,14 @@ function App() {
 
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
-    const { data } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10);
+    const {  data } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10);
     const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
     setFriendSearchResults(enriched);
   };
 
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
-    const { data } = await supabase.from('clans').select('*, count(clan_members.user_id).as.members_count').ilike('name', `%${query}%`).limit(10);
+    const {  data } = await supabase.from('clans').select('*, count(clan_members.user_id).as.members_count').ilike('name', `%${query}%`).limit(10);
     setClanSearchResults(data || []);
   };
 
@@ -352,15 +352,6 @@ function App() {
   };
 
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
-
-  const formatTime = (dateStr: string) => {
-    if (!dateStr) return { hours: 0, days: 0, months: 0 };
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(hours / 24);
-    const months = Math.floor(days / 30);
-    return { hours: hours % 24, days: days % 30, months };
-  };
 
   if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
