@@ -10,42 +10,14 @@ import { Search } from './components/Search';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
-
-// 🔑 Ключ для localStorage
-const STORAGE_KEY = 'cryptoNexus_save';
+import { supabase } from './lib/supabase'; // <--- Подключение базы
 
 function App() {
-  // 📥 Загрузка сохранённого прогресса при старте
-  const getInitialState = () => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          balance: parsed.balance ?? 100,
-          maxBalance: parsed.maxBalance ?? 100,
-          ownedCurrencies: parsed.ownedCurrencies ?? [],
-          priceMultipliers: parsed.priceMultipliers ?? {},
-          selectedCurrencyId: parsed.selectedCurrencyId ?? 'btc',
-          isDark: parsed.isDark ?? true
-        };
-      }
-    } catch (e) {
-      console.error('❌ Ошибка загрузки сохранения:', e);
-    }
-    return {
-      balance: 100,
-      maxBalance: 100,
-      ownedCurrencies: [],
-      priceMultipliers: {},
-      selectedCurrencyId: 'btc',
-      isDark: true
-    };
-  };
-
-  const initial = getInitialState();
-
+  // Получаем ID пользователя из Telegram (или тестовый ID для ПК)
+  const userId = WebApp.initDataUnsafe?.user?.id?.toString() || 'test-user-123';
+  
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Экран загрузки
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -54,42 +26,79 @@ function App() {
   
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsAmount, setEarningsAmount] = useState(0);
-  const [isDark, setIsDark] = useState(initial.isDark);
+  const [isDark, setIsDark] = useState(true);
 
-  const [balance, setBalance] = useState(initial.balance);
-  const [maxBalance, setMaxBalance] = useState(initial.maxBalance);
-  const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>(initial.ownedCurrencies);
-  const [selectedCurrencyId, setSelectedCurrencyId] = useState(initial.selectedCurrencyId);
-  const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>(initial.priceMultipliers);
+  // Состояния игры
+  const [balance, setBalance] = useState(100);
+  const [maxBalance, setMaxBalance] = useState(100);
+  const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
+  const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
-  // 💾 Авто-сохранение при любом изменении ключевых данных
+  // 🟢 1. ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      balance,
-      maxBalance,
-      ownedCurrencies,
-      priceMultipliers,
-      selectedCurrencyId,
-      isDark
-    }));
-  }, [balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, isDark]);
+    async function loadProgress() {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-  // 🎨 Применение темы
+        if (data) {
+          setBalance(data.balance || 100);
+          setMaxBalance(data.max_balance || 100);
+          setOwnedCurrencies(data.owned_currencies || []);
+          setPriceMultipliers(data.price_multipliers || {});
+          setSelectedCurrencyId(data.selected_currency || 'btc');
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('Ошибка чтения базы:', error);
+        }
+        // Если data null (новый юзер), оставляем начальные значения (100$)
+      } catch (err) {
+        console.error('Ошибка подключения:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadProgress();
+  }, [userId]);
+
+  // 🟢 2. АВТОСОХРАНЕНИЕ В БАЗУ (каждые 10 секунд)
+  useEffect(() => {
+    if (isLoading) return; // Не сохраняем, пока грузим
+
+    const saveInterval = setInterval(async () => {
+      await supabase
+        .from('users')
+        .upsert({ // upsert = вставить или обновить
+          id: userId,
+          balance,
+          max_balance: maxBalance,
+          owned_currencies: ownedCurrencies,
+          price_multipliers: priceMultipliers,
+          selected_currency: selectedCurrencyId,
+          updated_at: new Date().toISOString()
+        });
+    }, 10000); // 10 секунд
+
+    return () => clearInterval(saveInterval);
+  }, [balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, isLoading, userId]);
+
+  // Тема и Telegram Init
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
-
-  // 🤖 Инициализация Telegram SDK
-  useEffect(() => {
     if (WebApp && typeof WebApp.ready === 'function') {
       WebApp.ready();
       WebApp.expand();
       const tgUser = WebApp.initDataUnsafe.user;
       if (tgUser) setIsAuthenticated(true);
     }
-    const savedNickname = localStorage.getItem('cryptoNexus_nickname');
-    if (savedNickname) setIsAuthenticated(true);
-  }, []);
+    // Для тестов на ПК
+    if (!WebApp.initDataUnsafe.user) {
+       setTimeout(() => setIsAuthenticated(true), 1000);
+    }
+  }, [isDark]);
 
   const { level, progress, tier } = getLevelInfo(maxBalance);
   const globalMultiplier = getGlobalMultiplier(tier);
@@ -101,12 +110,11 @@ function App() {
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
-  // ⏱ Игровой цикл (доход каждую секунду)
+  // Игровой цикл
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
       if (totalIncome > 0) {
-        // ✅ Явно указываем типы, чтобы TS не ругался
         setBalance((prev: number) => {
           const newBal = prev + totalIncome;
           setMaxBalance((max: number) => Math.max(max, newBal));
@@ -120,7 +128,7 @@ function App() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, totalIncome, showEarnings]);
+  }, [isAuthenticated, totalIncome, showEarnings, isLoading]);
 
   const handleAuthComplete = (nickname: string) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
@@ -139,7 +147,6 @@ function App() {
     if (balance >= totalPrice) {
       setBalance((prev: number) => prev - totalPrice);
       
-      // ✅ Явно указываем тип массива
       setOwnedCurrencies((prev: OwnedCurrency[]) => {
         const existing = prev.find(c => c.currencyId === currencyId);
         return existing 
@@ -147,7 +154,6 @@ function App() {
           : [...prev, { currencyId, amount }];
       });
 
-      // ✅ Явно указываем тип объекта
       setPriceMultipliers((prev: Record<string, number>) => ({
         ...prev,
         [currencyId]: currentMult * 1.15
@@ -159,9 +165,14 @@ function App() {
     }
   };
 
+  // Экран загрузки
+  if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop: '50vh', fontSize: 20}}>Загрузка сохранения...</div>;
+  
+  // Экран авторизации
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
 
   const selectedCurrency = currencies.find(c => c.id === selectedCurrencyId);
+  const nickname = localStorage.getItem('cryptoNexus_nickname') || 'Player';
 
   return (
     <div style={styles.container}>
@@ -175,9 +186,9 @@ function App() {
 
       <div style={styles.topBar}>
         <div style={styles.userSection}>
-          <div style={styles.avatar}>B</div>
+          <div style={styles.avatar}>{nickname[0].toUpperCase()}</div>
           <div style={styles.userInfo}>
-            <span style={styles.nickname}>висплас</span>
+            <span style={styles.nickname}>{nickname}</span>
             <div style={styles.balances}>
               <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
                 ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
