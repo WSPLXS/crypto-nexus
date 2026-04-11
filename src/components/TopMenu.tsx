@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Users, UsersRound, Search } from 'lucide-react';
+import { Settings, Users, Shield, Handshake, Search } from 'lucide-react';
 
 interface TopMenuProps {
   onSettingsClick: () => void;
@@ -22,16 +22,16 @@ export const TopMenu: React.FC<TopMenuProps> = ({
         <span style={styles.icon}>🛒</span>
       </button>
       <button onClick={onClanClick} style={styles.button}>
-        <UsersRound size={18} color="#9ca3af" />
+        <Shield size={20} color="var(--text-primary)" />
       </button>
       <button onClick={onFriendsClick} style={styles.button}>
-        <Users size={18} color="#9ca3af" />
+        <Users size={20} color="var(--text-primary)" />
       </button>
       <button onClick={onSearchClick} style={styles.button}>
-        <Search size={18} color="#9ca3af" />
+        <Search size={20} color="var(--text-primary)" />
       </button>
       <button onClick={onSettingsClick} style={styles.button}>
-        <Settings size={18} color="#9ca3af" />
+        <Settings size={20} color="var(--text-primary)" />
       </button>
     </div>
   );
@@ -44,9 +44,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center'
   },
   button: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     background: 'rgba(38, 38, 38, 0.4)',
     backdropFilter: 'blur(12px)',
     border: '1px solid rgba(156, 163, 175, 0.15)',

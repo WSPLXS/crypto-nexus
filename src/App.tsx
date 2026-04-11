@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
+import { Handshake } from 'lucide-react'; // <-- Импортируем иконку рукопожатия
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -46,6 +47,7 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
   
+  // 🔥 РЕФЕРАЛЬНЫЕ СОСТОЯНИЯ
   const [totalSpent, setTotalSpent] = useState(0);
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
@@ -209,7 +211,9 @@ function App() {
           <span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span>
         </div>
 
+        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
         <div style={styles.topBar}>
+          {/* ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ СЛЕВА */}
           <div style={styles.userSection}>
             <div style={styles.avatar}>{nickname[0].toUpperCase()}</div>
             <div style={styles.userInfo}>
@@ -225,7 +229,7 @@ function App() {
             </div>
           </div>
           
-          {/* 🔥 GLASS МЕНЮ С КНОПКАМИ */}
+          {/* КНОПКИ СПРАВА (Магазин, Клан, Друзья, Поиск, Настройки) */}
           <TopMenu 
             onSettingsClick={() => setShowSettings(true)} 
             onClanClick={() => {}} 
@@ -234,9 +238,11 @@ function App() {
             onSearchClick={() => setShowSearch(true)}
           />
         </div>
-
-        {/* 🔥 КНОПКА РЕФЕРАЛОВ СЛЕВА */}
-        <button onClick={() => setShowReferral(true)} style={styles.referralBtn}>🤝</button>
+        
+        {/* КНОПКА РЕФЕРАЛОВ СЛЕВА (ОТДЕЛЬНО) */}
+        <button onClick={() => setShowReferral(true)} style={styles.referralBtn}>
+           <Handshake size={22} color="var(--text-primary)" />
+        </button>
 
         <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
 
@@ -294,7 +300,27 @@ const styles: { [key: string]: React.CSSProperties } = {
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
-  referralBtn: { position: 'absolute', left: 16, top: 110, width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
+  
+  // 🔥 GLASS BUTTON FOR REFERRALS
+  referralBtn: { 
+    position: 'absolute', 
+    left: 16, 
+    top: 110, 
+    width: 44, 
+    height: 44, 
+    borderRadius: 12, 
+    background: 'rgba(38,38,38,0.4)', // Полупрозрачность
+    backdropFilter: 'blur(12px)', // Размытие
+    border: '1px solid rgba(156,163,175,0.15)', 
+    cursor: 'pointer', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    zIndex: 100, 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    transition: 'transform 0.1s'
+  },
+  
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
   bottomSection: { flex: 1 },

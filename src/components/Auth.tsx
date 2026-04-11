@@ -62,7 +62,7 @@ export const Auth: React.FC<AuthProps> = ({ onComplete }) => {
               cursor: nickname.trim().length < 2 ? 'not-allowed' : 'pointer'
             }}
           >
-            НАЧАТЬ ИГРУ 🚀
+            НАЧАТЬ ИГРУ
           </button>
         </form>
       </div>
@@ -97,9 +97,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   title: {
     fontSize: 28,
     fontWeight: '800',
-    background: 'linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
+    color: 'white', // ТЕПЕРЬ БЕЛЫЙ
     marginBottom: 8,
     marginTop: 0
   },
