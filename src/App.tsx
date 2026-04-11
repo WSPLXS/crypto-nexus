@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
+import { TopMenu } from './components/TopMenu';
 import { Settings } from './components/Settings';
 import { Shop } from './components/Shop';
 import { CurrencySelector } from './components/CurrencySelector';
@@ -45,7 +46,6 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
   
-  // 🔥 РЕФЕРАЛЬНЫЕ СОСТОЯНИЯ
   const [totalSpent, setTotalSpent] = useState(0);
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
@@ -84,7 +84,6 @@ function App() {
           setReferrerId(data.referrer_id || null);
           setReferralBonusGiven(data.referral_bonus_awarded || false);
 
-          // Оффлайн доход
           if (data.last_login && data.owned_currencies?.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
             if (diff > 0) {
@@ -173,7 +172,7 @@ function App() {
 
     if (balance >= price) {
       setBalance(p => p - price);
-      setTotalSpent(p => p + price); // 🔥 Трекаем траты
+      setTotalSpent(p => p + price);
       
       setOwnedCurrencies(prev => {
         const ex = prev.find(c => c.currencyId === currencyId);
@@ -182,20 +181,12 @@ function App() {
       setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15}));
       if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId);
 
-      // 🔥 ПРОВЕРКА РЕФЕРАЛЬНОГО БОНУСА ($50)
       const newTotal = totalSpent + price;
       if (newTotal >= 50 && referrerId && !referralBonusGiven) {
         setReferralBonusGiven(true);
-        // Начисляем бонус рефереру
-        supabase.from('users').update({
-          balance: supabase.rpc('increment_balance', { target_id: referrerId, amount: 1000 }) // Или просто upsert
-        }).eq('id', referrerId);
-        
-        // Простой апдейт баланса реферера (если rpc нет)
         supabase.from('users').select('balance').eq('id', referrerId).single().then(({data}) => {
           if(data) supabase.from('users').update({balance: (data.balance || 0) + 1000}).eq('id', referrerId);
         });
-        
         console.log('🎁 Реферальный бонус $1000 начислен!');
       }
       
@@ -234,12 +225,18 @@ function App() {
             </div>
           </div>
           
-          {/* 🔥 КНОПКИ МЕНЮ (РЕФЕРАЛЫ СЛЕВА) */}
-          <div style={styles.menuRow}>
-            <button onClick={() => setShowReferral(true)} style={styles.menuBtn}>🤝</button>
-            <button onClick={() => setShowSettings(true)} style={styles.menuBtn}>⚙️</button>
-          </div>
+          {/* 🔥 GLASS МЕНЮ С КНОПКАМИ */}
+          <TopMenu 
+            onSettingsClick={() => setShowSettings(true)} 
+            onClanClick={() => {}} 
+            onFriendsClick={() => {}} 
+            onShopClick={() => setShowShop(true)}
+            onSearchClick={() => setShowSearch(true)}
+          />
         </div>
+
+        {/* 🔥 КНОПКА РЕФЕРАЛОВ СЛЕВА */}
+        <button onClick={() => setShowReferral(true)} style={styles.referralBtn}>🤝</button>
 
         <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
 
@@ -297,8 +294,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
-  menuRow: { display: 'flex', gap: 8 },
-  menuBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: '1px solid rgba(156,163,175,0.15)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  referralBtn: { position: 'absolute', left: 16, top: 110, width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
   bottomSection: { flex: 1 },

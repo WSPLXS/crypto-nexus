@@ -9,7 +9,6 @@ export const Auth: React.FC<AuthProps> = ({ onComplete }) => {
   const [nickname, setNickname] = useState('');
   const [referrerId, setReferrerId] = useState<number | null>(null);
 
-  // 🔍 Проверяем, есть ли реферальная ссылка в адресе браузера
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
@@ -22,7 +21,6 @@ export const Auth: React.FC<AuthProps> = ({ onComplete }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Минимальная длина ника 2 символа
     if (nickname.trim().length >= 2) {
       onComplete(nickname.trim(), referrerId);
     }
@@ -134,7 +132,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: 'white',
     fontSize: 16,
     outline: 'none',
-    boxSizing: 'border-box' // Важно для отступов
+    boxSizing: 'border-box'
   },
   button: {
     width: '100%',
