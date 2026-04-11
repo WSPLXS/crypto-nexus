@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake } from 'lucide-react';
+import { Handshake, Trophy } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -13,6 +13,13 @@ import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
+
+// 🔥 Тип для игрока в топе
+interface LeaderboardPlayer {
+  id: number;
+  nickname: string;
+  incomePerMin: number;
+}
 
 function App() {
   let userIdNum: number;
@@ -44,6 +51,7 @@ function App() {
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false); // 🔥 НОВОЕ
   
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsAmount, setEarningsAmount] = useState(0);
@@ -51,10 +59,7 @@ function App() {
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
 
-  // 🔥 АВАТАРКА
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
-  // 🔥 НОВАЯ ЛОГИКА ПРЕДЛОЖЕНИЯ АВАТАРКИ
   const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
   const [showAvatarInstruction, setShowAvatarInstruction] = useState(false);
 
@@ -67,6 +72,10 @@ function App() {
   const [totalSpent, setTotalSpent] = useState(0);
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
+  
+  // 🔥 СОСТОЯНИЕ ДЛЯ ТОПА ИГРОКОВ
+  const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   const saveProgress = async () => {
     if (isLoading) return;
@@ -88,6 +97,59 @@ function App() {
     }
   };
 
+  // 🔥 ФУНКЦИЯ РАСЧЁТА ДОХОДА В МИНУТУ
+  const calculateIncomePerMin = (userData: any) => {
+    if (!userData?.owned_currencies?.length) return 0;
+    const tier = getLevelInfo(userData.max_balance || 0).tier;
+    const globalMult = getGlobalMultiplier(tier);
+    
+    return userData.owned_currencies.reduce((total: number, owned: OwnedCurrency) => {
+      const c = currencies.find(cur => cur.id === owned.currencyId);
+      return total + (c ? c.incomePerSecond * owned.amount * globalMult * 60 : 0);
+    }, 0);
+  };
+
+  // 🔥 ЗАГРУЗКА ТОП-10 ИГРОКОВ
+  const fetchLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      // Загружаем всех пользователей с их данными
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, nickname, owned_currencies, max_balance');
+      
+      if (error) throw error;
+      
+      // Считаем доход для каждого и сортируем
+      const playersWithIncome = (data || [])
+        .map(user => ({
+          id: user.id,
+          nickname: user.nickname || `Player${user.id}`,
+          incomePerMin: calculateIncomePerMin(user)
+        }))
+        .filter(p => p.incomePerMin > 0) // Только те, у кого есть доход
+        .sort((a, b) => b.incomePerMin - a.incomePerMin) // По убыванию
+        .slice(0, 10); // Топ-10
+      
+      setLeaderboard(playersWithIncome);
+      console.log('🏆 Leaderboard updated:', playersWithIncome);
+    } catch (err) {
+      console.error('❌ Ошибка загрузки топа:', err);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  // 🔥 АВТО-ОБНОВЛЕНИЕ ТОПА КАЖДЫЕ 15 МИНУТ
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    fetchLeaderboard(); // Загрузить сразу
+    const interval = setInterval(fetchLeaderboard, 15 * 60 * 1000); // Каждые 15 мин
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   useEffect(() => {
     async function loadProgress() {
       try {
@@ -102,20 +164,15 @@ function App() {
           setReferrerId(data.referrer_id || null);
           setReferralBonusGiven(data.referral_bonus_awarded || false);
 
-          // 🔥 АВАТАРКА С ПРИОРИТЕТОМ
           if (data.custom_avatar_url) {
             const urlWithCache = `${data.custom_avatar_url}?t=${Date.now()}`;
             setAvatarUrl(urlWithCache);
-            console.log('✅ Загружена кастомная аватарка:', urlWithCache);
           } else if (WebApp.initDataUnsafe?.user?.photo_url) {
             setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
-            console.log('🔄 Загружена аватарка из Telegram');
           } else {
             setAvatarUrl(null);
-            console.log('🔤 Будет отображаться буква');
           }
 
-          // Оффлайн доход
           if (data.last_login && data.owned_currencies?.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
             if (diff > 0) {
@@ -143,18 +200,6 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  // 🔥 АВТОЗАКРЫТИЕ ИНСТРУКЦИИ ЧЕРЕЗ 30 СЕКУНД
-  useEffect(() => {
-    let timer: any;
-    if (showAvatarInstruction) {
-      timer = setTimeout(() => {
-        setShowAvatarInstruction(false);
-        setShowTutorial(true);
-      }, 30000); // 30 секунд
-    }
-    return () => clearTimeout(timer);
-  }, [showAvatarInstruction]);
-
   useEffect(() => {
     if (isLoading) return;
     const i = setInterval(saveProgress, 15000);
@@ -169,14 +214,20 @@ function App() {
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
 
   useEffect(() => {
-    try {
-      if (WebApp?.ready) {
-        WebApp.ready();
-        WebApp.expand();
-      }
-    } catch (e) {
-      console.warn('Telegram SDK не доступен');
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (showAvatarInstruction) {
+      timer = setTimeout(() => {
+        setShowAvatarInstruction(false);
+        setShowTutorial(true);
+      }, 30000);
     }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [showAvatarInstruction]);
+
+  useEffect(() => {
+    try {
+      if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); }
+    } catch (e) { console.warn('Telegram SDK не доступен'); }
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
@@ -209,22 +260,12 @@ function App() {
     localStorage.setItem('cryptoNexus_nickname', nickname);
     if (refId && refId !== userIdNum) setReferrerId(refId);
     setIsAuthenticated(true);
-    
-    // 🔥 СРАЗУ ПОКАЗЫВАЕМ ПРЕДЛОЖЕНИЕ АВАТАРКИ ВМЕСТО ТУТОРИАЛА
     setShowAvatarPrompt(true);
     setTimeout(() => saveProgress(), 500);
   };
 
-  // 🔥 ОБРАБОТЧИКИ КНОПОК
-  const handleAvatarYes = () => {
-    setShowAvatarPrompt(false);
-    setShowAvatarInstruction(true);
-  };
-
-  const handleAvatarNo = () => {
-    setShowAvatarPrompt(false);
-    setShowTutorial(true);
-  };
+  const handleAvatarYes = () => { setShowAvatarPrompt(false); setShowAvatarInstruction(true); };
+  const handleAvatarNo = () => { setShowAvatarPrompt(false); setShowTutorial(true); };
 
   const handleBuy = (currencyId: string, amount: number) => {
     const base = currencies.find(c => c.id === currencyId);
@@ -249,9 +290,7 @@ function App() {
         supabase.from('users').select('balance').eq('id', referrerId).single().then(({data}) => {
           if(data) supabase.from('users').update({balance: (data.balance || 0) + 1000}).eq('id', referrerId);
         });
-        console.log('🎁 Реферальный бонус $1000 начислен!');
       }
-      
       setTimeout(() => saveProgress(), 100);
     }
   };
@@ -275,21 +314,10 @@ function App() {
           <div style={styles.userSection}>
             <div style={styles.avatarWrapper}>
               {avatarUrl ? (
-                <img 
-                  src={avatarUrl} 
-                  alt="Avatar" 
-                  style={styles.avatarImg}
-                  onError={(e) => {
-                    console.error('❌ Failed to load avatar image');
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+                <img src={avatarUrl} alt="Avatar" style={styles.avatarImg} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               ) : null}
-              {!avatarUrl && (
-                <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>
-              )}
+              {!avatarUrl && <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>}
             </div>
-            
             <div style={styles.userInfo}>
               <span style={styles.nickname}>{nickname}</span>
               <div style={styles.balances}>
@@ -302,21 +330,20 @@ function App() {
               </div>
             </div>
           </div>
-          
           <div style={styles.rightMenuContainer}>
-            <TopMenu 
-              onSettingsClick={() => setShowSettings(true)} 
-              onClanClick={() => {}} 
-              onFriendsClick={() => {}} 
-              onShopClick={() => setShowShop(true)}
-              onSearchClick={() => setShowSearch(true)}
-            />
+            <TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => {}} onFriendsClick={() => {}} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} />
           </div>
         </div>
         
-        <button onClick={() => setShowReferral(true)} style={styles.referralBtn}>
-           <Handshake size={22} color="var(--text-primary)" />
-        </button>
+        {/* 🔥 КНОПКИ СЛЕВА (ВЕРТИКАЛЬНО) */}
+        <div style={styles.leftButtons}>
+          <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}>
+            <Trophy size={20} color="var(--text-primary)" />
+          </button>
+          <button onClick={() => setShowReferral(true)} style={styles.leftBtn}>
+            <Handshake size={20} color="var(--text-primary)" />
+          </button>
+        </div>
 
         <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
 
@@ -348,7 +375,6 @@ function App() {
         <Search isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
 
-        {/* 🔥 ТУТОРИАЛ */}
         {showTutorial && (
           <div style={styles.tutorialOverlay}>
             <div style={styles.tutorialModal}>
@@ -359,7 +385,6 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 ПРЕДЛОЖЕНИЕ АВАТАРКИ */}
         {showAvatarPrompt && (
           <div style={styles.overlay}>
             <div style={styles.modal}>
@@ -372,19 +397,50 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 ИНСТРУКЦИЯ ПО УСТАНОВКЕ */}
         {showAvatarInstruction && (
           <div style={styles.overlay}>
             <div style={styles.modal}>
               <h3 style={styles.modalTitle}>Установка аватарки</h3>
-              <p style={styles.modalText}>
-                Перейди в бота <b>@NexusGameAvatar_bot</b> и отправь ему любое фото.
-                <br/>Бот автоматически обновит твою аватарку в игре.
-              </p>
-              <a href="https://t.me/NexusGameAvatar_bot" target="_blank" rel="noopener noreferrer" style={styles.botLink}>
-                Открыть бота 🤖
-              </a>
+              <p style={styles.modalText}>Перейди в бота <b>@NexusGameAvatar_bot</b> и отправь ему любое фото.<br/>Бот автоматически обновит твою аватарку в игре.</p>
+              <a href="https://t.me/NexusGameAvatar_bot" target="_blank" rel="noopener noreferrer" style={styles.botLink}>Открыть бота 🤖</a>
               <p style={styles.modalHint}>⏳ Окно закроется автоматически через 30 сек...</p>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 МЕНЮ ТОП-10 ИГРОКОВ */}
+        {showLeaderboard && (
+          <div style={styles.overlay} onClick={() => setShowLeaderboard(false)}>
+            <div style={styles.leaderboardModal} onClick={e => e.stopPropagation()}>
+              <div style={styles.leaderboardHeader}>
+                <h2 style={styles.leaderboardTitle}>🏆 Самые богатые</h2>
+                <button onClick={() => setShowLeaderboard(false)} style={styles.closeBtn}>✕</button>
+              </div>
+              
+              {leaderboardLoading ? (
+                <div style={styles.loadingText}>Загрузка...</div>
+              ) : leaderboard.length === 0 ? (
+                <div style={styles.emptyText}>Пока нет игроков с доходом</div>
+              ) : (
+                <div style={styles.leaderboardList}>
+                  {leaderboard.map((player, index) => (
+                    <div key={player.id} style={styles.leaderboardItem}>
+                      <span style={{
+                        ...styles.rank,
+                        ...(index === 0 ? styles.rank1 : index === 1 ? styles.rank2 : index === 2 ? styles.rank3 : {})
+                      }}>
+                        {index + 1}
+                      </span>
+                      <div style={styles.playerInfo}>
+                        <span style={styles.playerName}>{player.nickname}</span>
+                        <span style={styles.playerIncome}>+${player.incomePerMin.toFixed(2)}/мин</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <p style={styles.leaderboardHint}>Обновляется каждые 15 минут</p>
             </div>
           </div>
         )}
@@ -405,14 +461,36 @@ const styles: { [key: string]: React.CSSProperties } = {
   avatarWrapper: { width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
   
   rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
   
-  referralBtn: { position: 'absolute', left: 16, top: 110, width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
+  // 🔥 КНОПКИ СЛЕВА
+  leftButtons: {
+    position: 'absolute',
+    left: 16,
+    top: 110,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    zIndex: 100
+  },
+  leftBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: 'rgba(38,38,38,0.4)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(156,163,175,0.15)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    transition: 'transform 0.1s'
+  },
   
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
@@ -428,13 +506,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 16, margin: '0 0 16px 0' },
   modalText: { fontSize: 14, color: '#a3a3a3', lineHeight: 1.5, marginBottom: 16 },
   modalHint: { fontSize: 12, color: '#525252', marginTop: 12, fontStyle: 'italic' },
-  
   btnRow: { display: 'flex', gap: 12, justifyContent: 'center' },
   btnYes: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
   btnNo: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer' },
   botLink: { display: 'inline-block', padding: '12px 20px', borderRadius: 12, background: '#2563eb', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: 14, marginTop: 8 },
 
-  // СТАРЫЕ СТИЛИ ТУТОРИАЛА
+  // ТУТОРИАЛ
   tutorialOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' },
   tutorialModal: { background: 'var(--bg-panel)', borderRadius: 20, padding: 32, maxWidth: '85%', width: 320, textAlign: 'center', border: '1px solid var(--border)' },
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
@@ -446,7 +523,106 @@ const styles: { [key: string]: React.CSSProperties } = {
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
   offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)' },
-  offlineText: { fontSize: 14, color: '#9ca3af' }
+  offlineText: { fontSize: 14, color: '#9ca3af' },
+  
+  // 🔥 СТИЛИ ДЛЯ ЛИДЕРБОРДА
+  leaderboardModal: {
+    background: '#141414',
+    border: '1px solid rgba(156,163,175,0.15)',
+    borderRadius: 20,
+    padding: 20,
+    maxWidth: '95%',
+    width: 360,
+    maxHeight: '80vh',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+  },
+  leaderboardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottom: '1px solid rgba(156,163,175,0.1)'
+  },
+  leaderboardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#e5e5e5',
+    margin: 0
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#737373',
+    fontSize: 24,
+    cursor: 'pointer',
+    padding: 0,
+    width: 32,
+    height: 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8
+  },
+  leaderboardList: {
+    flex: 1,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8
+  },
+  leaderboardItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '12px 16px',
+    background: 'rgba(38,38,38,0.4)',
+    borderRadius: 12,
+    border: '1px solid rgba(156,163,175,0.1)'
+  },
+  rank: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#737373',
+    width: 28,
+    textAlign: 'center'
+  },
+  rank1: { color: '#fbbf24', fontSize: 20 }, // Золото для 1 места
+  rank2: { color: '#94a3b8', fontSize: 20 }, // Серебро для 2 места
+  rank3: { color: '#b45309', fontSize: 20 }, // Бронза для 3 места
+  playerInfo: { flex: 1 },
+  playerName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#e5e5e5',
+    display: 'block'
+  },
+  playerIncome: {
+    fontSize: 12,
+    color: '#22c55e',
+    fontWeight: '600'
+  },
+  leaderboardHint: {
+    fontSize: 11,
+    color: '#525252',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic'
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: '#737373',
+    padding: 32
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#525252',
+    padding: 32,
+    fontSize: 14
+  }
 };
 
 export default App;
