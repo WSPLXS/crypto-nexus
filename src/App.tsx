@@ -72,7 +72,7 @@ function App() {
   const [myClan, setMyClan] = useState<any>(null);
   const [myClanRole, setMyClanRole] = useState<number>(0);
   const [clanMembers, setClanMembers] = useState<any[]>([]);
-  const [clanApplications, setClanApplications] = useState<any[]>([]);
+  const [clanApplications, _setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
