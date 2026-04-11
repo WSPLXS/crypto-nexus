@@ -15,16 +15,14 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-   // 🔧 ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ
+  // 🔧 ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ
   let userIdNum: number;
   
   try {
-    // Пытаемся получить ID из Telegram
     if (WebApp?.initDataUnsafe?.user?.id) {
       userIdNum = Number(WebApp.initDataUnsafe.user.id);
       console.log('✅ Telegram User ID:', userIdNum);
     } else {
-      // Если не Telegram — генерируем гостевой ID
       const savedGuestId = localStorage.getItem('cryptoNexus_guestId');
       if (savedGuestId) {
         userIdNum = Number(savedGuestId);
@@ -36,7 +34,6 @@ function App() {
     }
   } catch (e) {
     console.error('❌ Ошибка получения ID:', e);
-    // Фолбэк на гостевой ID
     userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000);
   }
 
@@ -54,6 +51,9 @@ function App() {
   const [isDark, setIsDark] = useState(true);
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
+
+  // 🔥 АВТАРКА ИЗ TELEGRAM
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
@@ -139,10 +139,21 @@ function App() {
     return () => document.removeEventListener('visibilitychange', h);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
 
+  // 🔥 ИНИЦИАЛИЗАЦИЯ TELEGRAM + ЗАГРУЗКА АВАТАРКИ
   useEffect(() => {
     try {
-      if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); }
-    } catch (e) {}
+      if (WebApp?.ready) {
+        WebApp.ready();
+        WebApp.expand();
+        
+        // Берём аватарку из Telegram, если она есть
+        if (WebApp.initDataUnsafe?.user?.photo_url) {
+          setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+        }
+      }
+    } catch (e) {
+      console.warn('Telegram SDK не доступен');
+    }
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
@@ -224,11 +235,17 @@ function App() {
           <span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span>
         </div>
 
-        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
         <div style={styles.topBar}>
-          {/* ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ СЛЕВА */}
           <div style={styles.userSection}>
-            <div style={styles.avatar}>{nickname[0].toUpperCase()}</div>
+            {/* 🔥 АВАТАРКА С ПОДДЕРЖКОЙ ФОТО */}
+            <div style={styles.avatarWrapper}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" style={styles.avatarImg} />
+              ) : (
+                <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>
+              )}
+            </div>
+            
             <div style={styles.userInfo}>
               <span style={styles.nickname}>{nickname}</span>
               <div style={styles.balances}>
@@ -242,7 +259,6 @@ function App() {
             </div>
           </div>
           
-          {/* КНОПКИ СПРАВА (ВЕРТИКАЛЬНО) */}
           <div style={styles.rightMenuContainer}>
             <TopMenu 
               onSettingsClick={() => setShowSettings(true)} 
@@ -254,7 +270,6 @@ function App() {
           </div>
         </div>
         
-        {/* КНОПКА РЕФЕРАЛОВ СЛЕВА (ОТДЕЛЬНО) */}
         <button onClick={() => setShowReferral(true)} style={styles.referralBtn}>
            <Handshake size={22} color="var(--text-primary)" />
         </button>
@@ -311,12 +326,35 @@ const styles: { [key: string]: React.CSSProperties } = {
   progressFill: { height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.5s ease' },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' },
   userSection: { display: 'flex', alignItems: 'center', gap: 12, pointerEvents: 'auto' },
-  avatar: { width: 44, height: 44, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 'bold', color: 'white' },
+  
+  // 🔥 НОВЫЕ СТИЛИ ДЛЯ АВАТАРКИ
+  avatarWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--accent)',
+    flexShrink: 0,
+    border: '2px solid rgba(255,255,255,0.1)'
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white'
+  },
+
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
   
-  // 🔥 КОНТЕЙНЕР ДЛЯ ВЕРТИКАЛЬНОГО МЕНЮ СПРАВА
   rightMenuContainer: {
     display: 'flex',
     flexDirection: 'column',
