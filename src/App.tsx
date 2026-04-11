@@ -114,14 +114,17 @@ function App() {
 
   const fetchLeaderboard = async () => {
     try {
-      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url');
+      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at');
       if (error) throw error;
       const sorted = (data || [])
         .map((u: any) => ({
           id: u.id,
           nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
           incomePerMin: calculateIncome(u),
-          avatarUrl: u.custom_avatar_url
+          avatarUrl: u.custom_avatar_url,
+          first_login: u.first_login,
+          created_at: u.created_at,
+          max_balance: u.max_balance
         }))
         .sort((a, b) => b.incomePerMin - a.incomePerMin)
         .slice(0, 10);
