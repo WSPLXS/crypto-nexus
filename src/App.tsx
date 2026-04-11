@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
-import { TopMenu } from './components/TopMenu';
 import { Settings } from './components/Settings';
 import { Shop } from './components/Shop';
 import { CurrencySelector } from './components/CurrencySelector';
