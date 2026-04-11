@@ -301,21 +301,14 @@ function App() {
 
   const handleDeleteClan = async () => {
     if (!myClan) return;
-    
     try {
       await supabase.from('clan_members').delete().eq('clan_id', myClan.id);
       await supabase.from('clan_applications').delete().eq('clan_id', myClan.id);
-      
       const { error } = await supabase.from('clans').delete().eq('id', myClan.id);
       if (error) throw error;
       
-      setMyClan(null);
-      setClanMembers([]);
-      setClanApplications([]);
-      setMyClanRole(0);
-      setShowClanSettings(false);
-      setShowClan(false);
-      
+      setMyClan(null); setClanMembers([]); setClanApplications([]); setMyClanRole(0);
+      setShowClanSettings(false); setShowClan(false);
       alert('Клан успешно удален');
     } catch (err) {
       console.error('Delete clan error:', err);
@@ -361,92 +354,54 @@ function App() {
   };
 
   const handleJoinClan = async (clanId: number) => {
-    if (myClan) {
-        alert('Вы уже находитесь в клане!');
-        return;
-    }
-
+    if (myClan) { alert('Вы уже находитесь в клане!'); return; }
     const clan = clanSearchResults.find(c => c.id === clanId);
     if (!clan) return;
-    
     const memberCount = clan.members_count || 0;
     if (memberCount >= clan.max_members) return alert('В клане нет мест');
     if (level < clan.min_level) return alert('Ваш уровень слишком мал');
     
     try {
-        if (clan.require_approval) {
-            await supabase.from('clan_applications').insert({ 
-                clan_id: clanId, 
-                user_id: userIdNum, 
-                status: 'pending' 
-            });
-            alert('Заявка отправлена! Лидер клана должен её одобрить.');
-        } else {
-            const { error } = await supabase.from('clan_members').insert({ 
-                clan_id: clanId, 
-                user_id: userIdNum, 
-                role: 1 
-            });
-            if (error) throw error;
-            
-            alert('Вы успешно вступили в клан!');
-            setShowFindClan(false);
-            fetchClanData();
-        }
+      if (clan.require_approval) {
+        await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: 'pending' });
+        alert('Заявка отправлена! Лидер клана должен её одобрить.');
+      } else {
+        const { error } = await supabase.from('clan_members').insert({ clan_id: clanId, user_id: userIdNum, role: 1 });
+        if (error) throw error;
+        alert('Вы успешно вступили в клан!');
+        setShowFindClan(false);
+        fetchClanData();
+      }
     } catch (err) {
-        console.error('Join clan error:', err);
-        alert('Ошибка при вступлении в клан');
+      console.error('Join clan error:', err);
+      alert('Ошибка при вступлении в клан');
     }
   };
 
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, nickname, owned_currencies, max_balance, custom_avatar_url')
-        .ilike('nickname', `%${query}%`)
-        .neq('id', userIdNum)
-        .limit(10);
-      
+      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10);
       if (error) throw error;
-      const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
-      setFriendSearchResults(enriched);
-    } catch (err) {
-      console.error('❌ Friend search error:', err);
-      setFriendSearchResults([]);
-    }
+      setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) })));
+    } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); }
   };
 
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
     try {
-      const { data, error } = await supabase
-        .from('clans')
-        .select('*')
-        .ilike('name', `%${query}%`)
-        .limit(10);
-      
+      const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10);
       if (error) throw error;
-      
       const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
-        const { count } = await supabase
-          .from('clan_members')
-          .select('*', { count: 'exact', head: true })
-          .eq('clan_id', clan.id);
-        
+        const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id);
         return { ...clan, members_count: count || 0 };
       }));
-      
       setClanSearchResults(clansWithCount);
-    } catch (err) {
-      console.error('❌ Clan search error:', err);
-      setClanSearchResults([]);
-    }
+    } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); }
   };
 
   const openProfile = (user: any) => { 
-    setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance).level }); 
+    setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level }); 
     setShowProfile(true); 
   };
 
@@ -499,24 +454,9 @@ function App() {
       <>
         <h2 style={styles.modalTitle}>Кланы</h2>
         {myClan && <p style={{color: '#ef4444', textAlign: 'center', marginBottom: 12, fontSize: 13}}>Вы уже в клане "{myClan.name}"</p>}
-        
-        <button onClick={() => {
-            if (myClan) {
-                alert('Вы уже находитесь в клане!');
-            } else {
-                setShowCreateClan(true);
-            }
-        }} style={styles.btnPrimary}>
-            Создать клан ($100,000)
-        </button>
-        
+        <button onClick={() => { if (myClan) alert('Вы уже находитесь в клане!'); else setShowCreateClan(true); }} style={styles.btnPrimary}>Создать клан ($100,000)</button>
         <button onClick={() => setShowFindClan(true)} style={styles.btnSecondary}>Найти клан</button>
-
-        {myClan && (
-            <button onClick={() => setShowClanHub(false)} style={{...styles.btnSecondary, marginTop: 12, width: '100%'}}>
-                Вернуться в мой клан
-            </button>
-        )}
+        {myClan && <button onClick={() => setShowClanHub(false)} style={{...styles.btnSecondary, marginTop: 12, width: '100%'}}>Вернуться в мой клан</button>}
       </>
     );
   };
@@ -538,7 +478,12 @@ function App() {
         </div>
         
         <div style={styles.leftButtons}>
-          <button onClick={() => setShowMessages(true)} style={styles.leftBtn}><MessageCircle size={20} color="var(--text-primary)" /></button>
+          <button onClick={() => setShowMessages(true)} style={styles.leftBtn}>
+            <MessageCircle size={20} color="var(--text-primary)" />
+            {(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && (
+              <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>
+            )}
+          </button>
           <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
           <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
         </div>
@@ -679,23 +624,11 @@ function App() {
           <div style={styles.overlay} onClick={() => setShowClanSettings(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
               <h3 style={styles.modalTitle}>Настройки клана</h3>
-              
-              <label style={styles.label}>
-                Название клана:
-                <input 
-                  id="editClanName" 
-                  defaultValue={myClan.name} 
-                  placeholder="Название (до 25)" 
-                  maxLength={25} 
-                  style={{...styles.input, marginTop: 8}} 
-                />
-              </label>
-              
+              <label style={styles.label}>Название клана:<input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={{...styles.input, marginTop: 8}} /></label>
               <textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} />
               <label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label>
               <label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label>
               <label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label>
-              
               <div style={{display:'flex', gap:8, marginTop: 12}}>
                 <button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button>
                 <button onClick={() => {
@@ -707,18 +640,9 @@ function App() {
                   handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers });
                 }} style={styles.btnPrimary}>Сохранить</button>
               </div>
-              
               <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}>
-                <button 
-                  onClick={() => {
-                    if (confirm('⚠️ ВНИМАНИЕ! Вы уверены что хотите удалить клан?\n\nЭто действие НЕЛЬЗЯ отменить!\nВсе участники будут исключены.\nКлан будет удален навсегда.')) {
-                      handleDeleteClan();
-                    }
-                  }} 
-                  style={styles.btnDanger}
-                >
-                  <Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/>
-                  Удалить клан
+                <button onClick={() => { if (confirm('⚠️ ВНИМАНИЕ! Удалить клан навсегда? Все участники будут исключены.')) handleDeleteClan(); }} style={styles.btnDanger}>
+                  <Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/> Удалить клан
                 </button>
               </div>
             </div>
@@ -804,7 +728,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
   rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
   leftButtons: { position: 'absolute', left: 16, top: 110, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 100 },
-  leftBtn: { width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
+  leftBtn: { position: 'relative', width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginTop: 16 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
@@ -825,7 +749,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   clanIncome: { fontSize: 13, color: '#22c55e', margin: '4px 0 0 0' },
   clanDescription: { fontSize: 12, color: '#9ca3af', margin: '4px 0 0 0', fontStyle: 'italic', lineHeight: 1.4 },
   iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
-  badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #141414' },
   memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
   memberItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(38,38,38,0.4)', borderRadius: 12, cursor: 'pointer' },
   memberAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white', overflow: 'hidden' },
@@ -842,7 +766,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   rank: { fontSize: 18, fontWeight: 'bold', color: '#737373', width: 28, textAlign: 'center' },
   topRank: { color: '#fbbf24', fontSize: 20 },
   input: { width: '100%', padding: '10px', borderRadius: 8, background: '#0a0a0a', border: '1px solid rgba(156,163,175,0.2)', color: 'white', marginBottom: 8, boxSizing: 'border-box' },
-  label: { display: 'flex', alignItems: 'center', gap: 8, color: '#a3a3a3', fontSize: 13, marginBottom: 8 },
+  label: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3a3a3', fontSize: 13, marginBottom: 8, flexDirection: 'column' },
   offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
   offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%' },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
@@ -851,7 +775,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   offlineText: { fontSize: 14, color: '#9ca3af' },
   btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
   btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8 }
+  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
 
 export default App;
