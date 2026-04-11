@@ -72,17 +72,27 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
+  // ✅ НИКНЕЙМ СОХРАНЯЕТСЯ В БАЗУ
   const saveProgress = async () => {
     if (isLoading) return;
     try {
+      const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${userIdNum}`;
       await supabase.from('users').upsert({
-        id: userIdNum, balance, max_balance: maxBalance,
-        owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
-        selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
-        total_spent: totalSpent, referrer_id: referrerId,
+        id: userIdNum,
+        nickname: currentNickname, // 🔥 Сохраняем ник
+        balance,
+        max_balance: maxBalance,
+        owned_currencies: ownedCurrencies,
+        price_multipliers: priceMultipliers,
+        selected_currency: selectedCurrencyId,
+        last_login: new Date().toISOString(),
+        total_spent: totalSpent,
+        referrer_id: referrerId,
         referral_bonus_awarded: referralBonusGiven
       }, { onConflict: 'id' });
-    } catch (err) { console.error('❌ Save error:', err); }
+    } catch (err) {
+      console.error('❌ Save error:', err);
+    }
   };
 
   // 🔥 РАСЧЁТ ДОХОДА В МИНУТУ
@@ -97,10 +107,12 @@ function App() {
         if (c && owned.amount > 0) totalSec += c.incomePerSecond * owned.amount * globalMult;
       }
       return totalSec * 60;
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   };
 
-  // 🔥 ЗАГРУЗКА И СОРТИРОВКА ТОПА
+  // 🔥 ЗАГРУЗКА И СОРТИРОВКА ТОПА (ТЕПЕРЬ ЧИТАЕТ НИК ИЗ БАЗЫ)
   const fetchLeaderboard = async () => {
     setLeaderboardLoading(true);
     try {
@@ -115,7 +127,7 @@ function App() {
       const sorted = (data || [])
         .map(u => ({
           id: u.id,
-          nickname: u.nickname || `Player${u.id}`,
+          nickname: u.nickname || `Player${String(u.id).slice(-4)}`, // Реальный ник из базы
           incomePerMin: calculateIncomePerMin(u)
         }))
         .sort((a, b) => b.incomePerMin - a.incomePerMin) // По убыванию
@@ -177,8 +189,11 @@ function App() {
             }
           }
         }
-      } catch (err) { console.error('❌ Load error:', err); }
-      finally { setIsLoading(false); }
+      } catch (err) {
+        console.error('❌ Load error:', err);
+      } finally {
+        setIsLoading(false);
+      }
     }
     loadProgress();
   }, [userIdNum]);
@@ -235,7 +250,7 @@ function App() {
     if (refId && refId !== userIdNum) setReferrerId(refId);
     setIsAuthenticated(true);
     setShowAvatarPrompt(true);
-    setTimeout(() => saveProgress(), 500);
+    setTimeout(() => saveProgress(), 500); // Сохраняем ник в базу
   };
 
   const handleAvatarYes = () => { setShowAvatarPrompt(false); setShowAvatarInstruction(true); };
