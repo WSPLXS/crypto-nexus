@@ -54,9 +54,6 @@ function App() {
 
   // 🔥 АВТАРКА ИЗ TELEGRAM
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
-  // 🔥 ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
-  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
@@ -102,6 +99,21 @@ function App() {
           setReferrerId(data.referrer_id || null);
           setReferralBonusGiven(data.referral_bonus_awarded || false);
 
+          // 🔥 АВАТАРКА С ПРИОРИТЕТОМ
+          if (data.custom_avatar_url) {
+            // Добавляем timestamp чтобы избежать кэширования
+            const urlWithCache = `${data.custom_avatar_url}?t=${Date.now()}`;
+            setAvatarUrl(urlWithCache);
+            console.log('✅ Загружена кастомная аватарка:', urlWithCache);
+          } else if (WebApp.initDataUnsafe?.user?.photo_url) {
+            setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+            console.log('🔄 Загружена аватарка из Telegram');
+          } else {
+            setAvatarUrl(null);
+            console.log('🔤 Будет отображаться буква');
+          }
+
+          // Оффлайн доход
           if (data.last_login && data.owned_currencies?.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
             if (diff > 0) {
@@ -142,41 +154,15 @@ function App() {
     return () => document.removeEventListener('visibilitychange', h);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
 
-  // 🔥 ИНИЦИАЛИЗАЦИЯ TELEGRAM + ЗАГРУЗКА АВАТАРКИ + ОТЛАДКА
+  // 🔥 ИНИЦИАЛИЗАЦИЯ TELEGRAM
   useEffect(() => {
     try {
       if (WebApp?.ready) {
         WebApp.ready();
         WebApp.expand();
-        
-        const user = WebApp.initDataUnsafe?.user;
-        console.log('👤 Telegram user:', user);
-        
-        let debugText = '';
-        
-        if (user) {
-          debugText = `👤 Telegram User\n\nID: ${user.id}\nName: ${user.first_name || 'N/A'}\nUsername: ${user.username || 'N/A'}\nPhoto: ${user.photo_url ? '✅ YES' : '❌ NO'}`;
-          
-          if (user.photo_url) {
-            console.log('✅ Avatar URL:', user.photo_url);
-            setAvatarUrl(user.photo_url);
-          } else {
-            console.log('⚠️ No photo_url in Telegram user data');
-            console.log('📋 Full user object:', JSON.stringify(user, null, 2));
-          }
-        } else {
-          debugText = '❌ Not in Telegram\n\nOpening in browser mode';
-          console.log('⚠️ No Telegram user data available');
-        }
-        
-        // Показываем отладку на 5 секунд
-        setDebugInfo(debugText);
-        setTimeout(() => setDebugInfo(''), 5000);
       }
     } catch (e) {
-      console.error('❌ Telegram initialization error:', e);
-      setDebugInfo(`❌ Error: ${e}`);
-      setTimeout(() => setDebugInfo(''), 5000);
+      console.warn('Telegram SDK не доступен');
     }
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
@@ -347,15 +333,6 @@ function App() {
             </div>
           </div>
         )}
-        
-        {/* 🔥 ОТЛАДОЧНЫЙ ОВЕРЛЕЙ */}
-        {debugInfo && (
-          <div style={styles.debugOverlay}>
-            <div style={styles.debugBox}>
-              <pre style={styles.debugText}>{debugInfo}</pre>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
@@ -441,35 +418,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
   offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)' },
-  offlineText: { fontSize: 14, color: '#9ca3af' },
-  
-  // 🔥 СТИЛИ ДЛЯ ОТЛАДОЧНОГО ОВЕРЛЕЯ
-  debugOverlay: {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    background: 'rgba(0,0,0,0.95)',
-    padding: 24,
-    borderRadius: 16,
-    zIndex: 9999,
-    border: '2px solid #22c55e',
-    boxShadow: '0 0 40px rgba(34,197,94,0.4)',
-    minWidth: 280,
-    maxWidth: '90%',
-    animation: 'fadeIn 0.3s ease-out'
-  },
-  debugBox: {
-    textAlign: 'center'
-  },
-  debugText: {
-    color: '#22c55e',
-    fontSize: 14,
-    fontFamily: 'monospace',
-    margin: 0,
-    whiteSpace: 'pre-line',
-    lineHeight: 1.6
-  }
+  offlineText: { fontSize: 14, color: '#9ca3af' }
 };
 
 export default App;
