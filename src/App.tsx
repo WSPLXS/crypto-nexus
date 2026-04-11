@@ -146,13 +146,19 @@ function App() {
         WebApp.ready();
         WebApp.expand();
         
-        // Берём аватарку из Telegram, если она есть
-        if (WebApp.initDataUnsafe?.user?.photo_url) {
-          setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+        // Проверяем, есть ли фото
+        const user = WebApp.initDataUnsafe?.user;
+        console.log('👤 Telegram user data:', user);
+        
+        if (user?.photo_url) {
+          console.log('✅ Avatar URL found:', user.photo_url);
+          setAvatarUrl(user.photo_url);
+        } else {
+          console.log('⚠️ No photo_url in Telegram user data');
         }
       }
     } catch (e) {
-      console.warn('Telegram SDK не доступен');
+      console.error('❌ Ошибка загрузки аватарки:', e);
     }
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
@@ -240,8 +246,18 @@ function App() {
             {/* 🔥 АВАТАРКА С ПОДДЕРЖКОЙ ФОТО */}
             <div style={styles.avatarWrapper}>
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" style={styles.avatarImg} />
-              ) : (
+                <img 
+                  src={avatarUrl} 
+                  alt="Avatar" 
+                  style={styles.avatarImg}
+                  onError={(e) => {
+                    console.error('❌ Failed to load avatar image');
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : null}
+              {/* Показываем букву, если нет аватарки или она не загрузилась */}
+              {!avatarUrl && (
                 <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>
               )}
             </div>
