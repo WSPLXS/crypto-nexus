@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2 } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -72,7 +72,7 @@ function App() {
   const [myClan, setMyClan] = useState<any>(null);
   const [myClanRole, setMyClanRole] = useState<number>(0);
   const [clanMembers, setClanMembers] = useState<any[]>([]);
-  const [clanApplications, _setClanApplications] = useState<any[]>([]);
+  const [clanApplications, setClanApplications] = useState<any[]>([]); // ✅ Используем нормально
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
@@ -294,6 +294,37 @@ function App() {
     }).eq('id', myClan.id);
     setShowClanSettings(false); 
     fetchClanData();
+  };
+
+  // 🔥 НОВАЯ ФУНКЦИЯ: УДАЛЕНИЕ КЛАНА
+  const handleDeleteClan = async () => {
+    if (!myClan) return;
+    
+    try {
+      // 1. Удаляем всех участников
+      await supabase.from('clan_members').delete().eq('clan_id', myClan.id);
+      
+      // 2. Удаляем все заявки
+      await supabase.from('clan_applications').delete().eq('clan_id', myClan.id);
+      
+      // 3. Удаляем сам клан
+      const { error } = await supabase.from('clans').delete().eq('id', myClan.id);
+      
+      if (error) throw error;
+      
+      // 4. Очищаем состояние
+      setMyClan(null);
+      setClanMembers([]);
+      setClanApplications([]);
+      setMyClanRole(0);
+      setShowClanSettings(false);
+      setShowClan(false);
+      
+      alert('Клан успешно удален');
+    } catch (err) {
+      console.error('Delete clan error:', err);
+      alert('Ошибка при удалении клана');
+    }
   };
 
   const handleAppResponse = async (appId: number, accept: boolean) => {
@@ -630,15 +661,28 @@ function App() {
           </div>
         )}
 
+        {/* 🔥 ОБНОВЛЕННЫЕ НАСТРОЙКИ КЛАНА */}
         {showClanSettings && myClan && (
           <div style={styles.overlay} onClick={() => setShowClanSettings(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
               <h3 style={styles.modalTitle}>Настройки клана</h3>
-              <input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={styles.input} />
+              
+              <label style={styles.label}>
+                Название клана:
+                <input 
+                  id="editClanName" 
+                  defaultValue={myClan.name} 
+                  placeholder="Название (до 25)" 
+                  maxLength={25} 
+                  style={{...styles.input, marginTop: 8}} 
+                />
+              </label>
+              
               <textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} />
               <label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label>
               <label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label>
               <label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label>
+              
               <div style={{display:'flex', gap:8, marginTop: 12}}>
                 <button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button>
                 <button onClick={() => {
@@ -649,6 +693,21 @@ function App() {
                   const maxMembers = parseInt((document.getElementById('editMaxMembers') as HTMLInputElement).value);
                   handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers });
                 }} style={styles.btnPrimary}>Сохранить</button>
+              </div>
+              
+              {/* КНОПКА УДАЛИТЬ КЛАН */}
+              <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}>
+                <button 
+                  onClick={() => {
+                    if (confirm('⚠️ ВНИМАНИЕ! Вы уверены что хотите удалить клан?\n\nЭто действие НЕЛЬЗЯ отменить!\nВсе участники будут исключены.\nКлан будет удален навсегда.')) {
+                      handleDeleteClan();
+                    }
+                  }} 
+                  style={styles.btnDanger}
+                >
+                  <Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/>
+                  Удалить клан
+                </button>
               </div>
             </div>
           </div>
@@ -778,7 +837,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   offlineAmount: { fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)', transition: 'font-size 0.3s ease' },
   offlineText: { fontSize: 14, color: '#9ca3af' },
   btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }
+  btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
+  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8 }
 };
 
 export default App;
