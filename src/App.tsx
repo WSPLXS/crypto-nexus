@@ -71,12 +71,35 @@ function App() {
   
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  
+  // 🔥 ПОЛУЧАЕМ НИКНЕЙМ
+  const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
 
-  // ✅ НИКНЕЙМ СОХРАНЯЕТСЯ В БАЗУ
+  // 🔥 СОХРАНЯЕМ НИКНЕЙМ В БАЗУ ПРИ КАЖДОМ ВХОДЕ
+  const saveNicknameToDB = async () => {
+    try {
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('nickname')
+        .eq('id', userIdNum)
+        .single();
+      
+      // Если никнейма нет в базе или он отличается - обновляем
+      if (!existingUser?.nickname || existingUser.nickname !== currentNickname) {
+        await supabase.from('users').upsert({
+          id: userIdNum,
+          nickname: currentNickname
+        }, { onConflict: 'id' });
+        console.log('✅ Никнейм сохранён в базу:', currentNickname);
+      }
+    } catch (err) {
+      console.error('❌ Ошибка сохранения никнейма:', err);
+    }
+  };
+
   const saveProgress = async () => {
     if (isLoading) return;
     try {
-      const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${userIdNum}`;
       await supabase.from('users').upsert({
         id: userIdNum,
         nickname: currentNickname, // 🔥 Сохраняем ник
@@ -95,7 +118,6 @@ function App() {
     }
   };
 
-  // 🔥 РАСЧЁТ ДОХОДА В МИНУТУ
   const calculateIncomePerMin = (userData: any) => {
     try {
       if (!userData?.owned_currencies || !Array.isArray(userData.owned_currencies) || userData.owned_currencies.length === 0) return 0;
@@ -112,7 +134,6 @@ function App() {
     }
   };
 
-  // 🔥 ЗАГРУЗКА И СОРТИРОВКА ТОПА (ТЕПЕРЬ ЧИТАЕТ НИК ИЗ БАЗЫ)
   const fetchLeaderboard = async () => {
     setLeaderboardLoading(true);
     try {
@@ -127,11 +148,12 @@ function App() {
       const sorted = (data || [])
         .map(u => ({
           id: u.id,
-          nickname: u.nickname || `Player${String(u.id).slice(-4)}`, // Реальный ник из базы
+          // 🔥 ИСПОЛЬЗУЕМ НИК ИЗ БАЗЫ ИЛИ ГЕНЕРИРУЕМ
+          nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
           incomePerMin: calculateIncomePerMin(u)
         }))
-        .sort((a, b) => b.incomePerMin - a.incomePerMin) // По убыванию
-        .slice(0, 10); // Топ-10
+        .sort((a, b) => b.incomePerMin - a.incomePerMin)
+        .slice(0, 10);
 
       setLeaderboard(sorted);
       console.log('✅ Топ обновлён:', sorted);
@@ -144,6 +166,7 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    saveNicknameToDB(); // 🔥 Сохраняем ник при входе
     fetchLeaderboard();
     const interval = setInterval(fetchLeaderboard, 15 * 60 * 1000);
     return () => clearInterval(interval);
@@ -250,7 +273,10 @@ function App() {
     if (refId && refId !== userIdNum) setReferrerId(refId);
     setIsAuthenticated(true);
     setShowAvatarPrompt(true);
-    setTimeout(() => saveProgress(), 500); // Сохраняем ник в базу
+    setTimeout(() => {
+      saveNicknameToDB(); // 🔥 Сразу сохраняем ник
+      saveProgress();
+    }, 500);
   };
 
   const handleAvatarYes = () => { setShowAvatarPrompt(false); setShowAvatarInstruction(true); };
@@ -285,7 +311,6 @@ function App() {
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
 
   const selectedCurrency = currencies.find(c => c.id === selectedCurrencyId);
-  const nickname = localStorage.getItem('cryptoNexus_nickname') || 'Player';
 
   return (
     <>
@@ -299,10 +324,10 @@ function App() {
         <div style={styles.topBar}>
           <div style={styles.userSection}>
             <div style={styles.avatarWrapper}>
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar" style={styles.avatarImg} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>}
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar" style={styles.avatarImg} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}
             </div>
             <div style={styles.userInfo}>
-              <span style={styles.nickname}>{nickname}</span>
+              <span style={styles.nickname}>{currentNickname}</span>
               <div style={styles.balances}>
                 <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
                   ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -383,7 +408,6 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 МЕНЮ ТОП-10 */}
         {showLeaderboard && (
           <div style={styles.overlay} onClick={() => setShowLeaderboard(false)}>
             <div style={styles.leaderboardModal} onClick={e => e.stopPropagation()}>
