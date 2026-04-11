@@ -72,10 +72,8 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   
-  // 🔥 ПОЛУЧАЕМ НИКНЕЙМ
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
 
-  // 🔥 СОХРАНЯЕМ НИКНЕЙМ В БАЗУ ПРИ КАЖДОМ ВХОДЕ
   const saveNicknameToDB = async () => {
     try {
       const { data: existingUser } = await supabase
@@ -84,13 +82,11 @@ function App() {
         .eq('id', userIdNum)
         .single();
       
-      // Если никнейма нет в базе или он отличается - обновляем
       if (!existingUser?.nickname || existingUser.nickname !== currentNickname) {
         await supabase.from('users').upsert({
           id: userIdNum,
           nickname: currentNickname
         }, { onConflict: 'id' });
-        console.log('✅ Никнейм сохранён в базу:', currentNickname);
       }
     } catch (err) {
       console.error('❌ Ошибка сохранения никнейма:', err);
@@ -102,7 +98,7 @@ function App() {
     try {
       await supabase.from('users').upsert({
         id: userIdNum,
-        nickname: currentNickname, // 🔥 Сохраняем ник
+        nickname: currentNickname,
         balance,
         max_balance: maxBalance,
         owned_currencies: ownedCurrencies,
@@ -148,7 +144,6 @@ function App() {
       const sorted = (data || [])
         .map(u => ({
           id: u.id,
-          // 🔥 ИСПОЛЬЗУЕМ НИК ИЗ БАЗЫ ИЛИ ГЕНЕРИРУЕМ
           nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
           incomePerMin: calculateIncomePerMin(u)
         }))
@@ -156,7 +151,6 @@ function App() {
         .slice(0, 10);
 
       setLeaderboard(sorted);
-      console.log('✅ Топ обновлён:', sorted);
     } catch (err) {
       console.error('❌ Ошибка топа:', err);
     } finally {
@@ -166,7 +160,7 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    saveNicknameToDB(); // 🔥 Сохраняем ник при входе
+    saveNicknameToDB();
     fetchLeaderboard();
     const interval = setInterval(fetchLeaderboard, 15 * 60 * 1000);
     return () => clearInterval(interval);
@@ -274,7 +268,7 @@ function App() {
     setIsAuthenticated(true);
     setShowAvatarPrompt(true);
     setTimeout(() => {
-      saveNicknameToDB(); // 🔥 Сразу сохраняем ник
+      saveNicknameToDB();
       saveProgress();
     }, 500);
   };
@@ -354,7 +348,17 @@ function App() {
             <div style={styles.offlineModal}>
               <div style={styles.offlineIcon}>💰</div>
               <div style={styles.offlineTitle}>Пока тебя не было!</div>
-              <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
+              
+              {/* 🔥 ДИНАМИЧЕСКИЙ РАЗМЕР ШРИФТА */}
+              <div style={{
+                ...styles.offlineAmount,
+                fontSize: offlineAmount > 1000000000 ? '20px' : 
+                        offlineAmount > 1000000 ? '28px' : 
+                        offlineAmount > 10000 ? '32px' : '36px'
+              }}>
+                +${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              
               <div style={styles.offlineText}>Твои майнеры заработали</div>
             </div>
           </div>
@@ -486,10 +490,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
   offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
-  offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280 },
+  offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%', overflow: 'hidden' }, // 🔥 Добавил maxWidth
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
-  offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)' },
+  // 🔥 Убрал фиксированный fontSize, теперь он динамический
+  offlineAmount: { 
+    fontWeight: 'bold', 
+    color: '#4ade80', 
+    marginBottom: 8, 
+    textShadow: '0 0 20px rgba(74,222,128,0.5)',
+    transition: 'font-size 0.3s ease' 
+  },
   offlineText: { fontSize: 14, color: '#9ca3af' },
   leaderboardModal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 20, maxWidth: '95%', width: 360, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' },
   leaderboardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid rgba(156,163,175,0.1)' },
