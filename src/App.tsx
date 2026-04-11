@@ -72,7 +72,7 @@ function App() {
   const [myClan, setMyClan] = useState<any>(null);
   const [myClanRole, setMyClanRole] = useState<number>(0);
   const [clanMembers, setClanMembers] = useState<any[]>([]);
-  const [clanApplications, setClanApplications] = useState<any[]>([]); // ✅ Используем нормально
+  const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
@@ -296,23 +296,16 @@ function App() {
     fetchClanData();
   };
 
-  // 🔥 НОВАЯ ФУНКЦИЯ: УДАЛЕНИЕ КЛАНА
   const handleDeleteClan = async () => {
     if (!myClan) return;
     
     try {
-      // 1. Удаляем всех участников
       await supabase.from('clan_members').delete().eq('clan_id', myClan.id);
-      
-      // 2. Удаляем все заявки
       await supabase.from('clan_applications').delete().eq('clan_id', myClan.id);
       
-      // 3. Удаляем сам клан
       const { error } = await supabase.from('clans').delete().eq('id', myClan.id);
-      
       if (error) throw error;
       
-      // 4. Очищаем состояние
       setMyClan(null);
       setClanMembers([]);
       setClanApplications([]);
@@ -373,17 +366,38 @@ function App() {
     const clan = clanSearchResults.find(c => c.id === clanId);
     if (!clan) return;
     
-    if (clan.members_count >= clan.max_members) return alert('В клане нет мест');
+    const memberCount = clan.members_count || 0;
+    if (memberCount >= clan.max_members) return alert('В клане нет мест');
     if (level < clan.min_level) return alert('Ваш уровень слишком мал');
     
-    await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: clan.require_approval ? 'pending' : 'accepted' });
-    alert(clan.require_approval ? 'Заявка отправлена!' : 'Вы вступили в клан!');
-    setShowFindClan(false); if (!clan.require_approval) fetchClanData();
+    try {
+        if (clan.require_approval) {
+            await supabase.from('clan_applications').insert({ 
+                clan_id: clanId, 
+                user_id: userIdNum, 
+                status: 'pending' 
+            });
+            alert('Заявка отправлена! Лидер клана должен её одобрить.');
+        } else {
+            const { error } = await supabase.from('clan_members').insert({ 
+                clan_id: clanId, 
+                user_id: userIdNum, 
+                role: 1 
+            });
+            if (error) throw error;
+            
+            alert('Вы успешно вступили в клан!');
+            setShowFindClan(false);
+            fetchClanData();
+        }
+    } catch (err) {
+        console.error('Join clan error:', err);
+        alert('Ошибка при вступлении в клан');
+    }
   };
 
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
-    console.log('🔍 Search friends for:', query);
     try {
       const { data, error } = await supabase
         .from('users')
@@ -393,8 +407,6 @@ function App() {
         .limit(10);
       
       if (error) throw error;
-      console.log('✅ Search friends result:', data);
-      
       const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
       setFriendSearchResults(enriched);
     } catch (err) {
@@ -405,7 +417,6 @@ function App() {
 
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
-    console.log('🔍 Search clans for:', query);
     try {
       const { data, error } = await supabase
         .from('clans')
@@ -414,7 +425,6 @@ function App() {
         .limit(10);
       
       if (error) throw error;
-      console.log('✅ Search clans result:', data);
       
       const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
         const { count } = await supabase
@@ -448,6 +458,7 @@ function App() {
             <div style={{flex:1}}>
               <h3 style={{...styles.clanName, fontSize: getFontSize(myClan.name)}}>{myClan.name}</h3>
               <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
+              {myClan.description && <p style={styles.clanDescription}>{myClan.description}</p>}
             </div>
             {myClanRole === 4 && (
               <div style={{display:'flex', gap:8}}>
@@ -661,7 +672,6 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 ОБНОВЛЕННЫЕ НАСТРОЙКИ КЛАНА */}
         {showClanSettings && myClan && (
           <div style={styles.overlay} onClick={() => setShowClanSettings(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -695,7 +705,6 @@ function App() {
                 }} style={styles.btnPrimary}>Сохранить</button>
               </div>
               
-              {/* КНОПКА УДАЛИТЬ КЛАН */}
               <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}>
                 <button 
                   onClick={() => {
@@ -811,6 +820,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   clanAvatar: { width: 48, height: 48, borderRadius: '50%', background: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 },
   clanName: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', margin: 0, lineHeight: 1.2 },
   clanIncome: { fontSize: 13, color: '#22c55e', margin: '4px 0 0 0' },
+  clanDescription: { fontSize: 12, color: '#9ca3af', margin: '4px 0 0 0', fontStyle: 'italic', lineHeight: 1.4 },
   iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
   badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
