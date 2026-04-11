@@ -13,11 +13,9 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // 🔧 1. БЕЗОПАСНОЕ ОПРЕДЕЛЕНИЕ ID (чтобы не было NaN)
-  let userIdNum = 123456; // Безопасный ID по умолчанию для тестов в браузере
+  let userIdNum = 123456;
   
   try {
-    // Пытаемся достать ID из Телеграма
     if (WebApp && WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
       const rawId = WebApp.initDataUnsafe.user.id;
       if (rawId && !isNaN(Number(rawId))) {
@@ -28,7 +26,6 @@ function App() {
     console.warn('Не удалось получить Telegram ID');
   }
 
-  // 🔧 2. АВТОРИЗАЦИЯ (показываем меню, если нет ника в памяти)
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
   
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +38,10 @@ function App() {
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsAmount, setEarningsAmount] = useState(0);
   const [isDark, setIsDark] = useState(true);
+  
+  // 🔥 СОСТОЯНИЕ ДЛЯ ОФФЛАЙН-ДОХОДА
+  const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
+  const [offlineAmount, setOfflineAmount] = useState(0);
 
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
@@ -48,63 +49,39 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
-  // 🔧 3. ФУНКЦИЯ СОХРАНЕНИЯ (ИСПРАВЛЕННАЯ: убран updated_at)
-   const saveProgress = async () => {
+  // 🔧 ФУНКЦИЯ СОХРАНЕНИЯ (с last_login)
+  const saveProgress = async () => {
     if (isLoading) return;
     try {
       console.log('💾 Сохранение (ID:', userIdNum, ')...');
       
-      // Сначала пробуем найти существующую запись
-      const { data: existing } = await supabase
+      const { error } = await supabase
         .from('users')
-        .select('id')
-        .eq('id', userIdNum)
-        .single();
-
-      let error;
-      
-      if (existing) {
-        // Если есть — обновляем
-        const result = await supabase
-          .from('users')
-          .update({
-            balance,
-            max_balance: maxBalance,
-            owned_currencies: ownedCurrencies,
-            price_multipliers: priceMultipliers,
-            selected_currency: selectedCurrencyId
-          })
-          .eq('id', userIdNum);
-        error = result.error;
-      } else {
-        // Если нет — создаём новую
-        const result = await supabase
-          .from('users')
-          .insert({
-            id: userIdNum,
-            balance,
-            max_balance: maxBalance,
-            owned_currencies: ownedCurrencies,
-            price_multipliers: priceMultipliers,
-            selected_currency: selectedCurrencyId
-          });
-        error = result.error;
-      }
+        .upsert({
+          id: userIdNum,
+          balance,
+          max_balance: maxBalance,
+          owned_currencies: ownedCurrencies,
+          price_multipliers: priceMultipliers,
+          selected_currency: selectedCurrencyId,
+          last_login: new Date().toISOString() // 🔥 Сохраняем время
+        }, {
+          onConflict: 'id'
+        });
 
       if (error) throw error;
-      console.log('✅ Сохранено успешно!');
     } catch (err) {
       console.error('❌ Ошибка сохранения:', err);
     }
   };
 
-  // 🔧 4. ЗАГРУЗКА ДАННЫХ
+  // 🔧 ЗАГРУЗКА ДАННЫХ (с расчетом оффлайн-дохода)
   useEffect(() => {
     async function loadProgress() {
       try {
         console.log('📥 Загрузка для ID:', userIdNum);
         
-        const { data, } = await supabase
+        const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('id', userIdNum)
@@ -112,7 +89,44 @@ function App() {
 
         if (data) {
           console.log('📥 Данные загружены:', data);
-          setBalance(data.balance || 100);
+          
+          // 🔥 РАСЧЕТ ОФФЛАЙН-ДОХОДА
+          if (data.last_login && data.owned_currencies && data.owned_currencies.length > 0) {
+            const lastLogin = new Date(data.last_login).getTime();
+            const now = Date.now();
+            const offlineSeconds = Math.floor((now - lastLogin) / 1000);
+            
+            if (offlineSeconds > 0) {
+              // Считаем доход в секунду из сохраненных данных
+              const incomePerSecond = data.owned_currencies.reduce((total: number, owned: OwnedCurrency) => {
+                const c = currencies.find(cur => cur.id === owned.currencyId);
+                const multiplier = data.price_multipliers[owned.currencyId] || 1;
+                const globalMult = getGlobalMultiplier(getLevelInfo(data.max_balance || 100).tier);
+                return total + (c ? c.incomePerSecond * owned.amount * globalMult : 0);
+              }, 0);
+              
+              // 🔥 Оффлайн-доход = 20% от обычного (в 5 раз меньше)
+              const offlineMultiplier = 0.2;
+              const offlineEarnings = incomePerSecond * offlineSeconds * offlineMultiplier;
+              
+              if (offlineEarnings > 0) {
+                console.log(`💰 Оффлайн-доход: $${offlineEarnings.toFixed(2)} за ${offlineSeconds} сек`);
+                setOfflineAmount(offlineEarnings);
+                setBalance((data.balance || 100) + offlineEarnings);
+                setShowOfflineEarnings(true);
+                
+                // Скрываем уведомление через 5 секунд
+                setTimeout(() => setShowOfflineEarnings(false), 5000);
+              } else {
+                setBalance(data.balance || 100);
+              }
+            } else {
+              setBalance(data.balance || 100);
+            }
+          } else {
+            setBalance(data.balance || 100);
+          }
+          
           setMaxBalance(data.max_balance || 100);
           setOwnedCurrencies(data.owned_currencies || []);
           setPriceMultipliers(data.price_multipliers || {});
@@ -129,7 +143,7 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  // 🔧 5. АВТОСОХРАНЕНИЕ КАЖДЫЕ 15 СЕКУНД
+  // Автосохранение
   useEffect(() => {
     if (isLoading) return;
     const interval = setInterval(() => {
@@ -138,7 +152,7 @@ function App() {
     return () => clearInterval(interval);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
 
-  // 🔧 6. СОХРАНЕНИЕ ПРИ ЗАКРЫТИИ
+  // Сохранение при закрытии
   useEffect(() => {
     if (isLoading) return;
     const handleVisibility = () => {
@@ -169,6 +183,7 @@ function App() {
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
+  // Игровой цикл
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -273,6 +288,16 @@ function App() {
           +${earningsAmount.toFixed(2)}/s
         </div>
       )}
+      
+      {/* 🔥 УВЕДОМЛЕНИЕ ОБ ОФФЛАЙН-ДОХОДЕ */}
+      {showOfflineEarnings && (
+        <div style={styles.offlineNotification}>
+          <div style={styles.offlineIcon}>💰</div>
+          <div style={styles.offlineTitle}>Пока тебя не было!</div>
+          <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
+          <div style={styles.offlineText}>Твои майнеры заработали</div>
+        </div>
+      )}
 
       <div style={styles.bottomBar}>
         <div style={styles.bottomSection}>
@@ -327,6 +352,26 @@ const styles: { [key: string]: React.CSSProperties } = {
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
+  // 🔥 СТИЛИ ДЛЯ ОФФЛАЙН-УВЕДОМЛЕНИЯ
+  offlineNotification: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: 'linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%)',
+    border: '2px solid #22c55e',
+    borderRadius: 24,
+    padding: '32px 24px',
+    textAlign: 'center',
+    zIndex: 3000,
+    boxShadow: '0 20px 60px rgba(34, 197, 94, 0.3)',
+    animation: 'slideIn 0.5s ease-out',
+    minWidth: 280
+  },
+  offlineIcon: { fontSize: 48, marginBottom: 12 },
+  offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
+  offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74, 222, 128, 0.5)' },
+  offlineText: { fontSize: 14, color: '#9ca3af' }
 };
 
 export default App;
