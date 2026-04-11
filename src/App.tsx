@@ -13,7 +13,7 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // 🔧 БЕЗОПАСНОЕ получение ID пользователя
+  // Безопасное получение ID пользователя
   let userId = 'test-user-123';
   try {
     if (WebApp && WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
@@ -23,6 +23,9 @@ function App() {
     console.warn('Telegram SDK не инициализирован, используем тестовый ID');
   }
   
+  // 🔧 Приводим ID к числу (для соответствия с int8 в базе)
+  const userIdNum = Number(userId);
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -41,56 +44,99 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
-  // 🟢 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ
+  // 🔧 ФУНКЦИЯ ПРИНУДИТЕЛЬНОГО СОХРАНЕНИЯ
+  const saveProgress = async () => {
+    if (isLoading) return;
+    try {
+      console.log('💾 Сохранение прогресса...');
+      const { error } = await supabase
+        .from('users')
+        .upsert({
+          id: userIdNum,
+          balance,
+          max_balance: maxBalance,
+          owned_currencies: ownedCurrencies,
+          price_multipliers: priceMultipliers,
+          selected_currency: selectedCurrencyId,
+          updated_at: new Date().toISOString()
+        });
+      if (error) throw error;
+      console.log('✅ Успешно сохранено!');
+    } catch (err) {
+      console.error('❌ Ошибка сохранения:', err);
+    }
+  };
+
+  // 🔧 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ
   useEffect(() => {
     async function loadProgress() {
       try {
         const { data } = await supabase
           .from('users')
           .select('*')
-          .eq('id', userId)
+          .eq('id', userIdNum)
           .single();
 
         if (data) {
+          console.log('📥 Загружено из базы:', data);
           setBalance(data.balance || 100);
           setMaxBalance(data.max_balance || 100);
           setOwnedCurrencies(data.owned_currencies || []);
           setPriceMultipliers(data.price_multipliers || {});
           setSelectedCurrencyId(data.selected_currency || 'btc');
+        } else {
+          console.log('🆕 Новый пользователь');
         }
       } catch (err) {
-        console.error('Ошибка загрузки (используем начальные значения):', err);
+        console.error('❌ Ошибка загрузки:', err);
       } finally {
         setIsLoading(false);
       }
     }
     loadProgress();
-  }, [userId]);
+  }, [userIdNum]);
 
-  // 🟢 АВТОСОХРАНЕНИЕ В БАЗУ
+  // 🔧 АВТОСОХРАНЕНИЕ КАЖДЫЕ 15 СЕКУНД (не сбрасывается!)
+  useEffect(() => {
+    if (isLoading) return;
+    
+    const intervalId = setInterval(() => {
+      saveProgress();
+    }, 15000);
+
+    return () => clearInterval(intervalId);
+  }, [isLoading]);
+
+  // 🔧 СОХРАНЕНИЕ ПРИ СВОРАЧИВАНИИ/ЗАКРЫТИИ
   useEffect(() => {
     if (isLoading) return;
 
-    const saveInterval = setInterval(async () => {
-      try {
-        await supabase
-          .from('users')
-          .upsert({
-            id: userId,
-            balance,
-            max_balance: maxBalance,
-            owned_currencies: ownedCurrencies,
-            price_multipliers: priceMultipliers,
-            selected_currency: selectedCurrencyId,
-            updated_at: new Date().toISOString()
-          });
-      } catch (err) {
-        console.error('Ошибка сохранения:', err);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('📱 Игра ушла в фон -> Сохраняем!');
+        saveProgress();
       }
-    }, 10000);
+    };
 
-    return () => clearInterval(saveInterval);
-  }, [balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, isLoading, userId]);
+    const handleBeforeUnload = () => {
+      console.log('🚪 Закрытие вкладки -> Сохраняем!');
+      saveProgress();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    if (WebApp && WebApp.onEvent) {
+      WebApp.onEvent('viewportChanged', () => {
+        saveProgress();
+      });
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
 
   // Инициализация Telegram
   useEffect(() => {
@@ -105,7 +151,6 @@ function App() {
       console.warn('Telegram SDK не доступен');
     }
     
-    // Для тестов в браузере
     if (!WebApp?.initDataUnsafe?.user) {
       setTimeout(() => setIsAuthenticated(true), 1000);
     }
@@ -175,6 +220,9 @@ function App() {
       if (!ownedCurrencies.find(c => c.currencyId === currencyId)) {
         setSelectedCurrencyId(currencyId);
       }
+
+      // ✅ МГНОВЕННОЕ СОХРАНЕНИЕ ПОСЛЕ ПОКУПКИ
+      setTimeout(() => saveProgress(), 100);
     }
   };
 
