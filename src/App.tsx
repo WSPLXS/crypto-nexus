@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, Trophy, Users, Shield, MessageCircle, Search, Pencil, Check, X, Crown, UserPlus, Trash2 } from 'lucide-react';
+import { Handshake, Trophy, MessageCircle, Crown, Pencil, Check, X, UserPlus, UserMinus, ShieldAlert } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -16,6 +16,7 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
+  // --- ID ЛОГИКА ---
   let userIdNum: number;
   try {
     if (WebApp?.initDataUnsafe?.user?.id) userIdNum = Number(WebApp.initDataUnsafe.user.id);
@@ -26,33 +27,15 @@ function App() {
     }
   } catch { userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000); }
 
+  // --- СОСТОЯНИЯ АВТОРИЗАЦИИ И ИГРЫ ---
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
   const [isLoading, setIsLoading] = useState(true);
-  const [showShop, setShowShop] = useState(false);
-  const [showCurrencySelector, setShowCurrencySelector] = useState(false);
-  const [showReferral, setShowReferral] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [isDark, setIsDark] = useState(true);
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
-  const [showAvatarInstruction, setShowAvatarInstruction] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
-  const [showEarnings, setShowEarnings] = useState(false);
-  const [earningsAmount, setEarningsAmount] = useState(0);
-  const [isDark, setIsDark] = useState(true);
-
-  // 🔥 СОЦИАЛЬНЫЕ СИСТЕМЫ
-  const [showClan, setShowClan] = useState(false);
-  const [showFriends, setShowFriends] = useState(false);
-  const [showMessages, setShowMessages] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
   
+  // --- СОСТОЯНИЯ БАЛАНСА И ПРОГРЕССА ---
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
@@ -62,28 +45,36 @@ function App() {
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
 
-  const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
-
-  // 📦 СОСТОЯНИЯ КЛАНОВ
-  const [myClan, setMyClan] = useState<any>(null);
-  const [myClanRole, setMyClanRole] = useState<number>(0);
-  const [clanMembers, setClanMembers] = useState<any[]>([]);
-  const [clanApplications, setClanApplications] = useState<any[]>([]);
+  // --- СОСТОЯНИЯ МЕНЮ И МОДАЛОК ---
+  const [showSettings, setShowSettings] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [showCurrencySelector, setShowCurrencySelector] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showReferral, setShowReferral] = useState(false);
+  
+  // --- СОЦИАЛЬНЫЕ СИСТЕМЫ (КЛАНЫ, ДРУЗЬЯ, ПРОФИЛЬ) ---
+  const [showClan, setShowClan] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showCreateClan, setShowCreateClan] = useState(false);
   const [showJoinClan, setShowJoinClan] = useState(false);
   const [clanSearchQuery, setClanSearchQuery] = useState('');
   const [clanSearchResults, setClanSearchResults] = useState<any[]>([]);
-  const [showClanSettings, setShowClanSettings] = useState(false);
-  const [showRankManager, setShowRankManager] = useState(false);
-  const [selectedForRank, setSelectedForRank] = useState<number[]>([]);
-  const [newRank, setNewRank] = useState(1);
 
-  // 🤝 СОСТОЯНИЯ ДРУЗЕЙ
+  // --- ДАННЫЕ КЛАНОВ И ДРУЗЕЙ ---
+  const [myClan, setMyClan] = useState<any>(null);
+  const [myClanRole, setMyClanRole] = useState<number>(0);
+  const [clanMembers, setClanMembers] = useState<any[]>([]);
+  const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [friendRequests, setFriendRequests] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]); // Объединённые заявки
-  const [friendSearch, setFriendSearch] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
 
+  const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
+
+  // --- ФУНКЦИИ БД ---
   const saveNicknameToDB = async () => {
     try {
       const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single();
@@ -115,6 +106,7 @@ function App() {
     }, 0) * 60;
   };
 
+  // --- ЗАГРУЗКА СОЦИАЛЬНЫХ ДАННЫХ ---
   const fetchClanData = async () => {
     if (!isAuthenticated) return;
     const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
@@ -126,14 +118,13 @@ function App() {
           const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
           return { ...m, ...u, incomePerMin: calculateIncome(u) };
         }));
-        const totalInc = enrichedMembers.reduce((s, m) => s + m.incomePerMin, 0);
+        const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
         setMyClan({ ...clan, total_income: totalInc });
         setClanMembers(enrichedMembers);
         setMyClanRole(member.role);
 
-        // Заявки
         if (member.role === 4) {
-          const { data: apps } = await supabase.from('clan_applications').select('user_id, status').eq('clan_id', clan.id).eq('status', 'pending');
+          const { data: apps } = await supabase.from('clan_applications').select('id, user_id, status').eq('clan_id', clan.id).eq('status', 'pending');
           const enrichedApps = await Promise.all((apps || []).map(async a => {
             const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
             return { ...a, ...u, incomePerMin: calculateIncome(u) };
@@ -153,7 +144,7 @@ function App() {
     const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
     const incoming = (reqs || []).filter(r => r.receiver_id === userIdNum);
     setFriendRequests(incoming);
-    setMessages(incoming.map(r => ({ ...r, type: 'friend' })));
+    setMessages(incoming.map(r => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
 
     const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
     const friendIds = (accepted || []).map(r => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
@@ -170,7 +161,6 @@ function App() {
 
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
 
-  // Остальные useEffect'ы для оффлайна, лидерборда, автосохранения...
   useEffect(() => {
     if (!isAuthenticated) return;
     saveNicknameToDB();
@@ -210,18 +200,18 @@ function App() {
 
   useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
   useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
-  useEffect(() => { let t: any; if (showAvatarInstruction) t = setTimeout(() => { setShowAvatarInstruction(false); setShowTutorial(true); }, 30000); return () => clearTimeout(t); }, [showAvatarInstruction]);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
 
   const { level, progress, tier } = getLevelInfo(maxBalance);
   const globalMultiplier = getGlobalMultiplier(tier);
   const totalIncome = useMemo(() => ownedCurrencies.reduce((t, o) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0); }, 0), [ownedCurrencies, globalMultiplier]);
-  useEffect(() => { if (!isAuthenticated || isLoading) return; const i = setInterval(() => { if (totalIncome > 0) { setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; }); if (!showEarnings) { setEarningsAmount(totalIncome); setShowEarnings(true); } } }, 1000); return () => clearInterval(i); }, [isAuthenticated, totalIncome, showEarnings, isLoading]);
+  
+  useEffect(() => { if (!isAuthenticated || isLoading) return; const i = setInterval(() => { if (totalIncome > 0) { setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; }); } }, 1000); return () => clearInterval(i); }, [isAuthenticated, totalIncome, isLoading]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
     if (refId && refId !== userIdNum) setReferrerId(refId);
-    setIsAuthenticated(true); setShowAvatarPrompt(true);
+    setIsAuthenticated(true);
     setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500);
   };
 
@@ -242,23 +232,15 @@ function App() {
     }
   };
 
-  // 🔥 ФУНКЦИИ КЛАНОВ
+  // --- ФУНКЦИИ КЛАНОВ ---
   const handleCreateClan = async () => {
-    if (balance < 100000) return alert('Недостаточно средств! Нужно $100,000');
+    if (balance < 100000) return alert('Нужно $100,000!');
     setBalance(p => p - 100000);
     const { data } = await supabase.from('clans').insert({ name: 'Новый Клан', emoji: '🏰', min_level: 1, max_members: 50, creator_id: userIdNum, total_income: 0 }).select().single();
     if (data) {
       await supabase.from('clan_members').insert({ clan_id: data.id, user_id: userIdNum, role: 4 });
       setShowCreateClan(false); fetchClanData();
     }
-  };
-
-  const handleJoinClan = async (clanId: number) => {
-    const clan = clanSearchResults.find(c => c.id === clanId);
-    if (clan.members_count >= clan.max_members) return alert('В клане нет свободных мест');
-    if (level < clan.min_level) return alert('Ваш уровень слишком мал');
-    await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: 'pending' });
-    alert('Заявка отправлена!'); setShowJoinClan(false);
   };
 
   const handleAppResponse = async (appId: number, accept: boolean) => {
@@ -276,14 +258,7 @@ function App() {
     fetchClanData();
   };
 
-  const handleRankUpdate = async () => {
-    for (const uid of selectedForRank) {
-      await supabase.from('clan_members').update({ role: newRank }).eq('clan_id', myClan.id).eq('user_id', uid);
-    }
-    setShowRankManager(false); setSelectedForRank([]); fetchClanData();
-  };
-
-  // 🔥 ФУНКЦИИ ДРУЗЕЙ
+  // --- ФУНКЦИИ ДРУЗЕЙ ---
   const handleAddFriend = async (targetId: number) => {
     await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' });
     alert('Заявка отправлена!'); setShowProfile(false);
@@ -299,7 +274,7 @@ function App() {
     fetchFriendsData();
   };
 
-  // UI Helpers
+  // --- UI HELPERS ---
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url }); setShowProfile(true); };
   const getFontSize = (text: string, max: number = 20) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
@@ -309,8 +284,10 @@ function App() {
   return (
     <>
       <div style={styles.container}>
-        {/* ... (Верхняя панель, GPU, Оффлайн, Низ) ... */}
+        {/* УРОВЕНЬ */}
         <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
+
+        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
         <div style={styles.topBar}>
           <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl })}>
             <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
@@ -318,24 +295,33 @@ function App() {
           </div>
           <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => setShowClan(true)} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
         </div>
+
+        {/* ЛЕВЫЕ КНОПКИ */}
         <div style={styles.leftButtons}>
           <button onClick={() => setShowMessages(true)} style={styles.leftBtn}><MessageCircle size={20} color="var(--text-primary)" /></button>
-          <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
           <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
         </div>
+
+        {/* ЦЕНТР */}
         <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
+        
+        {/* ОФФЛАЙН ЗАРАБОТОК */}
         {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
+
+        {/* НИЖНЯЯ ПАНЕЛЬ */}
         <div style={styles.bottomBar}><div style={styles.bottomSection}><span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span></div><button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button><div style={styles.bottomSection}></div></div>
 
-        {/* МОДАЛКИ */}
+        {/* --- МОДАЛКИ --- */}
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
         <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
+        
+        {/* ПРОФИЛЬ ИГРОКА */}
         <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
 
-        {/* КЛАН МОДАЛКА */}
+        {/* КЛАН */}
         {showClan && (
           <div style={styles.overlay} onClick={() => setShowClan(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -356,9 +342,9 @@ function App() {
                     </div>
                     {myClanRole === 4 && (
                       <div style={{display:'flex', gap:8}}>
-                        <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
-                        <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
-                        <button onClick={() => fetchClanData()} style={{...styles.iconBtn, position:'relative'}}>
+                        <button onClick={() => alert('Настройки клана')} style={styles.iconBtn}><Pencil size={18} /></button>
+                        <button onClick={() => alert('Управление рангами')} style={styles.iconBtn}><Crown size={18} /></button>
+                        <button onClick={fetchClanData} style={{...styles.iconBtn, position:'relative'}}>
                           <MessageCircle size={18} />
                           {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
                         </button>
@@ -389,9 +375,8 @@ function App() {
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
               <h2 style={styles.modalTitle}>Друзья</h2>
-              <input placeholder="Поиск по нику..." value={friendSearch} onChange={e => setFriendSearch(e.target.value)} style={styles.input} />
               <div style={styles.list}>
-                {friends.filter(f => f.nickname.toLowerCase().includes(friendSearch.toLowerCase())).map(f => (
+                {friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (
                   <div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}>
                     <div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div>
                     <div style={{flex:1}}><div style={styles.listName}>{f.nickname}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div>
@@ -409,7 +394,7 @@ function App() {
               <button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
               <h2 style={styles.modalTitle}>Сообщения</h2>
               <div style={styles.list}>
-                {messages.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Нет заявок</p> : messages.map(msg => (
+                {messages.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Нет заявок</p> : messages.map((msg: any) => (
                   <div key={msg.id} style={styles.listItem}>
                     <div style={{flex:1}}>
                       <div style={styles.listName}>{msg.type === 'friend' ? 'Заявка в друзья' : 'Приглашение в клан'}</div>
