@@ -261,25 +261,40 @@ function App() {
   const handleCreateClan = async (clanData: any) => {
     if (balance < 100000) return alert('Нужно $100,000!');
     setBalance(p => p - 100000);
-    const { data } = await supabase.from('clans').insert({ 
-      name: clanData.name, emoji: clanData.emoji, description: clanData.description,
-      min_level: clanData.minLevel, max_members: clanData.maxMembers, 
-      creator_id: userIdNum, total_income: 0, require_approval: clanData.requireApproval
+    const { data, error } = await supabase.from('clans').insert({ 
+      name: clanData.name, 
+      emoji: clanData.emoji, 
+      description: clanData.description,
+      min_level: clanData.minLevel, 
+      max_members: clanData.maxMembers, 
+      creator_id: userIdNum, 
+      total_income: 0, 
+      require_approval: clanData.requireApproval
     }).select().single();
+    
+    if (error) {
+      console.error('Clan creation error:', error);
+      return alert('Ошибка при создании клана: ' + error.message);
+    }
+    
     if (data) {
       await supabase.from('clan_members').insert({ clan_id: data.id, user_id: userIdNum, role: 4 });
-      setShowCreateClan(false); fetchClanData();
+      setShowCreateClan(false); 
+      fetchClanData();
     }
   };
 
   const handleUpdateClan = async (clanData: any) => {
     if (!myClan) return;
     await supabase.from('clans').update({ 
-      name: clanData.name, description: clanData.description,
-      min_level: clanData.minLevel, max_members: clanData.maxMembers,
+      name: clanData.name, 
+      description: clanData.description,
+      min_level: clanData.minLevel, 
+      max_members: clanData.maxMembers,
       require_approval: clanData.requireApproval
     }).eq('id', myClan.id);
-    setShowClanSettings(false); fetchClanData();
+    setShowClanSettings(false); 
+    fetchClanData();
   };
 
   const handleAppResponse = async (appId: number, accept: boolean) => {
@@ -335,15 +350,49 @@ function App() {
 
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
-    const { data } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10);
-    const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
-    setFriendSearchResults(enriched);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests')
+        .ilike('nickname', `%${query}%`)
+        .neq('id', userIdNum)
+        .limit(10);
+      
+      if (error) throw error;
+      const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
+      setFriendSearchResults(enriched);
+    } catch (err) {
+      console.error('Friend search error:', err);
+      setFriendSearchResults([]);
+    }
   };
 
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
-    const { data } = await supabase.from('clans').select('*, count(clan_members.user_id).as.members_count').ilike('name', `%${query}%`).limit(10);
-    setClanSearchResults(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('clans')
+        .select('*')
+        .ilike('name', `%${query}%`)
+        .limit(10);
+      
+      if (error) throw error;
+      
+      // Получаем количество участников для каждого клана
+      const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
+        const { count } = await supabase
+          .from('clan_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('clan_id', clan.id);
+        
+        return { ...clan, members_count: count || 0 };
+      }));
+      
+      setClanSearchResults(clansWithCount);
+    } catch (err) {
+      console.error('Clan search error:', err);
+      setClanSearchResults([]);
+    }
   };
 
   const openProfile = (user: any) => { 
@@ -376,8 +425,9 @@ function App() {
         </div>
 
         <div style={styles.center}>
-          <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
           <GPU tier={tier} isMining={totalIncome > 0} />
+          {/* Перенесли доход под GPU */}
+          <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
         </div>
         
         {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
@@ -649,8 +699,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
   leftButtons: { position: 'absolute', left: 16, top: 110, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 100 },
   leftBtn: { width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
-  center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center' },
-  incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginBottom: 16 },
+  center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginTop: 16 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
   bottomSection: { flex: 1 },
   currencyBtn: { background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--text-primary)' },
