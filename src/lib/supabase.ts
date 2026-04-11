@@ -7,3 +7,4 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 // ⚠️ Эта строка обязательна! Она делает переменную доступной для App.tsx
 export const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('✅ Supabase initialized');
