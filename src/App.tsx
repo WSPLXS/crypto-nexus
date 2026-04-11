@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -51,6 +51,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   
   const [showClan, setShowClan] = useState(false);
+  const [showClanHub, setShowClanHub] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -60,6 +61,7 @@ function App() {
   const [showRankManager, setShowRankManager] = useState(false);
   const [showFindClan, setShowFindClan] = useState(false);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
+  
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
   const [clanSearchQuery, setClanSearchQuery] = useState('');
@@ -73,7 +75,6 @@ function App() {
   const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
-  const [disableRequests, setDisableRequests] = useState(false);
 
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
   const { level, progress, tier } = getLevelInfo(maxBalance);
@@ -82,9 +83,9 @@ function App() {
 
   const saveNicknameToDB = async () => {
     try {
-      const { data } = await supabase.from('users').select('nickname, disable_requests').eq('id', userIdNum).single();
-      if (!data?.nickname || data.nickname !== currentNickname || data.disable_requests !== disableRequests) {
-        await supabase.from('users').upsert({ id: userIdNum, nickname: currentNickname, disable_requests: disableRequests }, { onConflict: 'id' });
+      const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single();
+      if (!data?.nickname || data.nickname !== currentNickname) {
+        await supabase.from('users').upsert({ id: userIdNum, nickname: currentNickname }, { onConflict: 'id' });
       }
     } catch {}
   };
@@ -96,8 +97,7 @@ function App() {
         id: userIdNum, nickname: currentNickname, balance, max_balance: maxBalance,
         owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
         selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
-        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven,
-        disable_requests: disableRequests
+        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven
       }, { onConflict: 'id' });
     } catch {}
   };
@@ -144,15 +144,8 @@ function App() {
         setMyClan({ ...clan, total_income: totalInc });
         setClanMembers(enrichedMembers);
         setMyClanRole(member.role);
-
-        if (member.role === 4) {
-          const { data: apps } = await supabase.from('clan_applications').select('id, user_id, status').eq('clan_id', clan.id).eq('status', 'pending');
-          const enrichedApps = await Promise.all((apps || []).map(async (a: any) => {
-            const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
-            return { ...a, ...u, incomePerMin: calculateIncome(u) };
-          }));
-          setClanApplications(enrichedApps);
-        }
+      } else {
+        setMyClan(null); setClanMembers([]); setMyClanRole(0);
       }
     } else {
       setMyClan(null);
@@ -170,7 +163,7 @@ function App() {
     const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
     const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
     const friendsData = await Promise.all(friendIds.map(async (id: number) => {
-      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, disable_requests').eq('id', id).single();
+      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
       return { ...u, incomePerMin: calculateIncome(u) };
     }));
     setFriends(friendsData);
@@ -198,7 +191,6 @@ function App() {
           setOwnedCurrencies(data.owned_currencies || []); setPriceMultipliers(data.price_multipliers || {});
           setSelectedCurrencyId(data.selected_currency || 'btc'); setTotalSpent(data.total_spent || 0);
           setReferrerId(data.referrer_id || null); setReferralBonusGiven(data.referral_bonus_awarded || false);
-          setDisableRequests(data.disable_requests || false);
           if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
@@ -220,8 +212,8 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, disableRequests]);
-  useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, disableRequests]);
+  useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
+  useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
 
   useEffect(() => {
@@ -259,6 +251,12 @@ function App() {
   };
 
   const handleCreateClan = async (clanData: any) => {
+    if (myClan) {
+      alert('Вы уже находитесь в клане!');
+      setShowCreateClan(false);
+      return;
+    }
+
     if (balance < 100000) return alert('Нужно $100,000!');
     setBalance(p => p - 100000);
     const { data, error } = await supabase.from('clans').insert({ 
@@ -280,6 +278,7 @@ function App() {
     if (data) {
       await supabase.from('clan_members').insert({ clan_id: data.id, user_id: userIdNum, role: 4 });
       setShowCreateClan(false); 
+      setShowClanHub(false);
       fetchClanData();
     }
   };
@@ -320,8 +319,6 @@ function App() {
   };
 
   const handleAddFriend = async (targetId: number) => {
-    const { data: targetUser } = await supabase.from('users').select('disable_requests').eq('id', targetId).single();
-    if (targetUser?.disable_requests) return alert('Игрок запретил заявки');
     await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' });
     alert('Заявка отправлена!'); setShowProfile(false); setShowFriendSearch(false);
   };
@@ -337,26 +334,30 @@ function App() {
   };
 
   const handleJoinClan = async (clanId: number) => {
+    if (myClan) {
+        alert('Вы уже находитесь в клане!');
+        return;
+    }
+
     const clan = clanSearchResults.find(c => c.id === clanId);
     if (!clan) return;
-    const { data: myData } = await supabase.from('users').select('disable_requests').eq('id', userIdNum).single();
-    if (myData?.disable_requests) return alert('Вы запретили заявки');
+    
     if (clan.members_count >= clan.max_members) return alert('В клане нет мест');
     if (level < clan.min_level) return alert('Ваш уровень слишком мал');
+    
     await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: clan.require_approval ? 'pending' : 'accepted' });
     alert(clan.require_approval ? 'Заявка отправлена!' : 'Вы вступили в клан!');
     setShowFindClan(false); if (!clan.require_approval) fetchClanData();
   };
 
-  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК ДРУЗЕЙ
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
     console.log('🔍 Search friends for:', query);
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests')
-        .ilike('nickname', `%${query}%`) // Ищет частичное совпадение
+        .select('id, nickname, owned_currencies, max_balance, custom_avatar_url')
+        .ilike('nickname', `%${query}%`)
         .neq('id', userIdNum)
         .limit(10);
       
@@ -371,7 +372,6 @@ function App() {
     }
   };
 
-  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК КЛАНОВ
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
     console.log('🔍 Search clans for:', query);
@@ -379,13 +379,12 @@ function App() {
       const { data, error } = await supabase
         .from('clans')
         .select('*')
-        .ilike('name', `%${query}%`) // Ищет частичное совпадение
+        .ilike('name', `%${query}%`)
         .limit(10);
       
       if (error) throw error;
       console.log('✅ Search clans result:', data);
       
-      // Получаем количество участников для каждого клана
       const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
         const { count } = await supabase
           .from('clan_members')
@@ -409,6 +408,74 @@ function App() {
 
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
+  const renderClanMenu = () => {
+    if (myClan && !showClanHub) {
+      return (
+        <>
+          <div style={styles.clanHeader}>
+            <div style={styles.clanAvatar}>{myClan.emoji}</div>
+            <div style={{flex:1}}>
+              <h3 style={{...styles.clanName, fontSize: getFontSize(myClan.name)}}>{myClan.name}</h3>
+              <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
+            </div>
+            {myClanRole === 4 && (
+              <div style={{display:'flex', gap:8}}>
+                <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
+                <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
+                <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
+                  <MessageCircle size={18} />
+                  {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
+                </button>
+              </div>
+            )}
+          </div>
+          <div style={styles.memberList}>
+            {clanMembers.sort((a,b) => b.role - a.role).map(m => (
+              <div key={m.user_id} style={styles.memberItem} onClick={() => openProfile(m)}>
+                <div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={styles.memberName}>{m.nickname}</div>
+                  <div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div>
+                </div>
+                <div style={styles.memberIncome}>+${m.incomePerMin.toFixed(0)}/м</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop: 16}}>
+             <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}>
+               <ArrowLeft size={16} style={{marginRight: 8}}/> Назад
+             </button>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <h2 style={styles.modalTitle}>Кланы</h2>
+        {myClan && <p style={{color: '#ef4444', textAlign: 'center', marginBottom: 12, fontSize: 13}}>Вы уже в клане "{myClan.name}"</p>}
+        
+        <button onClick={() => {
+            if (myClan) {
+                alert('Вы уже находитесь в клане!');
+            } else {
+                setShowCreateClan(true);
+            }
+        }} style={styles.btnPrimary}>
+            Создать клан ($100,000)
+        </button>
+        
+        <button onClick={() => setShowFindClan(true)} style={styles.btnSecondary}>Найти клан</button>
+
+        {myClan && (
+            <button onClick={() => setShowClanHub(false)} style={{...styles.btnSecondary, marginTop: 12, width: '100%'}}>
+                Вернуться в мой клан
+            </button>
+        )}
+      </>
+    );
+  };
+
   if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
 
@@ -422,7 +489,7 @@ function App() {
             <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
             <div style={styles.userInfo}><span style={styles.nickname}>{currentNickname} <span style={styles.levelBadge}>Lvl {level}</span></span><div style={styles.balances}><span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span></div></div>
           </div>
-          <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => setShowClan(true)} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
+          <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
         </div>
         
         <div style={styles.leftButtons}>
@@ -433,7 +500,6 @@ function App() {
 
         <div style={styles.center}>
           <GPU tier={tier} isMining={totalIncome > 0} />
-          {/* Перенесли доход под GPU */}
           <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
         </div>
         
@@ -445,7 +511,7 @@ function App() {
           <div style={styles.bottomSection}></div>
         </div>
 
-        <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} disableRequests={disableRequests} onDisableRequestsChange={setDisableRequests} />
+        <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
         <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
@@ -475,45 +541,7 @@ function App() {
           <div style={styles.overlay} onClick={() => setShowClan(false)}>
             <div style={styles.modal} onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
-              {!myClan ? (
-                <>
-                  <h2 style={styles.modalTitle}>Кланы</h2>
-                  <button onClick={() => setShowCreateClan(true)} style={styles.btnPrimary}>Создать клан ($100,000)</button>
-                  <button onClick={() => setShowFindClan(true)} style={styles.btnSecondary}>Найти клан</button>
-                </>
-              ) : (
-                <>
-                  <div style={styles.clanHeader}>
-                    <div style={styles.clanAvatar}>{myClan.emoji}</div>
-                    <div style={{flex:1}}>
-                      <h3 style={{...styles.clanName, fontSize: getFontSize(myClan.name)}}>{myClan.name}</h3>
-                      <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
-                    </div>
-                    {myClanRole === 4 && (
-                      <div style={{display:'flex', gap:8}}>
-                        <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
-                        <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
-                        <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
-                          <MessageCircle size={18} />
-                          {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div style={styles.memberList}>
-                    {clanMembers.sort((a,b) => b.role - a.role).map(m => (
-                      <div key={m.user_id} style={styles.memberItem} onClick={() => openProfile(m)}>
-                        <div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div>
-                        <div style={{flex:1}}>
-                          <div style={styles.memberName}>{m.nickname}</div>
-                          <div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div>
-                        </div>
-                        <div style={styles.memberIncome}>+${m.incomePerMin.toFixed(0)}/м</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+              {renderClanMenu()}
             </div>
           </div>
         )}
