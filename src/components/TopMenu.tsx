@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Users, Shield, Handshake, Search } from 'lucide-react';
+import { Settings, Users, Shield, Search } from 'lucide-react'; // <-- Handshake УБРАН
 
 interface TopMenuProps {
   onSettingsClick: () => void;
