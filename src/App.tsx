@@ -39,7 +39,6 @@ function App() {
   const [earningsAmount, setEarningsAmount] = useState(0);
   const [isDark, setIsDark] = useState(true);
   
-  // 🔥 СОСТОЯНИЕ ДЛЯ ОФФЛАЙН-ДОХОДА
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
 
@@ -49,8 +48,7 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
-  // 🔧 ФУНКЦИЯ СОХРАНЕНИЯ (с last_login)
-    const saveProgress = async () => {
+  const saveProgress = async () => {
     if (isLoading) return;
     try {
       console.log('💾 Сохранение (ID:', userIdNum, ')...');
@@ -75,13 +73,12 @@ function App() {
     }
   };
 
-  // 🔧 ЗАГРУЗКА ДАННЫХ (с расчетом оффлайн-дохода)
   useEffect(() => {
     async function loadProgress() {
       try {
         console.log('📥 Загрузка для ID:', userIdNum);
         
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('*')
           .eq('id', userIdNum)
@@ -90,22 +87,18 @@ function App() {
         if (data) {
           console.log('📥 Данные загружены:', data);
           
-          // 🔥 РАСЧЕТ ОФФЛАЙН-ДОХОДА
           if (data.last_login && data.owned_currencies && data.owned_currencies.length > 0) {
             const lastLogin = new Date(data.last_login).getTime();
             const now = Date.now();
             const offlineSeconds = Math.floor((now - lastLogin) / 1000);
             
             if (offlineSeconds > 0) {
-              // Считаем доход в секунду из сохраненных данных
               const incomePerSecond = data.owned_currencies.reduce((total: number, owned: OwnedCurrency) => {
                 const c = currencies.find(cur => cur.id === owned.currencyId);
-                const multiplier = data.price_multipliers[owned.currencyId] || 1;
                 const globalMult = getGlobalMultiplier(getLevelInfo(data.max_balance || 100).tier);
                 return total + (c ? c.incomePerSecond * owned.amount * globalMult : 0);
               }, 0);
               
-              // 🔥 Оффлайн-доход = 20% от обычного (в 5 раз меньше)
               const offlineMultiplier = 0.2;
               const offlineEarnings = incomePerSecond * offlineSeconds * offlineMultiplier;
               
@@ -115,7 +108,6 @@ function App() {
                 setBalance((data.balance || 100) + offlineEarnings);
                 setShowOfflineEarnings(true);
                 
-                // Скрываем уведомление через 5 секунд
                 setTimeout(() => setShowOfflineEarnings(false), 5000);
               } else {
                 setBalance(data.balance || 100);
@@ -143,7 +135,6 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  // Автосохранение
   useEffect(() => {
     if (isLoading) return;
     const interval = setInterval(() => {
@@ -152,7 +143,6 @@ function App() {
     return () => clearInterval(interval);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
 
-  // Сохранение при закрытии
   useEffect(() => {
     if (isLoading) return;
     const handleVisibility = () => {
@@ -162,7 +152,6 @@ function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
 
-  // Инициализация
   useEffect(() => {
     try {
       if (WebApp && typeof WebApp.ready === 'function') {
@@ -183,7 +172,6 @@ function App() {
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
-  // Игровой цикл
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -289,7 +277,6 @@ function App() {
         </div>
       )}
       
-      {/* 🔥 УВЕДОМЛЕНИЕ ОБ ОФФЛАЙН-ДОХОДЕ */}
       {showOfflineEarnings && (
         <div style={styles.offlineNotification}>
           <div style={styles.offlineIcon}>💰</div>
@@ -352,7 +339,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
-  // 🔥 СТИЛИ ДЛЯ ОФФЛАЙН-УВЕДОМЛЕНИЯ
   offlineNotification: {
     position: 'fixed',
     top: '50%',
@@ -365,7 +351,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'center',
     zIndex: 3000,
     boxShadow: '0 20px 60px rgba(34, 197, 94, 0.3)',
-    animation: 'slideIn 0.5s ease-out',
     minWidth: 280
   },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
