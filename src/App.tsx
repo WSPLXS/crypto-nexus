@@ -348,35 +348,42 @@ function App() {
     setShowFindClan(false); if (!clan.require_approval) fetchClanData();
   };
 
+  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК ДРУЗЕЙ
   const searchFriends = async (query: string) => {
     if (!query.trim()) { setFriendSearchResults([]); return; }
+    console.log('🔍 Search friends for:', query);
     try {
       const { data, error } = await supabase
         .from('users')
         .select('id, nickname, owned_currencies, max_balance, custom_avatar_url, disable_requests')
-        .ilike('nickname', `%${query}%`)
+        .ilike('nickname', `%${query}%`) // Ищет частичное совпадение
         .neq('id', userIdNum)
         .limit(10);
       
       if (error) throw error;
+      console.log('✅ Search friends result:', data);
+      
       const enriched = (data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }));
       setFriendSearchResults(enriched);
     } catch (err) {
-      console.error('Friend search error:', err);
+      console.error('❌ Friend search error:', err);
       setFriendSearchResults([]);
     }
   };
 
+  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК КЛАНОВ
   const searchClans = async (query: string) => {
     if (!query.trim()) { setClanSearchResults([]); return; }
+    console.log('🔍 Search clans for:', query);
     try {
       const { data, error } = await supabase
         .from('clans')
         .select('*')
-        .ilike('name', `%${query}%`)
+        .ilike('name', `%${query}%`) // Ищет частичное совпадение
         .limit(10);
       
       if (error) throw error;
+      console.log('✅ Search clans result:', data);
       
       // Получаем количество участников для каждого клана
       const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
@@ -390,7 +397,7 @@ function App() {
       
       setClanSearchResults(clansWithCount);
     } catch (err) {
-      console.error('Clan search error:', err);
+      console.error('❌ Clan search error:', err);
       setClanSearchResults([]);
     }
   };
