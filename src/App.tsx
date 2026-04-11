@@ -13,20 +13,24 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // Безопасное получение ID пользователя
-  let userId = 'test-user-123';
+  // 🔧 1. БЕЗОПАСНОЕ ОПРЕДЕЛЕНИЕ ID (чтобы не было NaN)
+  let userIdNum = 123456; // Безопасный ID по умолчанию для тестов в браузере
+  
   try {
+    // Пытаемся достать ID из Телеграма
     if (WebApp && WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
-      userId = WebApp.initDataUnsafe.user.id.toString();
+      const rawId = WebApp.initDataUnsafe.user.id;
+      if (rawId && !isNaN(Number(rawId))) {
+        userIdNum = Number(rawId);
+      }
     }
   } catch (e) {
-    console.warn('Telegram SDK не инициализирован, используем тестовый ID');
+    console.warn('Не удалось получить Telegram ID');
   }
-  
-  // 🔧 Приводим ID к числу (для соответствия с int8 в базе)
-  const userIdNum = Number(userId);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // 🔧 2. АВТОРИЗАЦИЯ (показываем меню, если нет ника в памяти)
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
+  
   const [isLoading, setIsLoading] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -44,41 +48,70 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
-  // 🔧 ФУНКЦИЯ ПРИНУДИТЕЛЬНОГО СОХРАНЕНИЯ
-  const saveProgress = async () => {
+  // 🔧 3. ФУНКЦИЯ СОХРАНЕНИЯ (ИСПРАВЛЕННАЯ: убран updated_at)
+   const saveProgress = async () => {
     if (isLoading) return;
     try {
-      console.log('💾 Сохранение прогресса...');
-      const { error } = await supabase
+      console.log('💾 Сохранение (ID:', userIdNum, ')...');
+      
+      // Сначала пробуем найти существующую запись
+      const { data: existing } = await supabase
         .from('users')
-        .upsert({
-          id: userIdNum,
-          balance,
-          max_balance: maxBalance,
-          owned_currencies: ownedCurrencies,
-          price_multipliers: priceMultipliers,
-          selected_currency: selectedCurrencyId,
-          updated_at: new Date().toISOString()
-        });
+        .select('id')
+        .eq('id', userIdNum)
+        .single();
+
+      let error;
+      
+      if (existing) {
+        // Если есть — обновляем
+        const result = await supabase
+          .from('users')
+          .update({
+            balance,
+            max_balance: maxBalance,
+            owned_currencies: ownedCurrencies,
+            price_multipliers: priceMultipliers,
+            selected_currency: selectedCurrencyId
+          })
+          .eq('id', userIdNum);
+        error = result.error;
+      } else {
+        // Если нет — создаём новую
+        const result = await supabase
+          .from('users')
+          .insert({
+            id: userIdNum,
+            balance,
+            max_balance: maxBalance,
+            owned_currencies: ownedCurrencies,
+            price_multipliers: priceMultipliers,
+            selected_currency: selectedCurrencyId
+          });
+        error = result.error;
+      }
+
       if (error) throw error;
-      console.log('✅ Успешно сохранено!');
+      console.log('✅ Сохранено успешно!');
     } catch (err) {
       console.error('❌ Ошибка сохранения:', err);
     }
   };
 
-  // 🔧 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ
+  // 🔧 4. ЗАГРУЗКА ДАННЫХ
   useEffect(() => {
     async function loadProgress() {
       try {
-        const { data } = await supabase
+        console.log('📥 Загрузка для ID:', userIdNum);
+        
+        const { data, } = await supabase
           .from('users')
           .select('*')
           .eq('id', userIdNum)
           .single();
 
         if (data) {
-          console.log('📥 Загружено из базы:', data);
+          console.log('📥 Данные загружены:', data);
           setBalance(data.balance || 100);
           setMaxBalance(data.max_balance || 100);
           setOwnedCurrencies(data.owned_currencies || []);
@@ -96,65 +129,33 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  // 🔧 АВТОСОХРАНЕНИЕ КАЖДЫЕ 15 СЕКУНД (не сбрасывается!)
+  // 🔧 5. АВТОСОХРАНЕНИЕ КАЖДЫЕ 15 СЕКУНД
   useEffect(() => {
     if (isLoading) return;
-    
-    const intervalId = setInterval(() => {
+    const interval = setInterval(() => {
       saveProgress();
     }, 15000);
-
-    return () => clearInterval(intervalId);
-  }, [isLoading]);
-
-  // 🔧 СОХРАНЕНИЕ ПРИ СВОРАЧИВАНИИ/ЗАКРЫТИИ
-  useEffect(() => {
-    if (isLoading) return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('📱 Игра ушла в фон -> Сохраняем!');
-        saveProgress();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      console.log('🚪 Закрытие вкладки -> Сохраняем!');
-      saveProgress();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    if (WebApp && WebApp.onEvent) {
-      WebApp.onEvent('viewportChanged', () => {
-        saveProgress();
-      });
-    }
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => clearInterval(interval);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
 
-  // Инициализация Telegram
+  // 🔧 6. СОХРАНЕНИЕ ПРИ ЗАКРЫТИИ
+  useEffect(() => {
+    if (isLoading) return;
+    const handleVisibility = () => {
+      if (document.hidden) saveProgress();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
+
+  // Инициализация
   useEffect(() => {
     try {
       if (WebApp && typeof WebApp.ready === 'function') {
         WebApp.ready();
         WebApp.expand();
-        const tgUser = WebApp.initDataUnsafe?.user;
-        if (tgUser) setIsAuthenticated(true);
       }
-    } catch (e) {
-      console.warn('Telegram SDK не доступен');
-    }
-    
-    if (!WebApp?.initDataUnsafe?.user) {
-      setTimeout(() => setIsAuthenticated(true), 1000);
-    }
-    
+    } catch (e) {}
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
@@ -168,7 +169,6 @@ function App() {
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
-  // Игровой цикл
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -178,7 +178,6 @@ function App() {
           setMaxBalance((max: number) => Math.max(max, newBal));
           return newBal;
         });
-        
         if (!showEarnings) { 
           setEarningsAmount(totalIncome); 
           setShowEarnings(true); 
@@ -192,6 +191,7 @@ function App() {
     localStorage.setItem('cryptoNexus_nickname', nickname);
     setIsAuthenticated(true);
     setShowTutorial(true);
+    setTimeout(() => saveProgress(), 500);
   };
 
   const handleBuy = (currencyId: string, amount: number) => {
@@ -220,29 +220,11 @@ function App() {
       if (!ownedCurrencies.find(c => c.currencyId === currencyId)) {
         setSelectedCurrencyId(currencyId);
       }
-
-      // ✅ МГНОВЕННОЕ СОХРАНЕНИЕ ПОСЛЕ ПОКУПКИ
       setTimeout(() => saveProgress(), 100);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div style={{
-        width: '100vw',
-        height: '100vh',
-        background: 'var(--bg-primary)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        fontSize: 20
-      }}>
-        Загрузка сохранения...
-      </div>
-    );
-  }
-
+  if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
 
   const selectedCurrency = currencies.find(c => c.id === selectedCurrencyId);
@@ -312,7 +294,7 @@ function App() {
         <div style={styles.tutorialOverlay}>
           <div style={styles.tutorialModal}>
             <h2 style={styles.tutorialTitle}>🎮 Обучение</h2>
-            <p style={styles.tutorialText}>Добро пожаловать! У тебя $100 на старте. Купи первую монету, чтобы запустить доход. Цены растут после каждой покупки, но множитель от GPU ускоряет всё!</p>
+            <p style={styles.tutorialText}>Добро пожаловать! У тебя $100 на старте. Купи первую монету, чтобы запустить доход.</p>
             <button onClick={() => { setShowTutorial(false); setShowShop(true); }} style={styles.tutorialBtn}>В магазин!</button>
           </div>
         </div>
