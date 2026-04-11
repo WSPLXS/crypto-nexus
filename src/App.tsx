@@ -7,6 +7,7 @@ import { Settings } from './components/Settings';
 import { Shop } from './components/Shop';
 import { CurrencySelector } from './components/CurrencySelector';
 import { Search } from './components/Search';
+import { Referral } from './components/Referral';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
@@ -18,28 +19,24 @@ function App() {
   try {
     if (WebApp && WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
       const rawId = WebApp.initDataUnsafe.user.id;
-      if (rawId && !isNaN(Number(rawId))) {
-        userIdNum = Number(rawId);
-      }
+      if (rawId && !isNaN(Number(rawId))) userIdNum = Number(rawId);
     }
   } catch (e) {
     console.warn('Не удалось получить Telegram ID');
   }
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
-  
   const [isLoading, setIsLoading] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showReferral, setShowReferral] = useState(false);
   
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsAmount, setEarningsAmount] = useState(0);
   const [isDark, setIsDark] = useState(true);
-  
-  // 🔥 СОСТОЯНИЕ ДЛЯ ОФФЛАЙН-ДОХОДА
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
 
@@ -48,27 +45,27 @@ function App() {
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
+  
+  // 🔥 РЕФЕРАЛЬНЫЕ СОСТОЯНИЯ
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [referralBonusGiven, setReferralBonusGiven] = useState(false);
+  const [referrerId, setReferrerId] = useState<number | null>(null);
 
   const saveProgress = async () => {
     if (isLoading) return;
     try {
-      console.log('💾 Сохранение (ID:', userIdNum, ')...');
-      
-      await supabase
-        .from('users')
-        .upsert({
-          id: userIdNum,
-          balance,
-          max_balance: maxBalance,
-          owned_currencies: ownedCurrencies,
-          price_multipliers: priceMultipliers,
-          selected_currency: selectedCurrencyId,
-          last_login: new Date().toISOString()
-        }, {
-          onConflict: 'id'
-        });
-
-      console.log('✅ Сохранено успешно!');
+      await supabase.from('users').upsert({
+        id: userIdNum,
+        balance,
+        max_balance: maxBalance,
+        owned_currencies: ownedCurrencies,
+        price_multipliers: priceMultipliers,
+        selected_currency: selectedCurrencyId,
+        last_login: new Date().toISOString(),
+        total_spent: totalSpent,
+        referrer_id: referrerId,
+        referral_bonus_awarded: referralBonusGiven
+      }, { onConflict: 'id' });
     } catch (err) {
       console.error('❌ Ошибка сохранения:', err);
     }
@@ -77,57 +74,35 @@ function App() {
   useEffect(() => {
     async function loadProgress() {
       try {
-        console.log('📥 Загрузка для ID:', userIdNum);
-        
-        const { data } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userIdNum)
-          .single();
-
+        const { data } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (data) {
-          console.log('📥 Данные загружены:', data);
-          
-          if (data.last_login && data.owned_currencies && data.owned_currencies.length > 0) {
-            const lastLogin = new Date(data.last_login).getTime();
-            const now = Date.now();
-            const offlineSeconds = Math.floor((now - lastLogin) / 1000);
-            
-            if (offlineSeconds > 0) {
-              const incomePerSecond = data.owned_currencies.reduce((total: number, owned: OwnedCurrency) => {
-                const c = currencies.find(cur => cur.id === owned.currencyId);
-                const globalMult = getGlobalMultiplier(getLevelInfo(data.max_balance || 100).tier);
-                return total + (c ? c.incomePerSecond * owned.amount * globalMult : 0);
-              }, 0);
-              
-              const offlineMultiplier = 0.2;
-              const offlineEarnings = incomePerSecond * offlineSeconds * offlineMultiplier;
-              
-              if (offlineEarnings > 0) {
-                console.log(`💰 Оффлайн-доход: $${offlineEarnings.toFixed(2)} за ${offlineSeconds} сек`);
-                setOfflineAmount(offlineEarnings);
-                // Начисляем к балансу
-                setBalance((data.balance || 100) + offlineEarnings);
-                setShowOfflineEarnings(true); // Показываем окно
-                
-                // Скрываем через 5 секунд
-                setTimeout(() => setShowOfflineEarnings(false), 5000);
-              } else {
-                setBalance(data.balance || 100);
-              }
-            } else {
-              setBalance(data.balance || 100);
-            }
-          } else {
-            setBalance(data.balance || 100);
-          }
-          
+          setBalance(data.balance || 100);
           setMaxBalance(data.max_balance || 100);
           setOwnedCurrencies(data.owned_currencies || []);
           setPriceMultipliers(data.price_multipliers || {});
           setSelectedCurrencyId(data.selected_currency || 'btc');
-        } else {
-          console.log('🆕 Новый пользователь');
+          setTotalSpent(data.total_spent || 0);
+          setReferrerId(data.referrer_id || null);
+          setReferralBonusGiven(data.referral_bonus_awarded || false);
+
+          // Оффлайн доход
+          if (data.last_login && data.owned_currencies?.length > 0) {
+            const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
+            if (diff > 0) {
+              const incomeSec = data.owned_currencies.reduce((t: number, o: OwnedCurrency) => {
+                const c = currencies.find(cur => cur.id === o.currencyId);
+                const g = getGlobalMultiplier(getLevelInfo(data.max_balance || 100).tier);
+                return t + (c ? c.incomePerSecond * o.amount * g : 0);
+              }, 0);
+              const offEarn = incomeSec * diff * 0.2;
+              if (offEarn > 0) {
+                setOfflineAmount(offEarn);
+                setBalance(prev => prev + offEarn);
+                setShowOfflineEarnings(true);
+                setTimeout(() => setShowOfflineEarnings(false), 5000);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('❌ Ошибка загрузки:', err);
@@ -140,27 +115,20 @@ function App() {
 
   useEffect(() => {
     if (isLoading) return;
-    const interval = setInterval(() => {
-      saveProgress();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
+    const i = setInterval(saveProgress, 15000);
+    return () => clearInterval(i);
+  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, referrerId, referralBonusGiven]);
 
   useEffect(() => {
     if (isLoading) return;
-    const handleVisibility = () => {
-      if (document.hidden) saveProgress();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId]);
+    const h = () => document.hidden && saveProgress();
+    document.addEventListener('visibilitychange', h);
+    return () => document.removeEventListener('visibilitychange', h);
+  }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
 
   useEffect(() => {
     try {
-      if (WebApp && typeof WebApp.ready === 'function') {
-        WebApp.ready();
-        WebApp.expand();
-      }
+      if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); }
     } catch (e) {}
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
@@ -169,63 +137,69 @@ function App() {
   const globalMultiplier = getGlobalMultiplier(tier);
 
   const totalIncome = useMemo(() => {
-    return ownedCurrencies.reduce((total, owned) => {
-      const c = currencies.find(cur => cur.id === owned.currencyId);
-      return total + (c ? c.incomePerSecond * owned.amount * globalMultiplier : 0);
+    return ownedCurrencies.reduce((t, o) => {
+      const c = currencies.find(cur => cur.id === o.currencyId);
+      return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0);
     }, 0);
   }, [ownedCurrencies, globalMultiplier]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
-    const interval = setInterval(() => {
+    const i = setInterval(() => {
       if (totalIncome > 0) {
-        setBalance((prev: number) => {
-          const newBal = prev + totalIncome;
-          setMaxBalance((max: number) => Math.max(max, newBal));
-          return newBal;
+        setBalance(p => {
+          const n = p + totalIncome;
+          setMaxBalance(m => Math.max(m, n));
+          return n;
         });
-        if (!showEarnings) { 
-          setEarningsAmount(totalIncome); 
-          setShowEarnings(true); 
-        }
+        if (!showEarnings) { setEarningsAmount(totalIncome); setShowEarnings(true); }
       }
     }, 1000);
-    return () => clearInterval(interval);
+    return () => clearInterval(i);
   }, [isAuthenticated, totalIncome, showEarnings, isLoading]);
 
-  const handleAuthComplete = (nickname: string) => {
+  const handleAuthComplete = (nickname: string, refId?: number | null) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
+    if (refId && refId !== userIdNum) setReferrerId(refId);
     setIsAuthenticated(true);
     setShowTutorial(true);
     setTimeout(() => saveProgress(), 500);
   };
 
   const handleBuy = (currencyId: string, amount: number) => {
-    const baseCurrency = currencies.find(c => c.id === currencyId);
-    if (!baseCurrency) return;
-    
-    const currentMult = priceMultipliers[currencyId] || 1;
-    const currentPrice = baseCurrency.price * currentMult;
-    const totalPrice = currentPrice * amount;
+    const base = currencies.find(c => c.id === currencyId);
+    if (!base) return;
+    const mult = priceMultipliers[currencyId] || 1;
+    const price = base.price * mult * amount;
 
-    if (balance >= totalPrice) {
-      setBalance((prev: number) => prev - totalPrice);
+    if (balance >= price) {
+      setBalance(p => p - price);
+      setTotalSpent(p => p + price); // 🔥 Трекаем траты
       
-      setOwnedCurrencies((prev: OwnedCurrency[]) => {
-        const existing = prev.find(c => c.currencyId === currencyId);
-        return existing 
-          ? prev.map(c => c.currencyId === currencyId ? { ...c, amount: c.amount + amount } : c) 
-          : [...prev, { currencyId, amount }];
+      setOwnedCurrencies(prev => {
+        const ex = prev.find(c => c.currencyId === currencyId);
+        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}];
       });
+      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15}));
+      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId);
 
-      setPriceMultipliers((prev: Record<string, number>) => ({
-        ...prev,
-        [currencyId]: currentMult * 1.15
-      }));
-      
-      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) {
-        setSelectedCurrencyId(currencyId);
+      // 🔥 ПРОВЕРКА РЕФЕРАЛЬНОГО БОНУСА ($50)
+      const newTotal = totalSpent + price;
+      if (newTotal >= 50 && referrerId && !referralBonusGiven) {
+        setReferralBonusGiven(true);
+        // Начисляем бонус рефереру
+        supabase.from('users').update({
+          balance: supabase.rpc('increment_balance', { target_id: referrerId, amount: 1000 }) // Или просто upsert
+        }).eq('id', referrerId);
+        
+        // Простой апдейт баланса реферера (если rpc нет)
+        supabase.from('users').select('balance').eq('id', referrerId).single().then(({data}) => {
+          if(data) supabase.from('users').update({balance: (data.balance || 0) + 1000}).eq('id', referrerId);
+        });
+        
+        console.log('🎁 Реферальный бонус $1000 начислен!');
       }
+      
       setTimeout(() => saveProgress(), 100);
     }
   };
@@ -238,13 +212,10 @@ function App() {
 
   return (
     <>
-      {/* ИГРОВОЙ КОНТЕЙНЕР */}
       <div style={styles.container}>
         <div style={styles.levelBar}>
           <span style={styles.levelText}>Lvl {level}</span>
-          <div style={styles.progressTrack}>
-            <div style={{ ...styles.progressFill, width: `${progress}%` }}></div>
-          </div>
+          <div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div>
           <span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span>
         </div>
 
@@ -263,29 +234,31 @@ function App() {
               </div>
             </div>
           </div>
-          <TopMenu 
-            onSettingsClick={() => setShowSettings(true)} 
-            onClanClick={() => {}} 
-            onFriendsClick={() => {}} 
-            onShopClick={() => setShowShop(true)}
-            onSearchClick={() => setShowSearch(true)}
-          />
+          
+          {/* 🔥 КНОПКИ МЕНЮ (РЕФЕРАЛЫ СЛЕВА) */}
+          <div style={styles.menuRow}>
+            <button onClick={() => setShowReferral(true)} style={styles.menuBtn}>🤝</button>
+            <button onClick={() => setShowSettings(true)} style={styles.menuBtn}>⚙️</button>
+          </div>
         </div>
 
-        <div style={styles.center}>
-          <GPU tier={tier} isMining={totalIncome > 0} />
-        </div>
+        <div style={styles.center}><GPU tier={tier} isMining={totalIncome > 0} /></div>
 
-        {showEarnings && (
-          <div className="earnings-anim" style={{ position: 'fixed', top: '40%', left: '50%', fontSize: 20, fontWeight: 'bold', color: 'var(--success)', zIndex: 999 }}>
-            +${earningsAmount.toFixed(2)}/s
+        {showEarnings && <div className="earnings-anim" style={{ position: 'fixed', top: '40%', left: '50%', fontSize: 20, fontWeight: 'bold', color: 'var(--success)', zIndex: 999 }}>+${earningsAmount.toFixed(2)}/s</div>}
+        
+        {showOfflineEarnings && (
+          <div style={styles.offlineOverlay}>
+            <div style={styles.offlineModal}>
+              <div style={styles.offlineIcon}>💰</div>
+              <div style={styles.offlineTitle}>Пока тебя не было!</div>
+              <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
+              <div style={styles.offlineText}>Твои майнеры заработали</div>
+            </div>
           </div>
         )}
 
         <div style={styles.bottomBar}>
-          <div style={styles.bottomSection}>
-            <span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span>
-          </div>
+          <div style={styles.bottomSection}><span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span></div>
           <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}>
             <span style={styles.currencyName}>{selectedCurrency?.shortName || 'USD'}</span>
             <span style={styles.arrow}>▼</span>
@@ -297,6 +270,7 @@ function App() {
         <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <Search isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
+        <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
 
         {showTutorial && (
           <div style={styles.tutorialOverlay}>
@@ -308,18 +282,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {/* 🔥 УВЕДОМЛЕНИЕ ОБ ОФФЛАЙН-ДОХОДЕ (ВЫНЕСЕНО ЗА КОНТЕЙНЕР) */}
-      {showOfflineEarnings && (
-        <div style={styles.offlineOverlay}>
-          <div style={styles.offlineModal}>
-            <div style={styles.offlineIcon}>💰</div>
-            <div style={styles.offlineTitle}>Пока тебя не было!</div>
-            <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
-            <div style={styles.offlineText}>Твои майнеры заработали</div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -330,12 +292,14 @@ const styles: { [key: string]: React.CSSProperties } = {
   levelText: { fontSize: 12, fontWeight: '600', color: 'var(--text-secondary)' },
   progressTrack: { width: 140, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.5s ease' },
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100 },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
   userSection: { display: 'flex', alignItems: 'center', gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 'bold', color: 'white' },
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
+  menuRow: { display: 'flex', gap: 8 },
+  menuBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: '1px solid rgba(156,163,175,0.15)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
   bottomSection: { flex: 1 },
@@ -348,31 +312,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
-  
-  // 🔥 СТИЛИ ДЛЯ ОФФЛАЙН-УВЕДОМЛЕНИЯ (ЦЕНТР ЭКРАНА + ЗАТЕМНЕНИЕ)
-  offlineOverlay: {
-    position: 'fixed',
-    inset: 0, // Растягивается на весь экран
-    background: 'rgba(0, 0, 0, 0.85)', // Затемнение
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999, // Поверх всего
-    backdropFilter: 'blur(8px)' // Размытие фона
-  },
-  offlineModal: {
-    background: 'linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%)',
-    border: '2px solid #22c55e',
-    borderRadius: 24,
-    padding: '32px 24px',
-    textAlign: 'center',
-    boxShadow: '0 0 50px rgba(34, 197, 94, 0.4)',
-    minWidth: 280,
-    animation: 'popIn 0.3s ease-out'
-  },
+  offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
+  offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280 },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
-  offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74, 222, 128, 0.5)' },
+  offlineAmount: { fontSize: 36, fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)' },
   offlineText: { fontSize: 14, color: '#9ca3af' }
 };
 

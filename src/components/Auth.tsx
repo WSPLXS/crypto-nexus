@@ -1,71 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Gamepad2 } from 'lucide-react';
 
 interface AuthProps {
-  onComplete: (nickname: string) => void;
+  onComplete: (nickname: string, referrerId: number | null) => void;
 }
 
 export const Auth: React.FC<AuthProps> = ({ onComplete }) => {
   const [nickname, setNickname] = useState('');
-  const [error, setError] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
+  const [referrerId, setReferrerId] = useState<number | null>(null);
+
+  // 🔍 Проверяем, есть ли реферальная ссылка в адресе браузера
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    
+    if (ref && !isNaN(Number(ref))) {
+      setReferrerId(Number(ref));
+      console.log('🔗 Обнаружена реферальная ссылка от ID:', ref);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = nickname.trim();
-
-    if (trimmed.length < 3) {
-      setError('Ник должен быть не менее 3 символов');
-      return;
+    // Минимальная длина ника 2 символа
+    if (nickname.trim().length >= 2) {
+      onComplete(nickname.trim(), referrerId);
     }
-    if (trimmed.length > 20) {
-      setError('Ник должен быть не более 20 символов');
-      return;
-    }
-
-    localStorage.setItem('cryptoNexus_nickname', trimmed);
-    onComplete(trimmed);
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.logo}>
-          <div style={styles.logoIcon}>₿</div>
-          <h1 style={styles.title}>Crypto Nexus</h1>
+        <div style={styles.iconContainer}>
+          <Gamepad2 size={48} color="#22c55e" />
         </div>
-
-        <p style={styles.subtitle}>Введите ваш никнейм для начала</p>
+        
+        <h1 style={styles.title}>Crypto Nexus</h1>
+        <p style={styles.subtitle}>Введите ваш никнейм для старта</p>
+        
+        {referrerId && (
+          <div style={styles.referralBadge}>
+            🤝 Вас пригласил друг!
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={{
-            ...styles.inputWrapper,
-            borderColor: isFocused ? 'rgba(156, 163, 175, 0.4)' : 'rgba(156, 163, 175, 0.15)',
-            boxShadow: isFocused ? '0 0 0 3px rgba(156, 163, 175, 0.08)' : 'none'
-          }}>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => {
-                setNickname(e.target.value);
-                if (error) setError('');
-              }}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="Ваш ник..."
-              style={styles.input}
-              autoFocus
-            />
-          </div>
-
-          {error && <p style={styles.error}>{error}</p>}
-
-          <button
-            type="submit"
-            style={styles.button}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="Ваш никнейм..."
+            style={styles.input}
+            autoFocus
+            maxLength={15}
+          />
+          
+          <button 
+            type="submit" 
+            disabled={nickname.trim().length < 2}
+            style={{
+              ...styles.button,
+              opacity: nickname.trim().length < 2 ? 0.5 : 1,
+              cursor: nickname.trim().length < 2 ? 'not-allowed' : 'pointer'
+            }}
           >
-            Начать игру
+            НАЧАТЬ ИГРУ 🚀
           </button>
         </form>
       </div>
@@ -77,86 +76,76 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     width: '100vw',
     height: '100vh',
+    background: 'radial-gradient(circle at center, #1a1a1a 0%, #000000 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(145deg, #0a0a0a 0%, #111111 100%)',
-    padding: 20,
+    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif'
   },
   card: {
-    background: 'linear-gradient(145deg, #141414 0%, #0f0f0f 100%)',
-    borderRadius: 24,
+    background: '#141414',
     padding: 32,
-    width: '100%',
-    maxWidth: 380,
-    border: '1px solid rgba(156, 163, 175, 0.1)',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+    borderRadius: 24,
+    width: '85%',
+    maxWidth: 360,
     textAlign: 'center',
+    border: '1px solid rgba(156, 163, 175, 0.1)',
+    boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
   },
-  logo: {
-    marginBottom: 24,
-  },
-  logoIcon: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#e5e5e5',
-    marginBottom: 8,
-    textShadow: '0 0 20px rgba(229, 229, 229, 0.15)',
+  iconContainer: {
+    marginBottom: 16,
+    animation: 'bounce 2s infinite'
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#e5e5e5',
-    margin: 0,
-    letterSpacing: '-0.5px',
+    fontWeight: '800',
+    background: 'linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    marginBottom: 8,
+    marginTop: 0
   },
   subtitle: {
-    fontSize: 14,
     color: '#737373',
-    marginBottom: 28,
-    lineHeight: 1.5,
+    fontSize: 14,
+    marginBottom: 24
+  },
+  referralBadge: {
+    background: 'rgba(34, 197, 94, 0.1)',
+    color: '#22c55e',
+    padding: '8px 12px',
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 20,
+    border: '1px solid rgba(34, 197, 94, 0.2)'
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
-  },
-  inputWrapper: {
-    borderRadius: 14,
-    border: '1px solid rgba(156, 163, 175, 0.15)',
-    background: 'rgba(20, 20, 20, 0.6)',
-    transition: 'all 0.2s ease',
-    overflow: 'hidden',
+    gap: 12
   },
   input: {
     width: '100%',
     padding: '14px 16px',
-    background: 'transparent',
-    border: 'none',
-    color: '#e5e5e5',
+    borderRadius: 12,
+    border: '1px solid rgba(156, 163, 175, 0.2)',
+    background: '#0a0a0a',
+    color: 'white',
     fontSize: 16,
     outline: 'none',
-    fontFamily: 'inherit',
-  },
-  error: {
-    color: '#ef4444',
-    fontSize: 13,
-    margin: 0,
-    textAlign: 'left',
-    paddingLeft: 4,
+    boxSizing: 'border-box' // Важно для отступов
   },
   button: {
     width: '100%',
-    padding: '15px',
-    borderRadius: 14,
+    padding: '14px',
+    borderRadius: 12,
     border: 'none',
-    background: 'linear-gradient(145deg, #262626 0%, #171717 100%)',
-    color: '#e5e5e5',
+    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    color: 'white',
     fontSize: 16,
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+    fontWeight: 'bold',
     marginTop: 8,
-  },
+    transition: 'transform 0.1s'
+  }
 };
