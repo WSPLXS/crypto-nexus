@@ -15,7 +15,6 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // 🔧 ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ
   let userIdNum: number;
   
   try {
@@ -52,8 +51,12 @@ function App() {
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
 
-  // 🔥 АВТАРКА ИЗ TELEGRAM
+  // 🔥 АВАТАРКА
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  
+  // 🔥 НОВАЯ ЛОГИКА ПРЕДЛОЖЕНИЯ АВАТАРКИ
+  const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
+  const [showAvatarInstruction, setShowAvatarInstruction] = useState(false);
 
   const [balance, setBalance] = useState(100);
   const [maxBalance, setMaxBalance] = useState(100);
@@ -101,7 +104,6 @@ function App() {
 
           // 🔥 АВАТАРКА С ПРИОРИТЕТОМ
           if (data.custom_avatar_url) {
-            // Добавляем timestamp чтобы избежать кэширования
             const urlWithCache = `${data.custom_avatar_url}?t=${Date.now()}`;
             setAvatarUrl(urlWithCache);
             console.log('✅ Загружена кастомная аватарка:', urlWithCache);
@@ -141,6 +143,18 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
+  // 🔥 АВТОЗАКРЫТИЕ ИНСТРУКЦИИ ЧЕРЕЗ 30 СЕКУНД
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showAvatarInstruction) {
+      timer = setTimeout(() => {
+        setShowAvatarInstruction(false);
+        setShowTutorial(true);
+      }, 30000); // 30 секунд
+    }
+    return () => clearTimeout(timer);
+  }, [showAvatarInstruction]);
+
   useEffect(() => {
     if (isLoading) return;
     const i = setInterval(saveProgress, 15000);
@@ -154,7 +168,6 @@ function App() {
     return () => document.removeEventListener('visibilitychange', h);
   }, [isLoading, balance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
 
-  // 🔥 ИНИЦИАЛИЗАЦИЯ TELEGRAM
   useEffect(() => {
     try {
       if (WebApp?.ready) {
@@ -196,8 +209,21 @@ function App() {
     localStorage.setItem('cryptoNexus_nickname', nickname);
     if (refId && refId !== userIdNum) setReferrerId(refId);
     setIsAuthenticated(true);
-    setShowTutorial(true);
+    
+    // 🔥 СРАЗУ ПОКАЗЫВАЕМ ПРЕДЛОЖЕНИЕ АВАТАРКИ ВМЕСТО ТУТОРИАЛА
+    setShowAvatarPrompt(true);
     setTimeout(() => saveProgress(), 500);
+  };
+
+  // 🔥 ОБРАБОТЧИКИ КНОПОК
+  const handleAvatarYes = () => {
+    setShowAvatarPrompt(false);
+    setShowAvatarInstruction(true);
+  };
+
+  const handleAvatarNo = () => {
+    setShowAvatarPrompt(false);
+    setShowTutorial(true);
   };
 
   const handleBuy = (currencyId: string, amount: number) => {
@@ -247,7 +273,6 @@ function App() {
 
         <div style={styles.topBar}>
           <div style={styles.userSection}>
-            {/* 🔥 АВАТАРКА С ПОДДЕРЖКОЙ ФОТО */}
             <div style={styles.avatarWrapper}>
               {avatarUrl ? (
                 <img 
@@ -260,7 +285,6 @@ function App() {
                   }}
                 />
               ) : null}
-              {/* Показываем букву, если нет аватарки или она не загрузилась */}
               {!avatarUrl && (
                 <span style={styles.avatarText}>{nickname[0].toUpperCase()}</span>
               )}
@@ -324,12 +348,43 @@ function App() {
         <Search isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
 
+        {/* 🔥 ТУТОРИАЛ */}
         {showTutorial && (
           <div style={styles.tutorialOverlay}>
             <div style={styles.tutorialModal}>
               <h2 style={styles.tutorialTitle}>🎮 Обучение</h2>
               <p style={styles.tutorialText}>Добро пожаловать! У тебя $100 на старте. Купи первую монету, чтобы запустить доход.</p>
               <button onClick={() => { setShowTutorial(false); setShowShop(true); }} style={styles.tutorialBtn}>В магазин!</button>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 ПРЕДЛОЖЕНИЕ АВАТАРКИ */}
+        {showAvatarPrompt && (
+          <div style={styles.overlay}>
+            <div style={styles.modal}>
+              <h3 style={styles.modalTitle}>Хочешь поставить свою аватарку? (БЕТА)</h3>
+              <div style={styles.btnRow}>
+                <button onClick={handleAvatarYes} style={styles.btnYes}>Да</button>
+                <button onClick={handleAvatarNo} style={styles.btnNo}>Нет</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 ИНСТРУКЦИЯ ПО УСТАНОВКЕ */}
+        {showAvatarInstruction && (
+          <div style={styles.overlay}>
+            <div style={styles.modal}>
+              <h3 style={styles.modalTitle}>Установка аватарки</h3>
+              <p style={styles.modalText}>
+                Перейди в бота <b>@NexusGameAvatar_bot</b> и отправь ему любое фото.
+                <br/>Бот автоматически обновит твою аватарку в игре.
+              </p>
+              <a href="https://t.me/NexusGameAvatar_bot" target="_blank" rel="noopener noreferrer" style={styles.botLink}>
+                Открыть бота 🤖
+              </a>
+              <p style={styles.modalHint}>⏳ Окно закроется автоматически через 30 сек...</p>
             </div>
           </div>
         )}
@@ -347,59 +402,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' },
   userSection: { display: 'flex', alignItems: 'center', gap: 12, pointerEvents: 'auto' },
   
-  avatarWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: '50%',
-    overflow: 'hidden',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--accent)',
-    flexShrink: 0,
-    border: '2px solid rgba(255,255,255,0.1)'
-  },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white'
-  },
+  avatarWrapper: { width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' },
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
 
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
   
-  rightMenuContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    alignItems: 'center',
-    pointerEvents: 'auto'
-  },
+  rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
   
-  referralBtn: { 
-    position: 'absolute', 
-    left: 16, 
-    top: 110, 
-    width: 44, 
-    height: 44, 
-    borderRadius: 12, 
-    background: 'rgba(38,38,38,0.4)', 
-    backdropFilter: 'blur(12px)', 
-    border: '1px solid rgba(156,163,175,0.15)', 
-    cursor: 'pointer', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    zIndex: 100, 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    transition: 'transform 0.1s'
-  },
+  referralBtn: { position: 'absolute', left: 16, top: 110, width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
   
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
@@ -408,11 +421,26 @@ const styles: { [key: string]: React.CSSProperties } = {
   currencyBtn: { background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--text-primary)' },
   currencyName: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)' },
   arrow: { fontSize: 10, color: 'var(--text-secondary)' },
+  
+  // ОБЩИЕ СТИЛИ ОВЕРЛЕЕВ
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
+  modal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 24, maxWidth: '90%', width: 320, textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 16, margin: '0 0 16px 0' },
+  modalText: { fontSize: 14, color: '#a3a3a3', lineHeight: 1.5, marginBottom: 16 },
+  modalHint: { fontSize: 12, color: '#525252', marginTop: 12, fontStyle: 'italic' },
+  
+  btnRow: { display: 'flex', gap: 12, justifyContent: 'center' },
+  btnYes: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
+  btnNo: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer' },
+  botLink: { display: 'inline-block', padding: '12px 20px', borderRadius: 12, background: '#2563eb', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: 14, marginTop: 8 },
+
+  // СТАРЫЕ СТИЛИ ТУТОРИАЛА
   tutorialOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' },
   tutorialModal: { background: 'var(--bg-panel)', borderRadius: 20, padding: 32, maxWidth: '85%', width: 320, textAlign: 'center', border: '1px solid var(--border)' },
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
+  
   offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
   offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280 },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
