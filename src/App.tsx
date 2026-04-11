@@ -45,7 +45,7 @@ function App() {
   useEffect(() => {
     async function loadProgress() {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('*')
           .eq('id', userId)
