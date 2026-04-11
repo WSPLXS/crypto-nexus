@@ -39,6 +39,7 @@ function App() {
   const [earningsAmount, setEarningsAmount] = useState(0);
   const [isDark, setIsDark] = useState(true);
   
+  // 🔥 СОСТОЯНИЕ ДЛЯ ОФФЛАЙН-ДОХОДА
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
 
@@ -105,9 +106,11 @@ function App() {
               if (offlineEarnings > 0) {
                 console.log(`💰 Оффлайн-доход: $${offlineEarnings.toFixed(2)} за ${offlineSeconds} сек`);
                 setOfflineAmount(offlineEarnings);
+                // Начисляем к балансу
                 setBalance((data.balance || 100) + offlineEarnings);
-                setShowOfflineEarnings(true);
+                setShowOfflineEarnings(true); // Показываем окно
                 
+                // Скрываем через 5 секунд
                 setTimeout(() => setShowOfflineEarnings(false), 5000);
               } else {
                 setBalance(data.balance || 100);
@@ -234,84 +237,90 @@ function App() {
   const nickname = localStorage.getItem('cryptoNexus_nickname') || 'Player';
 
   return (
-    <div style={styles.container}>
-      <div style={styles.levelBar}>
-        <span style={styles.levelText}>Lvl {level}</span>
-        <div style={styles.progressTrack}>
-          <div style={{ ...styles.progressFill, width: `${progress}%` }}></div>
+    <>
+      {/* ИГРОВОЙ КОНТЕЙНЕР */}
+      <div style={styles.container}>
+        <div style={styles.levelBar}>
+          <span style={styles.levelText}>Lvl {level}</span>
+          <div style={styles.progressTrack}>
+            <div style={{ ...styles.progressFill, width: `${progress}%` }}></div>
+          </div>
+          <span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span>
         </div>
-        <span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span>
-      </div>
 
-      <div style={styles.topBar}>
-        <div style={styles.userSection}>
-          <div style={styles.avatar}>{nickname[0].toUpperCase()}</div>
-          <div style={styles.userInfo}>
-            <span style={styles.nickname}>{nickname}</span>
-            <div style={styles.balances}>
-              <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
-                ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
-                x{globalMultiplier.toFixed(1)}
-              </span>
+        <div style={styles.topBar}>
+          <div style={styles.userSection}>
+            <div style={styles.avatar}>{nickname[0].toUpperCase()}</div>
+            <div style={styles.userInfo}>
+              <span style={styles.nickname}>{nickname}</span>
+              <div style={styles.balances}>
+                <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
+                  ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                  x{globalMultiplier.toFixed(1)}
+                </span>
+              </div>
             </div>
           </div>
+          <TopMenu 
+            onSettingsClick={() => setShowSettings(true)} 
+            onClanClick={() => {}} 
+            onFriendsClick={() => {}} 
+            onShopClick={() => setShowShop(true)}
+            onSearchClick={() => setShowSearch(true)}
+          />
         </div>
-        <TopMenu 
-          onSettingsClick={() => setShowSettings(true)} 
-          onClanClick={() => {}} 
-          onFriendsClick={() => {}} 
-          onShopClick={() => setShowShop(true)}
-          onSearchClick={() => setShowSearch(true)}
-        />
+
+        <div style={styles.center}>
+          <GPU tier={tier} isMining={totalIncome > 0} />
+        </div>
+
+        {showEarnings && (
+          <div className="earnings-anim" style={{ position: 'fixed', top: '40%', left: '50%', fontSize: 20, fontWeight: 'bold', color: 'var(--success)', zIndex: 999 }}>
+            +${earningsAmount.toFixed(2)}/s
+          </div>
+        )}
+
+        <div style={styles.bottomBar}>
+          <div style={styles.bottomSection}>
+            <span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span>
+          </div>
+          <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}>
+            <span style={styles.currencyName}>{selectedCurrency?.shortName || 'USD'}</span>
+            <span style={styles.arrow}>▼</span>
+          </button>
+          <div style={styles.bottomSection}></div>
+        </div>
+
+        <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
+        <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
+        <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
+        <Search isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
+
+        {showTutorial && (
+          <div style={styles.tutorialOverlay}>
+            <div style={styles.tutorialModal}>
+              <h2 style={styles.tutorialTitle}>🎮 Обучение</h2>
+              <p style={styles.tutorialText}>Добро пожаловать! У тебя $100 на старте. Купи первую монету, чтобы запустить доход.</p>
+              <button onClick={() => { setShowTutorial(false); setShowShop(true); }} style={styles.tutorialBtn}>В магазин!</button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div style={styles.center}>
-        <GPU tier={tier} isMining={totalIncome > 0} />
-      </div>
-
-      {showEarnings && (
-        <div className="earnings-anim" style={{ position: 'fixed', top: '40%', left: '50%', fontSize: 20, fontWeight: 'bold', color: 'var(--success)', zIndex: 999 }}>
-          +${earningsAmount.toFixed(2)}/s
-        </div>
-      )}
-      
+      {/* 🔥 УВЕДОМЛЕНИЕ ОБ ОФФЛАЙН-ДОХОДЕ (ВЫНЕСЕНО ЗА КОНТЕЙНЕР) */}
       {showOfflineEarnings && (
-        <div style={styles.offlineNotification}>
-          <div style={styles.offlineIcon}>💰</div>
-          <div style={styles.offlineTitle}>Пока тебя не было!</div>
-          <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
-          <div style={styles.offlineText}>Твои майнеры заработали</div>
-        </div>
-      )}
-
-      <div style={styles.bottomBar}>
-        <div style={styles.bottomSection}>
-          <span style={styles.earnings}>+${(totalIncome * 60).toFixed(2)}/min</span>
-        </div>
-        <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}>
-          <span style={styles.currencyName}>{selectedCurrency?.shortName || 'USD'}</span>
-          <span style={styles.arrow}>▼</span>
-        </button>
-        <div style={styles.bottomSection}></div>
-      </div>
-
-      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
-      <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
-      <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
-      <Search isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
-
-      {showTutorial && (
-        <div style={styles.tutorialOverlay}>
-          <div style={styles.tutorialModal}>
-            <h2 style={styles.tutorialTitle}>🎮 Обучение</h2>
-            <p style={styles.tutorialText}>Добро пожаловать! У тебя $100 на старте. Купи первую монету, чтобы запустить доход.</p>
-            <button onClick={() => { setShowTutorial(false); setShowShop(true); }} style={styles.tutorialBtn}>В магазин!</button>
+        <div style={styles.offlineOverlay}>
+          <div style={styles.offlineModal}>
+            <div style={styles.offlineIcon}>💰</div>
+            <div style={styles.offlineTitle}>Пока тебя не было!</div>
+            <div style={styles.offlineAmount}>+${offlineAmount.toFixed(2)}</div>
+            <div style={styles.offlineText}>Твои майнеры заработали</div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -339,19 +348,27 @@ const styles: { [key: string]: React.CSSProperties } = {
   tutorialTitle: { fontSize: 22, fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: 12 },
   tutorialText: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 },
   tutorialBtn: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 15, fontWeight: '600', cursor: 'pointer' },
-  offlineNotification: {
+  
+  // 🔥 СТИЛИ ДЛЯ ОФФЛАЙН-УВЕДОМЛЕНИЯ (ЦЕНТР ЭКРАНА + ЗАТЕМНЕНИЕ)
+  offlineOverlay: {
     position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
+    inset: 0, // Растягивается на весь экран
+    background: 'rgba(0, 0, 0, 0.85)', // Затемнение
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999, // Поверх всего
+    backdropFilter: 'blur(8px)' // Размытие фона
+  },
+  offlineModal: {
     background: 'linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%)',
     border: '2px solid #22c55e',
     borderRadius: 24,
     padding: '32px 24px',
     textAlign: 'center',
-    zIndex: 3000,
-    boxShadow: '0 20px 60px rgba(34, 197, 94, 0.3)',
-    minWidth: 280
+    boxShadow: '0 0 50px rgba(34, 197, 94, 0.4)',
+    minWidth: 280,
+    animation: 'popIn 0.3s ease-out'
   },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
