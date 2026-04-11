@@ -50,12 +50,12 @@ function App() {
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
 
   // 🔧 ФУНКЦИЯ СОХРАНЕНИЯ (с last_login)
-  const saveProgress = async () => {
+    const saveProgress = async () => {
     if (isLoading) return;
     try {
       console.log('💾 Сохранение (ID:', userIdNum, ')...');
       
-      const { error } = await supabase
+      await supabase
         .from('users')
         .upsert({
           id: userIdNum,
@@ -64,12 +64,12 @@ function App() {
           owned_currencies: ownedCurrencies,
           price_multipliers: priceMultipliers,
           selected_currency: selectedCurrencyId,
-          last_login: new Date().toISOString() // 🔥 Сохраняем время
+          last_login: new Date().toISOString()
         }, {
           onConflict: 'id'
         });
 
-      if (error) throw error;
+      console.log('✅ Сохранено успешно!');
     } catch (err) {
       console.error('❌ Ошибка сохранения:', err);
     }
