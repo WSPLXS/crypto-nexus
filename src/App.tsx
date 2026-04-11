@@ -145,7 +145,7 @@ function App() {
 
   // 🔥 АВТОЗАКРЫТИЕ ИНСТРУКЦИИ ЧЕРЕЗ 30 СЕКУНД
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: any;
     if (showAvatarInstruction) {
       timer = setTimeout(() => {
         setShowAvatarInstruction(false);
