@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, Trophy, MessageCircle, Crown, Pencil, Check, X, UserPlus, UserMinus, ShieldAlert } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -59,9 +59,6 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showCreateClan, setShowCreateClan] = useState(false);
-  const [showJoinClan, setShowJoinClan] = useState(false);
-  const [clanSearchQuery, setClanSearchQuery] = useState('');
-  const [clanSearchResults, setClanSearchResults] = useState<any[]>([]);
 
   // --- ДАННЫЕ КЛАНОВ И ДРУЗЕЙ ---
   const [myClan, setMyClan] = useState<any>(null);
@@ -69,7 +66,6 @@ function App() {
   const [clanMembers, setClanMembers] = useState<any[]>([]);
   const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
@@ -109,13 +105,13 @@ function App() {
   // --- ЗАГРУЗКА СОЦИАЛЬНЫХ ДАННЫХ ---
   const fetchClanData = async () => {
     if (!isAuthenticated) return;
-    const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
+    const {  member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
     if (member) {
-      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
+      const {  clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
       if (clan) {
-        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+        const {  members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
         const enrichedMembers = await Promise.all((members || []).map(async m => {
-          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
+          const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
           return { ...m, ...u, incomePerMin: calculateIncome(u) };
         }));
         const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
@@ -126,7 +122,7 @@ function App() {
         if (member.role === 4) {
           const { data: apps } = await supabase.from('clan_applications').select('id, user_id, status').eq('clan_id', clan.id).eq('status', 'pending');
           const enrichedApps = await Promise.all((apps || []).map(async a => {
-            const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
+            const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance').eq('id', a.user_id).single();
             return { ...a, ...u, incomePerMin: calculateIncome(u) };
           }));
           setClanApplications(enrichedApps);
@@ -141,9 +137,8 @@ function App() {
 
   const fetchFriendsData = async () => {
     if (!isAuthenticated) return;
-    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
+    const {  reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
     const incoming = (reqs || []).filter(r => r.receiver_id === userIdNum);
-    setFriendRequests(incoming);
     setMessages(incoming.map(r => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
 
     const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
@@ -276,7 +271,7 @@ function App() {
 
   // --- UI HELPERS ---
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url }); setShowProfile(true); };
-  const getFontSize = (text: string, max: number = 20) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
+  const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
   if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
@@ -330,7 +325,7 @@ function App() {
                 <>
                   <h2 style={styles.modalTitle}>Кланы</h2>
                   <button onClick={() => setShowCreateClan(true)} style={styles.btnPrimary}>Создать клан ($100,000)</button>
-                  <button onClick={() => setShowJoinClan(true)} style={styles.btnSecondary}>Найти клан</button>
+                  <button onClick={() => alert('Поиск кланов')} style={styles.btnSecondary}>Найти клан</button>
                 </>
               ) : (
                 <>
