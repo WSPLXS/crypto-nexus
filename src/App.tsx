@@ -15,22 +15,31 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  // 🔧 ФИКС УНИКАЛЬНОГО ID (чтобы не заходили в твой аккаунт)
-  let userIdNum = Number(localStorage.getItem('cryptoNexus_guestId'));
+   // 🔧 ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ
+  let userIdNum: number;
+  let isTelegramUser = false;
   
-  if (!userIdNum) {
-    // Если нет сохраненного гостевого ID, генерируем новый
-    userIdNum = Math.floor(Date.now() + Math.random() * 100000);
-    localStorage.setItem('cryptoNexus_guestId', userIdNum.toString());
-  }
-
   try {
-    // Если открыто в Telegram → переопределяем на реальный ID пользователя
+    // Пытаемся получить ID из Telegram
     if (WebApp?.initDataUnsafe?.user?.id) {
       userIdNum = Number(WebApp.initDataUnsafe.user.id);
+      isTelegramUser = true;
+      console.log('✅ Telegram User ID:', userIdNum);
+    } else {
+      // Если не Telegram — генерируем гостевой ID
+      const savedGuestId = localStorage.getItem('cryptoNexus_guestId');
+      if (savedGuestId) {
+        userIdNum = Number(savedGuestId);
+      } else {
+        userIdNum = Math.floor(Date.now() + Math.random() * 100000);
+        localStorage.setItem('cryptoNexus_guestId', userIdNum.toString());
+      }
+      console.log('👤 Guest User ID:', userIdNum);
     }
   } catch (e) {
-    console.warn('Не в Telegram, используем гостевой ID');
+    console.error('❌ Ошибка получения ID:', e);
+    // Фолбэк на гостевой ID
+    userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000);
   }
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
