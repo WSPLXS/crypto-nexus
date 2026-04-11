@@ -9,8 +9,6 @@ interface SettingsProps {
   isDark: boolean;
   onThemeToggle: () => void;
   onSave: () => void;
-  disableRequests: boolean;
-  onDisableRequestsChange: (value: boolean) => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -20,9 +18,7 @@ export const Settings: React.FC<SettingsProps> = ({
   sfxVolume,
   isDark,
   onThemeToggle,
-  onSave,
-  disableRequests,
-  onDisableRequestsChange
+  onSave
 }) => {
   if (!isOpen) return null;
 
@@ -49,19 +45,6 @@ export const Settings: React.FC<SettingsProps> = ({
           <div style={styles.settingRow}>
             <span style={styles.label}>Тёмная тема</span>
             <button onClick={onThemeToggle} style={styles.toggleBtn}>{isDark ? 'ON' : 'OFF'}</button>
-          </div>
-        </div>
-
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Приватность</h3>
-          <div style={styles.settingRow}>
-            <span style={styles.label}>Запретить заявки</span>
-            <input 
-              type="checkbox" 
-              checked={disableRequests} 
-              onChange={(e) => onDisableRequestsChange(e.target.checked)}
-              style={styles.checkbox}
-            />
           </div>
         </div>
 
@@ -139,11 +122,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'pointer',
     fontSize: 12
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    cursor: 'pointer'
   },
   saveBtn: {
     width: '100%',
