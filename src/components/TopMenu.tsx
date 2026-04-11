@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Users, Shield, Search } from 'lucide-react'; // <-- Handshake УБРАН
+import { Settings, Users, Shield, Search, ShoppingCart } from 'lucide-react';
 
 interface TopMenuProps {
   onSettingsClick: () => void;
@@ -19,7 +19,7 @@ export const TopMenu: React.FC<TopMenuProps> = ({
   return (
     <div style={styles.container}>
       <button onClick={onShopClick} style={styles.button}>
-        <span style={styles.icon}>🛒</span>
+        <ShoppingCart size={20} color="var(--text-primary)" />
       </button>
       <button onClick={onClanClick} style={styles.button}>
         <Shield size={20} color="var(--text-primary)" />
@@ -40,6 +40,7 @@ export const TopMenu: React.FC<TopMenuProps> = ({
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     display: 'flex',
+    flexDirection: 'column', // 🔥 ВЕРТИКАЛЬНОЕ РАСПОЛОЖЕНИЕ
     gap: 8,
     alignItems: 'center'
   },
@@ -56,8 +57,5 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-  },
-  icon: {
-    fontSize: 18
   }
 };

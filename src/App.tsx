@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake } from 'lucide-react'; // <-- Импортируем иконку рукопожатия
+import { Handshake } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -15,15 +15,22 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { supabase } from './lib/supabase';
 
 function App() {
-  let userIdNum = 123456;
+  // 🔧 ФИКС УНИКАЛЬНОГО ID (чтобы не заходили в твой аккаунт)
+  let userIdNum = Number(localStorage.getItem('cryptoNexus_guestId'));
   
+  if (!userIdNum) {
+    // Если нет сохраненного гостевого ID, генерируем новый
+    userIdNum = Math.floor(Date.now() + Math.random() * 100000);
+    localStorage.setItem('cryptoNexus_guestId', userIdNum.toString());
+  }
+
   try {
-    if (WebApp && WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
-      const rawId = WebApp.initDataUnsafe.user.id;
-      if (rawId && !isNaN(Number(rawId))) userIdNum = Number(rawId);
+    // Если открыто в Telegram → переопределяем на реальный ID пользователя
+    if (WebApp?.initDataUnsafe?.user?.id) {
+      userIdNum = Number(WebApp.initDataUnsafe.user.id);
     }
   } catch (e) {
-    console.warn('Не удалось получить Telegram ID');
+    console.warn('Не в Telegram, используем гостевой ID');
   }
 
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
@@ -47,7 +54,6 @@ function App() {
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
   const [priceMultipliers, setPriceMultipliers] = useState<Record<string, number>>({});
   
-  // 🔥 РЕФЕРАЛЬНЫЕ СОСТОЯНИЯ
   const [totalSpent, setTotalSpent] = useState(0);
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
@@ -229,14 +235,16 @@ function App() {
             </div>
           </div>
           
-          {/* КНОПКИ СПРАВА (Магазин, Клан, Друзья, Поиск, Настройки) */}
-          <TopMenu 
-            onSettingsClick={() => setShowSettings(true)} 
-            onClanClick={() => {}} 
-            onFriendsClick={() => {}} 
-            onShopClick={() => setShowShop(true)}
-            onSearchClick={() => setShowSearch(true)}
-          />
+          {/* КНОПКИ СПРАВА (ВЕРТИКАЛЬНО) */}
+          <div style={styles.rightMenuContainer}>
+            <TopMenu 
+              onSettingsClick={() => setShowSettings(true)} 
+              onClanClick={() => {}} 
+              onFriendsClick={() => {}} 
+              onShopClick={() => setShowShop(true)}
+              onSearchClick={() => setShowSearch(true)}
+            />
+          </div>
         </div>
         
         {/* КНОПКА РЕФЕРАЛОВ СЛЕВА (ОТДЕЛЬНО) */}
@@ -294,14 +302,22 @@ const styles: { [key: string]: React.CSSProperties } = {
   levelText: { fontSize: 12, fontWeight: '600', color: 'var(--text-secondary)' },
   progressTrack: { width: 140, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.5s ease' },
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  userSection: { display: 'flex', alignItems: 'center', gap: 12 },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' },
+  userSection: { display: 'flex', alignItems: 'center', gap: 12, pointerEvents: 'auto' },
   avatar: { width: 44, height: 44, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 'bold', color: 'white' },
   userInfo: { flex: 1 },
   nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 },
   
-  // 🔥 GLASS BUTTON FOR REFERRALS
+  // 🔥 КОНТЕЙНЕР ДЛЯ ВЕРТИКАЛЬНОГО МЕНЮ СПРАВА
+  rightMenuContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'center',
+    pointerEvents: 'auto'
+  },
+  
   referralBtn: { 
     position: 'absolute', 
     left: 16, 
@@ -309,8 +325,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 44, 
     height: 44, 
     borderRadius: 12, 
-    background: 'rgba(38,38,38,0.4)', // Полупрозрачность
-    backdropFilter: 'blur(12px)', // Размытие
+    background: 'rgba(38,38,38,0.4)', 
+    backdropFilter: 'blur(12px)', 
     border: '1px solid rgba(156,163,175,0.15)', 
     cursor: 'pointer', 
     display: 'flex', 
