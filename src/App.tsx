@@ -17,13 +17,11 @@ import { supabase } from './lib/supabase';
 function App() {
    // 🔧 ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ
   let userIdNum: number;
-  let isTelegramUser = false;
   
   try {
     // Пытаемся получить ID из Telegram
     if (WebApp?.initDataUnsafe?.user?.id) {
       userIdNum = Number(WebApp.initDataUnsafe.user.id);
-      isTelegramUser = true;
       console.log('✅ Telegram User ID:', userIdNum);
     } else {
       // Если не Telegram — генерируем гостевой ID
