@@ -534,7 +534,7 @@ function App() {
               <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
             </div>
             
-            {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
+            {/* Офлайн доход убран отсюда, чтобы не обрезался слайдером */}
 
             <div style={styles.bottomBar}>
               <div style={styles.bottomSection}></div>
@@ -788,6 +788,23 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* 🔥 ОФЛАЙН ДОХОД (вынесен на уровень root, чтобы position: fixed работал корректно и центрировался) */}
+      {showOfflineEarnings && (
+        <div style={styles.offlineOverlay}>
+          <div style={styles.offlineModal}>
+            <button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <div style={styles.offlineIcon}>💰</div>
+            <div style={styles.offlineTitle}>Пока тебя не было!</div>
+            <div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>
+              +${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div style={styles.offlineText}>Твои майнеры заработали</div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -904,7 +921,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   input: { width: '100%', padding: '10px', borderRadius: 8, background: '#0a0a0a', border: '1px solid rgba(156,163,175,0.2)', color: 'white', marginBottom: 8, boxSizing: 'border-box' },
   label: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3a3a3', fontSize: 13, marginBottom: 8, flexDirection: 'column' },
   offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
-  offlineModal: { background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%' },
+  offlineModal: { position: 'relative', background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%' },
   offlineIcon: { fontSize: 48, marginBottom: 12 },
   offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
   offlineAmount: { fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)', transition: 'font-size 0.3s ease' },
