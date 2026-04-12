@@ -422,7 +422,7 @@ function App() {
     payload += `_${price}`;
 
     // ⚠️ ЗАМЕНИ 'YourBotUsername' НА РЕАЛЬНОЕ ИМЯ ТВОЕГО БОТА (БЕЗ @)
-    const botUsername = "YourBotUsername"; 
+    const botUsername = "CryptoNexusWsp_Bot"; 
     const deepLink = `https://t.me/${botUsername}?start=${payload}`;
 
     if (WebApp && WebApp.openTelegramLink) {
