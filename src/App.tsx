@@ -149,36 +149,46 @@ function App() {
     } catch {}
   };
 
-  const saveProgress = async () => {
-    if (isLoading) return;
-    try {
-      const saveData = {
-        id: userIdNum,
-        nickname: currentNickname,
-        balance,
-        rub_balance: rubBalance,
-        max_balance: maxBalance,
-        owned_currencies: ownedCurrencies,
-        price_multipliers: priceMultipliers,
-        selected_currency: selectedCurrencyId,
-        last_login: new Date().toISOString(),
-        total_spent: totalSpent,
-        referrer_id: referrerId,
-        referral_bonus_awarded: referralBonusGiven,
-        boost_multiplier: boostMultiplier,
-        boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
-        daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
-      };
+const saveProgress = async () => {
+  if (isLoading) return;
+  
+  try {
+    const saveData = {
+      id: userIdNum,
+      nickname: currentNickname,
+      balance,
+      rub_balance: rubBalance,
+      max_balance: maxBalance,
+      owned_currencies: ownedCurrencies,
+      price_multipliers: priceMultipliers,
+      selected_currency: selectedCurrencyId,
+      last_login: new Date().toISOString(),
+      total_spent: totalSpent,
+      referrer_id: referrerId,
+      referral_bonus_awarded: referralBonusGiven,
+      boost_multiplier: boostMultiplier,
+      boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
+      daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
+    };
 
-      console.log('💾 Сохранение:', { balance, ownedCount: ownedCurrencies.length, maxBalance });
+    // 🔥 Добавляем .select() чтобы БД вернула то, что реально сохранила
+    const { data: savedRow, error } = await supabase
+      .from('users')
+      .upsert(saveData, { onConflict: 'id' })
+      .select()
+      .single();
 
-      const { error } = await supabase.from('users').upsert(saveData, { onConflict: 'id' });
-      if (error) throw error;
-      console.log('✅ Успешно сохранено');
-    } catch (err) {
-      console.error('Save error:', err);
-    }
-  };
+    if (error) throw error;
+
+    console.log('✅ БД подтвердила сохранение:', {
+      balance: savedRow?.balance,
+      ownedCount: savedRow?.owned_currencies?.length || 0,
+      maxBalance: savedRow?.max_balance
+    });
+  } catch (err) {
+    console.error('❌ Ошибка сохранения:', err);
+  }
+};
 
   const calculateIncome = (userData: any) => {
     if (!userData?.owned_currencies || !Array.isArray(userData.owned_currencies)) return 0;
