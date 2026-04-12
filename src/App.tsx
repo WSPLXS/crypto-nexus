@@ -107,6 +107,30 @@ function App() {
 
   const [currentScreen, setCurrentScreen] = useState<'main' | 'secondary'>('main');
 
+  // 🔥 РЕФСЫ ДЛЯ МГНОВЕННОГО ДОСТУПА К АКТУАЛЬНЫМ ДАННЫМ
+  const balanceRef = useRef(balance);
+  const rubBalanceRef = useRef(rubBalance);
+  const maxBalanceRef = useRef(maxBalance);
+  const ownedCurrenciesRef = useRef(ownedCurrencies);
+  const priceMultipliersRef = useRef(priceMultipliers);
+  const selectedCurrencyRef = useRef(selectedCurrencyId);
+  const totalSpentRef = useRef(totalSpent);
+  const boostMultiplierRef = useRef(boostMultiplier);
+  const boostExpiresAtRef = useRef(boostExpiresAt);
+  const dailyQuestsRef = useRef(dailyQuests);
+
+  // Синхронизация Refs с State
+  useEffect(() => { balanceRef.current = balance; }, [balance]);
+  useEffect(() => { rubBalanceRef.current = rubBalance; }, [rubBalance]);
+  useEffect(() => { maxBalanceRef.current = maxBalance; }, [maxBalance]);
+  useEffect(() => { ownedCurrenciesRef.current = ownedCurrencies; }, [ownedCurrencies]);
+  useEffect(() => { priceMultipliersRef.current = priceMultipliers; }, [priceMultipliers]);
+  useEffect(() => { selectedCurrencyRef.current = selectedCurrencyId; }, [selectedCurrencyId]);
+  useEffect(() => { totalSpentRef.current = totalSpent; }, [totalSpent]);
+  useEffect(() => { boostMultiplierRef.current = boostMultiplier; }, [boostMultiplier]);
+  useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
+  useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
+
   const touchStart = useRef<number | null>(null);
   const touchEnd = useRef<number | null>(null);
 
@@ -149,46 +173,45 @@ function App() {
     } catch {}
   };
 
-const saveProgress = async () => {
-  if (isLoading) return;
-  
-  try {
-    const saveData = {
-      id: userIdNum,
-      nickname: currentNickname,
-      balance,
-      rub_balance: rubBalance,
-      max_balance: maxBalance,
-      owned_currencies: ownedCurrencies,
-      price_multipliers: priceMultipliers,
-      selected_currency: selectedCurrencyId,
-      last_login: new Date().toISOString(),
-      total_spent: totalSpent,
-      referrer_id: referrerId,
-      referral_bonus_awarded: referralBonusGiven,
-      boost_multiplier: boostMultiplier,
-      boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
-      daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
-    };
+  const saveProgress = async () => {
+    try {
+      // 🔥 Читаем из Refs = берем 100% свежие данные
+      const payload = {
+        id: userIdNum,
+        nickname: currentNickname,
+        balance: balanceRef.current,
+        rub_balance: rubBalanceRef.current,
+        max_balance: maxBalanceRef.current,
+        owned_currencies: ownedCurrenciesRef.current,
+        price_multipliers: priceMultipliersRef.current,
+        selected_currency: selectedCurrencyRef.current,
+        last_login: new Date().toISOString(),
+        total_spent: totalSpentRef.current,
+        referrer_id: referrerId,
+        referral_bonus_awarded: referralBonusGiven,
+        boost_multiplier: boostMultiplierRef.current,
+        boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null,
+        daily_quests: dailyQuestsRef.current.length > 0 ? JSON.stringify(dailyQuestsRef.current) : '[]'
+      };
 
-    // 🔥 Добавляем .select() чтобы БД вернула то, что реально сохранила
-    const { data: savedRow, error } = await supabase
-      .from('users')
-      .upsert(saveData, { onConflict: 'id' })
-      .select()
-      .single();
+      console.log('💾 Отправка в БД:', { 
+        balance: payload.balance, 
+        ownedCount: payload.owned_currencies?.length || 0,
+        maxBalance: payload.max_balance 
+      });
 
-    if (error) throw error;
+      const { data, error } = await supabase
+        .from('users')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single();
 
-    console.log('✅ БД подтвердила сохранение:', {
-      balance: savedRow?.balance,
-      ownedCount: savedRow?.owned_currencies?.length || 0,
-      maxBalance: savedRow?.max_balance
-    });
-  } catch (err) {
-    console.error('❌ Ошибка сохранения:', err);
-  }
-};
+      if (error) throw error;
+      console.log('✅ БД подтвердила:', data?.balance, data?.owned_currencies?.length);
+    } catch (err) {
+      console.error('❌ Ошибка сохранения:', err);
+    }
+  };
 
   const calculateIncome = (userData: any) => {
     if (!userData?.owned_currencies || !Array.isArray(userData.owned_currencies)) return 0;
@@ -257,67 +280,112 @@ const saveProgress = async () => {
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
 
-useEffect(() => {
-  async function loadProgress() {
-    try {
-      console.log('🔄 Загрузка для ID:', userIdNum);
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userIdNum)
-        .single();
-      
-      if (error) {
-        console.error('❌ Ошибка запроса:', error);
-        throw error;
-      }
-
-      console.log('📥 СЫРЫЕ ДАННЫЕ ИЗ БД:', data);
-      console.log('📥 owned_currencies тип:', typeof data.owned_currencies);
-      console.log('📥 owned_currencies значение:', data.owned_currencies);
-
-      if (data) {
-        setBalance(data.balance || 100);
-        setRubBalance(data.rub_balance || 0);
-        setMaxBalance(data.max_balance || 100);
+  useEffect(() => {
+    async function loadProgress() {
+      try {
+        console.log('🔄 Загрузка для ID:', userIdNum);
         
-        // 🔥 ПАРСИНГ
-        let owned = [];
-        if (data.owned_currencies) {
-          if (Array.isArray(data.owned_currencies)) {
-            owned = data.owned_currencies;
-            console.log('✅ Загружен массив:', owned);
-          } else if (typeof data.owned_currencies === 'string') {
-            try {
-              owned = JSON.parse(data.owned_currencies);
-              console.log('✅ Распаршена строка:', owned);
-            } catch (e) {
-              console.error('❌ Ошибка парсинга JSON:', e, data.owned_currencies);
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userIdNum)
+          .single();
+        
+        if (error) {
+          console.error('❌ Ошибка запроса:', error);
+          throw error;
+        }
+
+        console.log('📥 СЫРЫЕ ДАННЫЕ ИЗ БД:', data);
+        console.log('📥 owned_currencies тип:', typeof data.owned_currencies);
+        console.log('📥 owned_currencies значение:', data.owned_currencies);
+
+        if (data) {
+          setBalance(data.balance || 100);
+          setRubBalance(data.rub_balance || 0);
+          setMaxBalance(data.max_balance || 100);
+          
+          let owned = [];
+          if (data.owned_currencies) {
+            if (Array.isArray(data.owned_currencies)) {
+              owned = data.owned_currencies;
+              console.log('✅ Загружен массив:', owned);
+            } else if (typeof data.owned_currencies === 'string') {
+              try {
+                owned = JSON.parse(data.owned_currencies);
+                console.log('✅ Распаршена строка:', owned);
+              } catch (e) {
+                console.error('❌ Ошибка парсинга JSON:', e, data.owned_currencies);
+                owned = [];
+              }
+            } else {
+              console.warn('⚠️ Неизвестный тип:', typeof data.owned_currencies);
               owned = [];
             }
-          } else {
-            console.warn('⚠️ Неизвестный тип:', typeof data.owned_currencies);
-            owned = [];
+          }
+          
+          setOwnedCurrencies(owned);
+          console.log('📦 Итоговые валюты:', owned);
+          
+          let mults = {};
+          try {
+            const rawM = data.price_multipliers;
+            if (rawM) {
+              mults = typeof rawM === 'string' ? JSON.parse(rawM) : rawM;
+              if (typeof mults !== 'object' || Array.isArray(mults)) mults = {};
+            }
+          } catch (e) { mults = {}; }
+          setPriceMultipliers(mults);
+          
+          setSelectedCurrencyId(data.selected_currency || 'btc'); setTotalSpent(data.total_spent || 0);
+          setReferrerId(data.referrer_id || null); setReferralBonusGiven(data.referral_bonus_awarded || false);
+          if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
+          else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+          else setAvatarUrl(null);
+          
+          if (data.vip_status) setVipStatus(data.vip_status);
+          if (data.boost_expires_at) {
+            const exp = new Date(data.boost_expires_at).getTime();
+            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); }
+          }
+          if (data.daily_quests) {
+            try { const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests; setDailyQuests(Array.isArray(quests) ? quests : []); } 
+            catch(e) { console.error('Quest parse error:', e); setDailyQuests([]); }
+          }
+          if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
+
+          if (data.last_login && owned.length > 0) {
+            const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
+            if (diff > 60) {
+              const tier = getLevelInfo(data.max_balance || 0).tier;
+              const mult = getGlobalMultiplier(tier);
+              const inc = owned.reduce((t: number, o: OwnedCurrency) => {
+                const c = currencies.find(cur => cur.id === o.currencyId);
+                return t + (c ? c.incomePerSecond * o.amount * mult : 0);
+              }, 0);
+              const off = inc * diff * 0.2;
+              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); }
+            }
           }
         }
-        
-        setOwnedCurrencies(owned);
-        console.log('📦 Итоговые валюты:', owned);
-        
-        // ... остальной код без изменений
-      }
-    } catch (err) {
-      console.error('💀 Critical load error:', err);
-    } finally {
-      setIsLoading(false);
+      } catch (err) { console.error('💀 Critical load error:', err); } finally { setIsLoading(false); }
     }
-  }
-  loadProgress();
-}, [userIdNum]);
+    loadProgress();
+  }, [userIdNum]);
 
-  useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
-  useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
+  // 🔥 Надёжное сохранение: при сворачивании/закрытии вкладки
+  useEffect(() => {
+    const handleSave = () => saveProgress();
+    window.addEventListener('beforeunload', handleSave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') handleSave();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', handleSave);
+      document.removeEventListener('visibilitychange', handleSave);
+    };
+  }, []);
+
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
 
   useEffect(() => {
@@ -396,7 +464,7 @@ useEffect(() => {
         setReferralBonusGiven(true);
         supabase.from('users').select('balance').eq('id', referrerId).single().then(({data}) => { if(data) supabase.from('users').update({balance: (data.balance || 0) + 1000}).eq('id', referrerId); });
       }
-      setTimeout(() => { saveProgress(); }, 100);
+      setTimeout(() => saveProgress(), 50);
     }
   };
 
