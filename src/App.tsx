@@ -11,7 +11,9 @@ import { Search as SearchComponent } from './components/Search';
 import { Referral } from './components/Referral';
 import { ProfileModal } from './components/ProfileModal';
 import { TransferModal } from './components/TransferModal';
-import { ExchangeModal } from './components/ExchangeModal'; // 👈 Импорт обменника
+import { ExchangeModal } from './components/ExchangeModal';
+import { ClanTreasuryModal } from './components/ClanTreasuryModal';
+import { DailyQuestsModal } from './components/DailyQuestsModal';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
@@ -35,9 +37,8 @@ function App() {
   const [offlineAmount, setOfflineAmount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
-  // 💰 Балансы
   const [balance, setBalance] = useState(100);
-  const [rubBalance, setRubBalance] = useState(0); // 👈 Рубли
+  const [rubBalance, setRubBalance] = useState(0);
   const [maxBalance, setMaxBalance] = useState(100);
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
@@ -46,7 +47,6 @@ function App() {
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
 
-  //  Модалки
   const [showSettings, setShowSettings] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
@@ -67,7 +67,9 @@ function App() {
   const [showFindClan, setShowFindClan] = useState(false);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [showExchange, setShowExchange] = useState(false); // 👈 Обмен валют
+  const [showExchange, setShowExchange] = useState(false);
+  const [showTreasury, setShowTreasury] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
   
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -82,38 +84,38 @@ function App() {
   const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [dailyQuests, setDailyQuests] = useState<any[]>([]);
+  const [boostMultiplier, setBoostMultiplier] = useState(1);
+  const [boostExpiresAt, setBoostExpiresAt] = useState<number | null>(null);
+  const [boostTimeLeft, setBoostTimeLeft] = useState(0);
 
   const [currentScreen, setCurrentScreen] = useState<'main' | 'secondary'>('main');
 
-  // 👆 Свайпы
   const touchStart = useRef<number | null>(null);
   const touchEnd = useRef<number | null>(null);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.targetTouches[0].clientX;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEnd.current = e.targetTouches[0].clientX;
-  };
-
+  const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.targetTouches[0].clientX; };
+  const handleTouchMove = (e: React.TouchEvent) => { touchEnd.current = e.targetTouches[0].clientX; };
   const handleTouchEnd = () => {
     if (!touchStart.current || !touchEnd.current) return;
     const distance = touchStart.current - touchEnd.current;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe && currentScreen === 'main') setCurrentScreen('secondary');
-    if (isRightSwipe && currentScreen === 'secondary') setCurrentScreen('main');
-
-    touchStart.current = null;
-    touchEnd.current = null;
+    if (distance > 50 && currentScreen === 'main') setCurrentScreen('secondary');
+    if (distance < -50 && currentScreen === 'secondary') setCurrentScreen('main');
+    touchStart.current = null; touchEnd.current = null;
   };
 
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
   const { level, progress, tier } = getLevelInfo(maxBalance);
   const globalMultiplier = getGlobalMultiplier(tier);
-  const totalIncome = useMemo(() => ownedCurrencies.reduce((t, o) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0); }, 0), [ownedCurrencies, globalMultiplier]);
+  
+  // 💰 Расчет дохода с учетом буста
+  const totalIncome = useMemo(() => {
+    const base = ownedCurrencies.reduce((t, o) => { 
+      const c = currencies.find(cur => cur.id === o.currencyId); 
+      return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0); 
+    }, 0);
+    return base * boostMultiplier;
+  }, [ownedCurrencies, globalMultiplier, boostMultiplier]);
 
   const saveNicknameToDB = async () => {
     try {
@@ -131,7 +133,9 @@ function App() {
         id: userIdNum, nickname: currentNickname, balance, rub_balance: rubBalance, max_balance: maxBalance,
         owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
         selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
-        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven
+        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven,
+        boost_multiplier: boostMultiplier, boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
+        daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
       }, { onConflict: 'id' });
     } catch {}
   };
@@ -150,14 +154,11 @@ function App() {
     try {
       const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at');
       if (error) throw error;
-      const sorted = (data || [])
-        .map((u: any) => ({
+      const sorted = (data || []).map((u: any) => ({
           id: u.id, nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
           incomePerMin: calculateIncome(u), avatarUrl: u.custom_avatar_url,
           first_login: u.first_login, created_at: u.created_at, max_balance: u.max_balance
-        }))
-        .sort((a, b) => b.incomePerMin - a.incomePerMin)
-        .slice(0, 10);
+        })).sort((a, b) => b.incomePerMin - a.incomePerMin).slice(0, 10);
       setLeaderboard(sorted);
     } catch (err) { console.error('Leaderboard error:', err); }
   };
@@ -166,47 +167,36 @@ function App() {
     if (!isAuthenticated) return;
     const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
     if (member) {
-      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
+      const {  clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
       if (clan) {
-        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+        const {  members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
         const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
-          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
+          const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
           return { ...m, ...u, incomePerMin: calculateIncome(u) };
         }));
         const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
-        setMyClan({ ...clan, total_income: totalInc });
-        setClanMembers(enrichedMembers);
-        setMyClanRole(member.role);
+        setMyClan({ ...clan, total_income: totalInc }); setClanMembers(enrichedMembers); setMyClanRole(member.role);
       } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
     } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
   };
 
   const fetchFriendsData = async () => {
     if (!isAuthenticated) return;
-    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
+    const {  reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
     const incoming = (reqs || []).filter((r: any) => r.receiver_id === userIdNum);
     setMessages(incoming.map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
-
-    const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
+    const {  accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
     const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
     const friendsData = await Promise.all(friendIds.map(async (id: number) => {
-      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
+      const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
       return { ...u, incomePerMin: calculateIncome(u) };
     }));
     setFriends(friendsData);
   };
 
-  const loadSocial = async () => {
-    await Promise.all([fetchClanData(), fetchFriendsData(), fetchLeaderboard()]);
-  };
-
+  const loadSocial = async () => { await Promise.all([fetchClanData(), fetchFriendsData(), fetchLeaderboard()]); };
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    saveNicknameToDB();
-    const i = setInterval(loadSocial, 15 * 60 * 1000);
-    return () => clearInterval(i);
-  }, [isAuthenticated]);
+  useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
 
   useEffect(() => {
     async function loadProgress() {
@@ -220,6 +210,20 @@ function App() {
           if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
+          
+          // Загрузка буста и квестов
+          if (data.boost_expires_at) {
+            const exp = new Date(data.boost_expires_at).getTime();
+            if (exp > Date.now()) {
+              setBoostMultiplier(data.boost_multiplier || 2);
+              setBoostExpiresAt(exp);
+            }
+          }
+          if (data.daily_quests) {
+            try {
+              setDailyQuests(JSON.parse(data.daily_quests));
+            } catch(e) { setDailyQuests([]); }
+          }
 
           if (data.last_login && data.owned_currencies?.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
@@ -238,19 +242,82 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
-  useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
-  useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent]);
+  useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
+  useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const i = setInterval(() => {
-      if (totalIncome > 0) {
-        setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; });
-      }
+      if (totalIncome > 0) { setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; }); }
     }, 1000);
     return () => clearInterval(i);
   }, [isAuthenticated, totalIncome, isLoading]);
+
+  // 🔥 Логика сброса квестов каждые 24 часа
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || !myClan) return;
+    
+    const now = Date.now();
+    const lastReset = myClan.last_daily_reset || 0;
+    if (now - lastReset > 24 * 60 * 60 * 1000) {
+      const newQuests = [
+        { id: 'q1', title: 'Заработай $50,000', type: 'earn_usd', target: 50000, progress: 0, unit: '$', completed: false },
+        { id: 'q2', title: 'Достигни уровня ' + (level + 1), type: 'reach_level', target: level + 1, progress: level, unit: 'Lvl', completed: false },
+        { id: 'q3', title: 'Пополни казну на $500', type: 'donate_clan', target: 500, progress: 0, unit: '$', completed: false }
+      ];
+      setDailyQuests(newQuests);
+      supabase.from('users').update({ 
+        last_daily_reset: now, 
+        daily_quests: JSON.stringify(newQuests), 
+        quest_start_usd: balance, 
+        quest_start_rub: rubBalance 
+      }).eq('id', userIdNum);
+    }
+  }, [isAuthenticated, isLoading, myClan]);
+
+  // ⏰ Отслеживание времени буста
+  useEffect(() => {
+    if (!boostExpiresAt) return;
+    const interval = setInterval(() => {
+      const left = Math.max(0, Math.floor((boostExpiresAt - Date.now()) / 1000));
+      setBoostTimeLeft(left);
+      if (left <= 0) {
+        setBoostMultiplier(1);
+        setBoostExpiresAt(null);
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [boostExpiresAt]);
+
+  // 📊 Проверка прогресса квестов
+  useEffect(() => {
+    if (dailyQuests.length === 0) return;
+    const updated = dailyQuests.map(q => {
+      if (q.completed) return q;
+      let prog = q.progress;
+      if (q.type === 'earn_usd') prog = Math.max(0, balance - (myClan?.quest_start_usd || 0));
+      if (q.type === 'earn_rub') prog = Math.max(0, rubBalance - (myClan?.quest_start_rub || 0));
+      if (q.type === 'reach_level') prog = level;
+      
+      const completed = prog >= q.target;
+      if (completed && !q.completed) {
+        const expires = Date.now() + 30 * 60 * 1000;
+        setBoostMultiplier(2);
+        setBoostExpiresAt(expires);
+        supabase.from('users').update({ 
+          boost_multiplier: 2, 
+          boost_expires_at: new Date(expires).toISOString() 
+        }).eq('id', userIdNum);
+      }
+      return { ...q, progress: prog, completed };
+    });
+    if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) {
+      setDailyQuests(updated);
+      supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum);
+    }
+  }, [balance, rubBalance, level, dailyQuests]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
@@ -283,7 +350,7 @@ function App() {
     const { data, error } = await supabase.from('clans').insert({ 
       name: clanData.name, emoji: clanData.emoji, description: clanData.description,
       min_level: clanData.minLevel, max_members: clanData.maxMembers, creator_id: userIdNum, 
-      total_income: 0, require_approval: clanData.requireApproval
+      total_income: 0, require_approval: clanData.requireApproval, treasury_usd: 0, treasury_rub: 0
     }).select().single();
     if (error) { console.error('Clan creation error:', error); return alert('Ошибка при создании клана: ' + error.message); }
     if (data) {
@@ -308,97 +375,42 @@ function App() {
       await supabase.from('clan_applications').delete().eq('clan_id', myClan.id);
       const { error } = await supabase.from('clans').delete().eq('id', myClan.id);
       if (error) throw error;
-      setMyClan(null); setClanMembers([]); setClanApplications([]); setMyClanRole(0);
-      setShowClanSettings(false); setShowClan(false);
-      alert('Клан успешно удален');
+      setMyClan(null); setClanMembers([]); setClanApplications([]); setMyClanRole(0); setShowClanSettings(false); setShowClan(false); alert('Клан успешно удален');
     } catch (err) { console.error('Delete clan error:', err); alert('Ошибка при удалении клана'); }
   };
 
   const handleAppResponse = async (appId: number, accept: boolean) => {
     await supabase.from('clan_applications').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', appId);
-    if (accept) {
-      const app = clanApplications.find(a => a.id === appId);
-      if (app) await supabase.from('clan_members').insert({ clan_id: myClan.id, user_id: app.user_id, role: 1 });
-    }
+    if (accept) { const app = clanApplications.find(a => a.id === appId); if (app) await supabase.from('clan_members').insert({ clan_id: myClan.id, user_id: app.user_id, role: 1 }); }
     fetchClanData();
   };
 
-  const handleKick = async (userId: number) => {
-    if (!confirm('Исключить игрока?')) return;
-    await supabase.from('clan_members').delete().eq('clan_id', myClan.id).eq('user_id', userId);
-    fetchClanData();
-  };
-
-  const handleRankUpdate = async () => {
-    for (const uid of selectedForRank) {
-      await supabase.from('clan_members').update({ role: newRank }).eq('clan_id', myClan.id).eq('user_id', uid);
-    }
-    setShowRankManager(false); setSelectedForRank([]); fetchClanData();
-  };
-
-  const handleAddFriend = async (targetId: number) => {
-    await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' });
-    alert('Заявка отправлена!'); setShowProfile(false); setShowFriendSearch(false);
-  };
-
-  const handleRemoveFriend = async (targetId: number) => {
-    await supabase.from('friend_requests').update({ status: 'rejected' }).or(`and(sender_id.eq.${userIdNum},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${userIdNum})`);
-    fetchFriendsData(); setShowProfile(false);
-  };
-
-  const handleFriendResponse = async (reqId: number, accept: boolean) => {
-    await supabase.from('friend_requests').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', reqId);
-    fetchFriendsData();
-  };
+  const handleKick = async (userId: number) => { if (!confirm('Исключить игрока?')) return; await supabase.from('clan_members').delete().eq('clan_id', myClan.id).eq('user_id', userId); fetchClanData(); };
+  const handleRankUpdate = async () => { for (const uid of selectedForRank) { await supabase.from('clan_members').update({ role: newRank }).eq('clan_id', myClan.id).eq('user_id', uid); } setShowRankManager(false); setSelectedForRank([]); fetchClanData(); };
+  const handleAddFriend = async (targetId: number) => { await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' }); alert('Заявка отправлена!'); setShowProfile(false); setShowFriendSearch(false); };
+  const handleRemoveFriend = async (targetId: number) => { await supabase.from('friend_requests').update({ status: 'rejected' }).or(`and(sender_id.eq.${userIdNum},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${userIdNum})`); fetchFriendsData(); setShowProfile(false); };
+  const handleFriendResponse = async (reqId: number, accept: boolean) => { await supabase.from('friend_requests').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', reqId); fetchFriendsData(); };
 
   const handleJoinClan = async (clanId: number) => {
     if (myClan) { alert('Вы уже находитесь в клане!'); return; }
-    const clan = clanSearchResults.find(c => c.id === clanId);
-    if (!clan) return;
-    const memberCount = clan.members_count || 0;
-    if (memberCount >= clan.max_members) return alert('В клане нет мест');
-    if (level < clan.min_level) return alert('Ваш уровень слишком мал');
+    const clan = clanSearchResults.find(c => c.id === clanId); if (!clan) return;
+    const memberCount = clan.members_count || 0; if (memberCount >= clan.max_members) return alert('В клане нет мест'); if (level < clan.min_level) return alert('Ваш уровень слишком мал');
     try {
-      if (clan.require_approval) {
-        await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: 'pending' });
-        alert('Заявка отправлена! Лидер клана должен её одобрить.');
-      } else {
-        const { error } = await supabase.from('clan_members').insert({ clan_id: clanId, user_id: userIdNum, role: 1 });
-        if (error) throw error;
-        alert('Вы успешно вступили в клан!');
-        setShowFindClan(false); fetchClanData();
-      }
+      if (clan.require_approval) { await supabase.from('clan_applications').insert({ clan_id: clanId, user_id: userIdNum, status: 'pending' }); alert('Заявка отправлена!'); }
+      else { const { error } = await supabase.from('clan_members').insert({ clan_id: clanId, user_id: userIdNum, role: 1 }); if (error) throw error; alert('Вы успешно вступили в клан!'); setShowFindClan(false); fetchClanData(); }
     } catch (err) { console.error('Join clan error:', err); alert('Ошибка при вступлении в клан'); }
   };
 
-  const searchFriends = async (query: string) => {
-    if (!query.trim()) { setFriendSearchResults([]); return; }
-    try {
-      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10);
-      if (error) throw error;
-      setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) })));
-    } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); }
-  };
-
-  const searchClans = async (query: string) => {
-    if (!query.trim()) { setClanSearchResults([]); return; }
-    try {
-      const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10);
-      if (error) throw error;
-      const clansWithCount = await Promise.all((data || []).map(async (clan: any) => {
-        const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id);
-        return { ...clan, members_count: count || 0 };
-      }));
-      setClanSearchResults(clansWithCount);
-    } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); }
-  };
-
-  const openProfile = (user: any) => { 
-    setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level }); 
-    setShowProfile(true); 
-  };
-
+  const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
+  const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
+  const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
+
+  const handleExchange = (usdChange: number, rubChange: number) => {
+    setBalance(prev => prev + usdChange);
+    setRubBalance(prev => prev + rubChange);
+    saveProgress();
+  };
 
   const renderClanMenu = () => {
     if (myClan && !showClanHub) {
@@ -415,10 +427,7 @@ function App() {
               <div style={{display:'flex', gap:8}}>
                 <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
                 <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
-                <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
-                  <MessageCircle size={18} />
-                  {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
-                </button>
+                <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}><MessageCircle size={18} />{clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}</button>
               </div>
             )}
           </div>
@@ -426,10 +435,7 @@ function App() {
             {clanMembers.sort((a,b) => b.role - a.role).map(m => (
               <div key={m.user_id} style={styles.memberItem} onClick={() => openProfile(m)}>
                 <div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div>
-                <div style={{flex:1}}>
-                  <div style={styles.memberName}>{m.nickname}</div>
-                  <div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div>
-                </div>
+                <div style={{flex:1}}><div style={styles.memberName}>{m.nickname}</div><div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div></div>
                 <div style={styles.memberIncome}>+${m.incomePerMin.toFixed(0)}/м</div>
               </div>
             ))}
@@ -437,6 +443,10 @@ function App() {
           <div style={{marginTop: 16}}>
              <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}>
                <ArrowLeft size={16} style={{marginRight: 8}}/> Назад
+             </button>
+             {/* 👇 Кнопка казны */}
+             <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}>
+               <Banknote size={16} style={{marginRight: 8}}/> Казна клана
              </button>
           </div>
         </>
@@ -453,33 +463,15 @@ function App() {
     );
   };
 
-  // Функция для обработки обмена валют
-  const handleExchange = (usdChange: number, rubChange: number) => {
-    setBalance(prev => prev + usdChange);
-    setRubBalance(prev => prev + rubChange);
-    saveProgress();
-  };
-
   if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
 
   return (
     <>
-      <div 
-        style={styles.container}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div style={{
-          ...styles.sliderWrapper,
-          transform: currentScreen === 'secondary' ? 'translateX(-100vw)' : 'translateX(0)'
-        }}>
-          
-          {/* --- ЭКРАН 1: ГЛАВНАЯ --- */}
+      <div style={styles.container} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+        <div style={{...styles.sliderWrapper, transform: currentScreen === 'secondary' ? 'translateX(-100vw)' : 'translateX(0)'}}>
           <div style={styles.screen}>
             <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
-
             <div style={styles.topBar}>
               <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance })}>
                 <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
@@ -487,78 +479,39 @@ function App() {
                   <span style={styles.nickname}>{currentNickname} <span style={styles.levelBadge}>Lvl {level}</span></span>
                   <div style={styles.balances}>
                     <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    {/* 👈 Отображение рублей */}
                     <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span>
+                    {boostMultiplier > 1 && <span style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{boostMultiplier}</span>}
                   </div>
                 </div>
               </div>
               <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
             </div>
-            
             <div style={styles.leftButtons}>
-              <button onClick={() => setShowMessages(true)} style={styles.leftBtn}>
-                <MessageCircle size={20} color="var(--text-primary)" />
-                {(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>}
-              </button>
+              <button onClick={() => setShowMessages(true)} style={styles.leftBtn}><MessageCircle size={20} color="var(--text-primary)" />{(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>}</button>
               <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
               <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
             </div>
-
-            <div style={styles.center}>
-              <GPU tier={level} isMining={totalIncome > 0} />
-              <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
-            </div>
-            
-            <div style={styles.bottomBar}>
-              <div style={styles.bottomSection}></div>
-              <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button>
-              <div style={styles.bottomSection}></div>
-            </div>
+            <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /><div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div></div>
+            <div style={styles.bottomBar}><div style={styles.bottomSection}></div><button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button><div style={styles.bottomSection}></div></div>
           </div>
 
-          {/* --- ЭКРАН 2: МЕНЮ --- */}
           <div style={styles.screen}>
-            <div style={styles.secondaryMenuHeader}>
-              <h2 style={{margin: 0, fontSize: 24, fontWeight: 'bold', color: '#fff'}}>Меню</h2>
-              <span style={{color: '#737373', fontSize: 14}}>Проведи пальцем вправо для возврата</span>
-            </div>
-
+            <div style={styles.secondaryMenuHeader}><h2 style={{margin: 0, fontSize: 24, fontWeight: 'bold', color: '#fff'}}>Меню</h2><span style={{color: '#737373', fontSize: 14}}>Проведи пальцем вправо для возврата</span></div>
             <div style={styles.menuGrid}>
-              <button style={styles.menuCard} onClick={() => alert('Квесты скоро!')}>
-                <div style={{...styles.iconCircle, background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6'}}><ScrollText size={28} /></div>
+              <button style={styles.menuCard} onClick={() => setShowQuests(true)}>
+                <div style={{...styles.iconCircle, background: 'rgba(251, 191, 36, 0.2)', color: '#fbbf24'}}><ScrollText size={28} /></div>
                 <span style={styles.menuCardTitle}>Квесты</span>
                 <span style={styles.menuCardSub}>Ежедневные задания</span>
                 <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
               </button>
-
-              <button style={styles.menuCard} onClick={() => setShowTransfer(true)}>
-                <div style={{...styles.iconCircle, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e'}}><Banknote size={28} /></div>
-                <span style={styles.menuCardTitle}>Перевод</span>
-                <span style={styles.menuCardSub}>Отправить другу</span>
-                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
-              </button>
-
-              {/* 👈 Кнопка Обмен */}
-              <button style={styles.menuCard} onClick={() => setShowExchange(true)}>
-                <div style={{...styles.iconCircle, background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7'}}><Repeat size={28} /></div>
-                <span style={styles.menuCardTitle}>Обмен</span>
-                <span style={styles.menuCardSub}>USD ↔ RUB</span>
-                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
-              </button>
-
-              <button style={styles.menuCard} onClick={() => alert('Донат скоро!')}>
-                <div style={{...styles.iconCircle, background: 'rgba(234, 179, 8, 0.2)', color: '#eab308'}}><Gem size={28} /></div>
-                <span style={styles.menuCardTitle}>Донат</span>
-                <span style={styles.menuCardSub}>Премиум функции</span>
-                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
-              </button>
+              <button style={styles.menuCard} onClick={() => setShowTransfer(true)}><div style={{...styles.iconCircle, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e'}}><Banknote size={28} /></div><span style={styles.menuCardTitle}>Перевод</span><span style={styles.menuCardSub}>Отправить другу</span><ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} /></button>
+              <button style={styles.menuCard} onClick={() => setShowExchange(true)}><div style={{...styles.iconCircle, background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7'}}><Repeat size={28} /></div><span style={styles.menuCardTitle}>Обмен</span><span style={styles.menuCardSub}>USD ↔ RUB</span><ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} /></button>
+              <button style={styles.menuCard} onClick={() => alert('Донат скоро!')}><div style={{...styles.iconCircle, background: 'rgba(234, 179, 8, 0.2)', color: '#eab308'}}><Gem size={28} /></div><span style={styles.menuCardTitle}>Донат</span><span style={styles.menuCardSub}>Премиум функции</span><ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} /></button>
             </div>
           </div>
-
         </div>
 
-        {/* --- МОДАЛКИ --- */}
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
         <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
@@ -577,40 +530,12 @@ function App() {
         {showFindClan && (<div style={styles.overlay} onClick={() => setShowFindClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFindClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск клана</h2><input placeholder="Введите название клана..." value={clanSearchQuery} onChange={(e) => { setClanSearchQuery(e.target.value); searchClans(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{clanSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите название для поиска</p> : clanSearchResults.map(clan => (<div key={clan.id} style={styles.listItem}><div style={styles.clanAvatar}>{clan.emoji}</div><div style={{flex:1}}><div style={styles.listName}>{clan.name}</div><div style={styles.listSub}>{clan.members_count || 0}/{clan.max_members} участников • Мин. ур: {clan.min_level}</div></div><button onClick={() => handleJoinClan(clan.id)} style={styles.btnSmall}>Вступить</button></div>))}</div></div></div>)}
       </div>
 
-      {/* 🔥 ОФЛАЙН ДОХОД */}
-      {showOfflineEarnings && (
-        <div style={styles.offlineOverlay}>
-          <div style={styles.offlineModal}>
-            <button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}>
-              <X size={24} color="#9ca3af" />
-            </button>
-            <div style={styles.offlineIcon}>💰</div>
-            <div style={styles.offlineTitle}>Пока тебя не было!</div>
-            <div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>
-              +${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div style={styles.offlineText}>Твои майнеры заработали</div>
-          </div>
-        </div>
-      )}
-
-      {/* 🔥 МОДАЛКИ ПЕРЕВОДА И ОБМЕНА */}
-      <TransferModal 
-        isOpen={showTransfer}
-        onClose={() => setShowTransfer(false)}
-        currentUserId={userIdNum}
-        usdBalance={balance}      
-        rubBalance={rubBalance}   
-        onRefreshBalance={saveProgress} 
-      />
+      {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
       
-      <ExchangeModal
-        isOpen={showExchange}
-        onClose={() => setShowExchange(false)}
-        usdBalance={balance}
-        rubBalance={rubBalance}
-        onExchange={handleExchange}
-      />
+      <TransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} currentUserId={userIdNum} usdBalance={balance} rubBalance={rubBalance} onRefreshBalance={saveProgress} />
+      <ExchangeModal isOpen={showExchange} onClose={() => setShowExchange(false)} usdBalance={balance} rubBalance={rubBalance} onExchange={handleExchange} />
+      <ClanTreasuryModal isOpen={showTreasury} onClose={() => setShowTreasury(false)} clan={myClan} myRole={myClanRole} onRefreshClan={fetchClanData} />
+      <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
     </>
   );
 }
