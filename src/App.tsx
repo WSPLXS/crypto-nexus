@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2 } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -75,6 +75,36 @@ function App() {
   const [clanApplications, setClanApplications] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'secondary'>('main');
+
+  const touchStart = useRef<number | null>(null);
+  const touchEnd = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEnd.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart.current || !touchEnd.current) return;
+    const distance = touchStart.current - touchEnd.current;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && currentScreen === 'main') {
+      setCurrentScreen('secondary');
+    }
+    if (isRightSwipe && currentScreen === 'secondary') {
+      setCurrentScreen('main');
+    }
+
+    touchStart.current = null;
+    touchEnd.current = null;
+  };
 
   const currentNickname = localStorage.getItem('cryptoNexus_nickname') || `Player${String(userIdNum).slice(-4)}`;
   const { level, progress, tier } = getLevelInfo(maxBalance);
@@ -466,39 +496,90 @@ function App() {
 
   return (
     <>
-      <div style={styles.container}>
-        <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 100 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
+      <div 
+        style={styles.container}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div style={{
+          ...styles.sliderWrapper,
+          transform: currentScreen === 'secondary' ? 'translateX(-100vw)' : 'translateX(0)'
+        }}>
+          
+          <div style={styles.screen}>
+            <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
 
-        <div style={styles.topBar}>
-          <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance })}>
-            <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
-            <div style={styles.userInfo}><span style={styles.nickname}>{currentNickname} <span style={styles.levelBadge}>Lvl {level}</span></span><div style={styles.balances}><span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span></div></div>
+            <div style={styles.topBar}>
+              <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance })}>
+                <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
+                <div style={styles.userInfo}><span style={styles.nickname}>{currentNickname} <span style={styles.levelBadge}>Lvl {level}</span></span><div style={styles.balances}><span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span></div></div>
+              </div>
+              <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
+            </div>
+            
+            <div style={styles.leftButtons}>
+              <button onClick={() => setShowMessages(true)} style={styles.leftBtn}>
+                <MessageCircle size={20} color="var(--text-primary)" />
+                {(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && (
+                  <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>
+                )}
+              </button>
+              <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
+              <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
+            </div>
+
+            <div style={styles.center}>
+              <GPU tier={level} isMining={totalIncome > 0} />
+              <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
+            </div>
+            
+            {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
+
+            <div style={styles.bottomBar}>
+              <div style={styles.bottomSection}></div>
+              <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button>
+              <div style={styles.bottomSection}></div>
+            </div>
           </div>
-          <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
-        </div>
-        
-        <div style={styles.leftButtons}>
-          <button onClick={() => setShowMessages(true)} style={styles.leftBtn}>
-            <MessageCircle size={20} color="var(--text-primary)" />
-            {(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && (
-              <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>
-            )}
-          </button>
-          <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
-          <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
-        </div>
 
-        <div style={styles.center}>
-          <GPU tier={level} isMining={totalIncome > 0} />
-          <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
-        </div>
-        
-        {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
+          <div style={styles.screen}>
+            <div style={styles.secondaryMenuHeader}>
+              <h2 style={{margin: 0, fontSize: 24, fontWeight: 'bold', color: '#fff'}}>Меню</h2>
+              <span style={{color: '#737373', fontSize: 14}}>Проведи пальцем вправо для возврата</span>
+            </div>
 
-        <div style={styles.bottomBar}>
-          <div style={styles.bottomSection}></div>
-          <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button>
-          <div style={styles.bottomSection}></div>
+            <div style={styles.menuGrid}>
+              <button style={styles.menuCard} onClick={() => alert('Квесты скоро!')}>
+                <div style={{...styles.iconCircle, background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6'}}><ScrollText size={28} /></div>
+                <span style={styles.menuCardTitle}>Квесты</span>
+                <span style={styles.menuCardSub}>Ежедневные задания</span>
+                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
+              </button>
+
+              <button style={styles.menuCard} onClick={() => alert('Перевод денег скоро!')}>
+                <div style={{...styles.iconCircle, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e'}}><Banknote size={28} /></div>
+                <span style={styles.menuCardTitle}>Перевод</span>
+                <span style={styles.menuCardSub}>Отправить другу</span>
+                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
+              </button>
+
+              <button style={styles.menuCard} onClick={() => alert('Обмен валют скоро!')}>
+                <div style={{...styles.iconCircle, background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7'}}><Repeat size={28} /></div>
+                <span style={styles.menuCardTitle}>Обмен</span>
+                <span style={styles.menuCardSub}>USD ↔ RUB</span>
+                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
+              </button>
+
+              <button style={styles.menuCard} onClick={() => alert('Донат скоро!')}>
+                <div style={{...styles.iconCircle, background: 'rgba(234, 179, 8, 0.2)', color: '#eab308'}}><Gem size={28} /></div>
+                <span style={styles.menuCardTitle}>Донат</span>
+                <span style={styles.menuCardSub}>Премиум функции</span>
+                <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
+              </button>
+            </div>
+          </div>
+
         </div>
 
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
@@ -713,6 +794,61 @@ function App() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
+  sliderWrapper: {
+    display: 'flex',
+    width: '200vw',
+    height: '100%',
+    transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+  },
+  screen: {
+    width: '100vw',
+    height: '100%',
+    position: 'relative',
+    flexShrink: 0,
+  },
+  secondaryMenuHeader: {
+    paddingTop: 60,
+    paddingLeft: 24,
+    paddingRight: 24,
+    marginBottom: 30,
+  },
+  menuGrid: {
+    padding: '0 20px',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 16,
+  },
+  menuCard: {
+    background: 'rgba(38, 38, 38, 0.6)',
+    border: '1px solid rgba(156, 163, 175, 0.1)',
+    borderRadius: 20,
+    padding: 20,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+    cursor: 'pointer',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  iconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  menuCardTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  menuCardSub: {
+    color: '#737373',
+    fontSize: 12,
+  },
   levelBar: { position: 'absolute', top: 12, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 100 },
   levelText: { fontSize: 12, fontWeight: '600', color: 'var(--text-secondary)' },
   progressTrack: { width: 140, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' },
