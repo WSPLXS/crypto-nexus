@@ -10,6 +10,7 @@ import { CurrencySelector } from './components/CurrencySelector';
 import { Search as SearchComponent } from './components/Search';
 import { Referral } from './components/Referral';
 import { ProfileModal } from './components/ProfileModal';
+import { TransferModal } from './components/TransferModal';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
@@ -61,6 +62,7 @@ function App() {
   const [showRankManager, setShowRankManager] = useState(false);
   const [showFindClan, setShowFindClan] = useState(false);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -534,8 +536,6 @@ function App() {
               <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
             </div>
             
-            {/* Офлайн доход убран отсюда, чтобы не обрезался слайдером */}
-
             <div style={styles.bottomBar}>
               <div style={styles.bottomSection}></div>
               <button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button>
@@ -557,7 +557,7 @@ function App() {
                 <ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} />
               </button>
 
-              <button style={styles.menuCard} onClick={() => alert('Перевод денег скоро!')}>
+              <button style={styles.menuCard} onClick={() => setShowTransfer(true)}>
                 <div style={{...styles.iconCircle, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e'}}><Banknote size={28} /></div>
                 <span style={styles.menuCardTitle}>Перевод</span>
                 <span style={styles.menuCardSub}>Отправить другу</span>
@@ -789,7 +789,7 @@ function App() {
         )}
       </div>
 
-      {/* 🔥 ОФЛАЙН ДОХОД (вынесен на уровень root, чтобы position: fixed работал корректно и центрировался) */}
+      {/* 🔥 ОФЛАЙН ДОХОД */}
       {showOfflineEarnings && (
         <div style={styles.offlineOverlay}>
           <div style={styles.offlineModal}>
@@ -805,6 +805,15 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* 🔥 МОДАЛКА ПЕРЕВОДА — на корневом уровне, чтобы работала всегда */}
+      <TransferModal 
+        isOpen={showTransfer} 
+        onClose={() => setShowTransfer(false)} 
+        currentUserId={userIdNum}
+        currentBalance={balance}
+        onRefreshBalance={saveProgress} 
+      />
     </>
   );
 }
