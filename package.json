@@ -18,6 +18,8 @@
     "node-telegram-bot-api": "^0.67.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "socks": "^2.8.7",
+    "socks-proxy-agent": "^10.0.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {

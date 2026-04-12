@@ -425,30 +425,38 @@ function App() {
 
   // 👇 Функция для обработки покупки товаров из доната
   const handlePurchase = (type: string, currency: string, days: number) => {
-    // 1. Формируем код товара: buy_[тип]_[валюта]_[цена]
-    // Бот будет читать этот код и выставлять счет
+    // 1. Формируем код товара
+    // Формат: buy_[тип]_[валюта]_[цена]
     let payload = `buy_${type}_${currency}`;
 
-    // Добавляем цену в конец (бот возьмет её из parts[3])
-    if (type === 'vip') payload += (currency === 'stars' ? '_15' : '_50');
-    if (type === 'platinum') payload += (currency === 'stars' ? '_50' : '_150');
-    if (type === 'premium') payload += (currency === 'stars' ? '_150' : '_250');
+    // Цены (примерные, настроишь под себя)
+    let price = 0;
+    if (type === 'vip') price = currency === 'stars' ? 15 : 50;
+    if (type === 'platinum') price = currency === 'stars' ? 50 : 150;
+    if (type === 'premium') price = currency === 'stars' ? 150 : 250;
+    
+    // Для бустов цена зависит от дней
     if (type.includes('boost')) {
-      // Цена за буст зависит от дней
-      const pricePerDay = currency === 'stars' ? 15 : 50;
-      payload += `_${pricePerDay * days}`;
+        price = currency === 'stars' ? 15 * days : 50 * days;
+        // Добавляем дни в payload, чтобы бот знал сколько выдать
+        payload += `_days_${days}`; 
     }
+    
+    // Добавляем цену в конец
+    payload += `_${price}`;
 
-    // 2. Ссылка на бота с кодом покупки
-    // ⚠️ ВАЖНО: замени 'YourBotUsername' на реальное имя твоего бота (без @)
-    const botUsername = "CryptoNexusWsp_Bot";
+    // 2. Ссылка на бота
+    // ⚠️ ЗАМЕНИ ЭТО НА СВОЕГО БОТА (без @)
+    const botUsername = "CryptoNexusWsp_Bot"; 
+    
+    // Формируем ссылку с параметром startapp
     const deepLink = `https://t.me/${botUsername}?start=${payload}`;
 
-    // 3. Открываем чат с ботом
+    // 3. Открываем ссылку
     if (WebApp && WebApp.openTelegramLink) {
-      WebApp.openTelegramLink(deepLink);
+        WebApp.openTelegramLink(deepLink);
     } else {
-      window.open(deepLink, '_blank');
+        window.open(deepLink, '_blank');
     }
   };
 
