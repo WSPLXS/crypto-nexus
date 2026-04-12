@@ -213,30 +213,62 @@ const saveProgress = async () => {
   }
 };
 
-  const calculateIncome = (userData: any) => {
-    if (!userData?.owned_currencies?.length) return 0;
-    const tier = getLevelInfo(userData.max_balance || 0).tier;
-    const mult = getGlobalMultiplier(tier);
-    return userData.owned_currencies.reduce((t: number, o: any) => {
-      const c = currencies.find(cur => cur.id === o.currencyId);
-      return t + (c ? c.incomePerSecond * o.amount * mult : 0);
-    }, 0) * 60;
-  };
+const calculateIncome = (userData: any) => {
+  // 🔥 Проверяем что owned_currencies это массив
+  if (!userData?.owned_currencies || !Array.isArray(userData.owned_currencies)) {
+    return 0;
+  }
+  
+  const tier = getLevelInfo(userData.max_balance || 0).tier;
+  const mult = getGlobalMultiplier(tier);
+  
+  return userData.owned_currencies.reduce((t: number, o: any) => {
+    const c = currencies.find(cur => cur.id === o.currencyId);
+    return t + (c ? c.incomePerSecond * o.amount * mult : 0);
+  }, 0) * 60;
+};
 
   // 🔥 ОБНОВЛЕННЫЙ ЗАПРОС: Добавил vip_status
-  const fetchLeaderboard = async () => {
-    try {
-      const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at, vip_status');
-      if (error) throw error;
-      const sorted = (data || []).map((u: any) => ({
-          id: u.id, nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
-          incomePerMin: calculateIncome(u), avatarUrl: u.custom_avatar_url,
-          first_login: u.first_login, created_at: u.created_at, max_balance: u.max_balance,
-          vip_status: u.vip_status // 👈 Сохраняем статус
-        })).sort((a, b) => b.incomePerMin - a.incomePerMin).slice(0, 10);
-      setLeaderboard(sorted);
-    } catch (err) { console.error('Leaderboard error:', err); }
-  };
+const fetchLeaderboard = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at, vip_status');
+    
+    if (error) throw error;
+    
+    const sorted = (data || [])
+      .map((u: any) => {
+        // 🔥 Парсим owned_currencies из JSON строки
+        let owned = [];
+        try {
+          owned = typeof u.owned_currencies === 'string' 
+            ? JSON.parse(u.owned_currencies) 
+            : u.owned_currencies || [];
+        } catch (e) {
+          console.error('Parse owned_currencies error:', e);
+          owned = [];
+        }
+        
+        return {
+          id: u.id, 
+          nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
+          incomePerMin: calculateIncome({ ...u, owned_currencies: owned }), 
+          avatarUrl: u.custom_avatar_url,
+          first_login: u.first_login, 
+          created_at: u.created_at, 
+          max_balance: u.max_balance,
+          vip_status: u.vip_status
+        };
+      })
+      .sort((a, b) => b.incomePerMin - a.incomePerMin)
+      .slice(0, 10);
+    
+    setLeaderboard(sorted);
+  } catch (err) { 
+    console.error('Leaderboard error:', err); 
+  }
+};
 
   // 🔥 ОБНОВЛЕННЫЙ ЗАПРОС: Добавил vip_status
   const fetchClanData = async () => {
