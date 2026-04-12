@@ -23,14 +23,29 @@ import { supabase } from './lib/supabase';
 function App() {
   let userIdNum: number;
   try {
-    if (WebApp?.initDataUnsafe?.user?.id) userIdNum = Number(WebApp.initDataUnsafe.user.id);
+// 🔥 ПРИОРИТЕТ 1: Telegram WebApp (официальный ID)
+  if (WebApp?.initDataUnsafe?.user?.id) {
+    userIdNum = Number(WebApp.initDataUnsafe.user.id);
+    console.log('📱 ID из Telegram:', userIdNum);
+  } 
+  // 🔥 ПРИОРИТЕТ 2: Сохраненный Guest ID (для iOS)
+  else {
+    const saved = localStorage.getItem('cryptoNexus_guestId');
+    if (saved) {
+      userIdNum = Number(saved);
+      console.log('💾 ID из localStorage:', userIdNum);
+    } 
+    // 🔥 ПРИОРИТЕТ 3: Генерация нового ID
     else {
-      const saved = localStorage.getItem('cryptoNexus_guestId');
-      userIdNum = saved ? Number(saved) : Math.floor(Date.now() + Math.random() * 100000);
+      userIdNum = Math.floor(Date.now() + Math.random() * 100000);
       localStorage.setItem('cryptoNexus_guestId', userIdNum.toString());
+      console.log('🆕 Новый ID:', userIdNum);
     }
-  } catch { userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000); }
-
+  }
+} catch (err) {
+  console.error('ID generation error:', err);
+  userIdNum = Number(localStorage.getItem('cryptoNexus_guestId')) || Math.floor(Date.now() + Math.random() * 100000);
+}
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('cryptoNexus_nickname'));
   const [isLoading, setIsLoading] = useState(true);
   const [isDark, setIsDark] = useState(true);
@@ -153,19 +168,49 @@ function App() {
     } catch {}
   };
 
-  const saveProgress = async () => {
-    if (isLoading) return;
-    try {
-      await supabase.from('users').upsert({
-        id: userIdNum, nickname: currentNickname, balance, rub_balance: rubBalance, max_balance: maxBalance,
-        owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
-        selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
-        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven,
-        boost_multiplier: boostMultiplier, boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
-        daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
-      }, { onConflict: 'id' });
-    } catch {}
-  };
+const saveProgress = async () => {
+  if (isLoading) return;
+  
+  try {
+    // 🔥 Проверяем что данные валидны
+    const saveData = {
+      id: userIdNum,
+      nickname: currentNickname,
+      balance: balance,
+      rub_balance: rubBalance,
+      max_balance: maxBalance,
+      owned_currencies: ownedCurrencies, // Массив
+      price_multipliers: priceMultipliers,
+      selected_currency: selectedCurrencyId,
+      last_login: new Date().toISOString(),
+      total_spent: totalSpent,
+      referrer_id: referrerId,
+      referral_bonus_awarded: referralBonusGiven,
+      boost_multiplier: boostMultiplier,
+      boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
+      daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
+    };
+
+    console.log('💾 Сохранение:', {
+      balance: saveData.balance,
+      ownedCount: saveData.owned_currencies.length,
+      maxBalance: saveData.max_balance
+    });
+
+    const { error } = await supabase
+      .from('users')
+      .upsert(saveData, { onConflict: 'id' });
+      
+    if (error) {
+      console.error('❌ Ошибка сохранения:', error);
+      throw error;
+    }
+    
+    console.log('✅ Успешно сохранено');
+  } catch (err) {
+    console.error('Save error:', err);
+  }
+};
 
   const calculateIncome = (userData: any) => {
     if (!userData?.owned_currencies?.length) return 0;
@@ -231,50 +276,94 @@ function App() {
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
 
-  useEffect(() => {
-    async function loadProgress() {
-      try {
-        const { data } = await supabase.from('users').select('*').eq('id', userIdNum).single();
-        if (data) {
-          setBalance(data.balance || 100); setRubBalance(data.rub_balance || 0); setMaxBalance(data.max_balance || 100);
-          setOwnedCurrencies(data.owned_currencies || []); setPriceMultipliers(data.price_multipliers || {});
-          setSelectedCurrencyId(data.selected_currency || 'btc'); setTotalSpent(data.total_spent || 0);
-          setReferrerId(data.referrer_id || null); setReferralBonusGiven(data.referral_bonus_awarded || false);
-          if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
-          else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
-          else setAvatarUrl(null);
-          
-          if (data.vip_status) setVipStatus(data.vip_status);
-          
-          if (data.boost_expires_at) {
-            const exp = new Date(data.boost_expires_at).getTime();
-            if (exp > Date.now()) {
-              setBoostMultiplier(data.boost_multiplier || 2);
-              setBoostExpiresAt(exp);
-            }
-          }
-          if (data.daily_quests) {
-            try { setDailyQuests(JSON.parse(data.daily_quests)); } catch(e) { setDailyQuests([]); }
-          }
+useEffect(() => {
+  async function loadProgress() {
+    try {
+      console.log('🔄 Загрузка прогресса для ID:', userIdNum);
+      
+      const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
+      
+      if (error) {
+        console.error('❌ Ошибка загрузки:', error);
+        throw error;
+      }
 
-          if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
+      if (data) {
+        console.log('✅ Данные загружены:', {
+          balance: data.balance,
+          ownedCurrencies: data.owned_currencies?.length || 0,
+          maxBalance: data.max_balance
+        });
 
-          if (data.last_login && data.owned_currencies?.length > 0) {
-            const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-            if (diff > 0) {
-              const inc = data.owned_currencies.reduce((t: number, o: OwnedCurrency) => {
-                const c = currencies.find(cur => cur.id === o.currencyId);
-                return t + (c ? c.incomePerSecond * o.amount * getGlobalMultiplier(getLevelInfo(data.max_balance || 100).tier) : 0);
-              }, 0);
-              const off = inc * diff * 0.2;
-              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); }
+        setBalance(data.balance || 100);
+        setRubBalance(data.rub_balance || 0);
+        setMaxBalance(data.max_balance || 100);
+        
+        // 🔥 ВАЖНО: Проверяем что owned_currencies это массив
+        const owned = Array.isArray(data.owned_currencies) ? data.owned_currencies : [];
+        console.log('📦 Валюты:', owned);
+        setOwnedCurrencies(owned);
+        
+        setPriceMultipliers(data.price_multipliers || {});
+        setSelectedCurrencyId(data.selected_currency || 'btc');
+        setTotalSpent(data.total_spent || 0);
+        setReferrerId(data.referrer_id || null);
+        setReferralBonusGiven(data.referral_bonus_awarded || false);
+        
+        if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
+        else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+        else setAvatarUrl(null);
+        
+        if (data.vip_status) setVipStatus(data.vip_status);
+        
+        if (data.boost_expires_at) {
+          const exp = new Date(data.boost_expires_at).getTime();
+          if (exp > Date.now()) {
+            setBoostMultiplier(data.boost_multiplier || 2);
+            setBoostExpiresAt(exp);
+          }
+        }
+        
+        if (data.daily_quests) {
+          try { 
+            const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests;
+            setDailyQuests(Array.isArray(quests) ? quests : []); 
+          } catch(e) { 
+            console.error('Quest parse error:', e);
+            setDailyQuests([]); 
+          }
+        }
+
+        if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
+
+        // Оффлайн заработок
+        if (data.last_login && owned.length > 0) {
+          const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
+          if (diff > 60) { // Только если прошло больше минуты
+            const tier = getLevelInfo(data.max_balance || 0).tier;
+            const mult = getGlobalMultiplier(tier);
+            const inc = owned.reduce((t: number, o: OwnedCurrency) => {
+              const c = currencies.find(cur => cur.id === o.currencyId);
+              return t + (c ? c.incomePerSecond * o.amount * mult : 0);
+            }, 0);
+            const off = inc * diff * 0.2;
+            if (off > 0) { 
+              setOfflineAmount(off); 
+              setBalance(p => p + off); 
+              setShowOfflineEarnings(true); 
+              setTimeout(() => setShowOfflineEarnings(false), 5000); 
             }
           }
         }
-      } catch {} finally { setIsLoading(false); }
+      }
+    } catch (err) {
+      console.error('💀 Critical load error:', err);
+    } finally { 
+      setIsLoading(false); 
     }
-    loadProgress();
-  }, [userIdNum]);
+  }
+  loadProgress();
+}, [userIdNum]);
 
   useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
   useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
@@ -601,7 +690,7 @@ function App() {
         <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
-        <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} friends={friends} />
+        <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
 
         {/* 🔥 ТОП ИГРОКОВ: Добавил renderVipBadge */}
         {showLeaderboard && (<div style={styles.overlay} onClick={() => setShowLeaderboard(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowLeaderboard(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🏆 Топ игроков</h2><div style={styles.list}>{leaderboard.map((player, index) => (<div key={player.id} style={styles.leaderboardItem} onClick={() => openProfile(player)}><span style={{...styles.rank, ...(index < 3 ? styles.topRank : {})}}>{index + 1}</span><div style={styles.listAvatar}>{player.avatarUrl ? <img src={player.avatarUrl} style={styles.memberImg} /> : player.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{player.nickname} {renderVipBadge(player.vip_status)}</div><div style={styles.listSub}>+${player.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
