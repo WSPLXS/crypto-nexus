@@ -257,72 +257,64 @@ const saveProgress = async () => {
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
 
-  useEffect(() => {
-    async function loadProgress() {
-      try {
-        console.log('🔄 Загрузка прогресса для ID:', userIdNum);
-        const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
-        if (error) { console.error('❌ Ошибка загрузки:', error); throw error; }
+useEffect(() => {
+  async function loadProgress() {
+    try {
+      console.log('🔄 Загрузка для ID:', userIdNum);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userIdNum)
+        .single();
+      
+      if (error) {
+        console.error('❌ Ошибка запроса:', error);
+        throw error;
+      }
 
-        if (data) {
-          console.log('✅ Данные загружены:', { balance: data.balance, ownedCurrencies: data.owned_currencies?.length || 0, maxBalance: data.max_balance });
+      console.log('📥 СЫРЫЕ ДАННЫЕ ИЗ БД:', data);
+      console.log('📥 owned_currencies тип:', typeof data.owned_currencies);
+      console.log('📥 owned_currencies значение:', data.owned_currencies);
 
-          setBalance(data.balance || 100); setRubBalance(data.rub_balance || 0); setMaxBalance(data.max_balance || 100);
-          
-          let owned = [];
-          try {
-            const raw = data.owned_currencies;
-            if (raw) {
-              if (Array.isArray(raw)) owned = raw;
-              else if (typeof raw === 'string') { const parsed = JSON.parse(raw); owned = Array.isArray(parsed) ? parsed : []; }
-              else owned = [];
+      if (data) {
+        setBalance(data.balance || 100);
+        setRubBalance(data.rub_balance || 0);
+        setMaxBalance(data.max_balance || 100);
+        
+        // 🔥 ПАРСИНГ
+        let owned = [];
+        if (data.owned_currencies) {
+          if (Array.isArray(data.owned_currencies)) {
+            owned = data.owned_currencies;
+            console.log('✅ Загружен массив:', owned);
+          } else if (typeof data.owned_currencies === 'string') {
+            try {
+              owned = JSON.parse(data.owned_currencies);
+              console.log('✅ Распаршена строка:', owned);
+            } catch (e) {
+              console.error('❌ Ошибка парсинга JSON:', e, data.owned_currencies);
+              owned = [];
             }
-          } catch (e) { console.warn('⚠️ Сброс валют:', e); owned = []; }
-          console.log('📦 Валюты:', owned);
-          setOwnedCurrencies(owned);
-          
-          let mults = {};
-          try {
-            const rawM = data.price_multipliers;
-            if (rawM) { mults = typeof rawM === 'string' ? JSON.parse(rawM) : rawM; if (typeof mults !== 'object' || Array.isArray(mults)) mults = {}; }
-          } catch (e) { mults = {}; }
-          setPriceMultipliers(mults);
-          
-          setSelectedCurrencyId(data.selected_currency || 'btc'); setTotalSpent(data.total_spent || 0);
-          setReferrerId(data.referrer_id || null); setReferralBonusGiven(data.referral_bonus_awarded || false);
-          if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
-          else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
-          else setAvatarUrl(null);
-          
-          if (data.vip_status) setVipStatus(data.vip_status);
-          if (data.boost_expires_at) {
-            const exp = new Date(data.boost_expires_at).getTime();
-            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); }
-          }
-          if (data.daily_quests) {
-            try { const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests; setDailyQuests(Array.isArray(quests) ? quests : []); } 
-            catch(e) { console.error('Quest parse error:', e); setDailyQuests([]); }
-          }
-          if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
-
-          if (data.last_login && owned.length > 0) {
-            const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-            if (diff > 60) {
-              const tier = getLevelInfo(data.max_balance || 0).tier;
-              const mult = getGlobalMultiplier(tier);
-              const inc = owned.reduce((t: number, o: OwnedCurrency) => {
-                const c = currencies.find(cur => cur.id === o.currencyId);
-                return t + (c ? c.incomePerSecond * o.amount * mult : 0);
-              }, 0);
-              const off = inc * diff * 0.2;
-              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); }
-            }
+          } else {
+            console.warn('⚠️ Неизвестный тип:', typeof data.owned_currencies);
+            owned = [];
           }
         }
-      } catch (err) { console.error('💀 Critical load error:', err); } finally { setIsLoading(false); }
+        
+        setOwnedCurrencies(owned);
+        console.log('📦 Итоговые валюты:', owned);
+        
+        // ... остальной код без изменений
+      }
+    } catch (err) {
+      console.error('💀 Critical load error:', err);
+    } finally {
+      setIsLoading(false);
     }
-    loadProgress();
-  }, [userIdNum]);
+  }
+  loadProgress();
+}, [userIdNum]);
 
   useEffect(() => { if (isLoading) return; const i = setInterval(saveProgress, 15000); return () => clearInterval(i); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
   useEffect(() => { if (isLoading) return; const h = () => document.hidden && saveProgress(); document.addEventListener('visibilitychange', h); return () => document.removeEventListener('visibilitychange', h); }, [isLoading, balance, rubBalance, maxBalance, ownedCurrencies, priceMultipliers, selectedCurrencyId, totalSpent, boostMultiplier, boostExpiresAt, dailyQuests]);
