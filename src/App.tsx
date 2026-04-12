@@ -489,7 +489,7 @@ function App() {
         </div>
 
         <div style={styles.center}>
-          <GPU tier={tier} isMining={totalIncome > 0} />
+          <GPU tier={level} isMining={totalIncome > 0} />
           <div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div>
         </div>
         
