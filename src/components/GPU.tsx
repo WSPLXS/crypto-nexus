@@ -1,194 +1,173 @@
 import React, { useEffect, useRef } from 'react';
 
 interface GPUProps {
-  tier: number; // Текущий уровень (1-100)
+  tier: number;
   isMining: boolean;
 }
 
-// Компонент одного вентилятора с анимацией
-const Fan = ({ cx, cy, r, color, speed, bladeCount = 7 }: any) => {
+export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
   const fanRef = useRef<SVGGElement>(null);
+  const rgbRef = useRef<SVGRectElement>(null);
 
   useEffect(() => {
+    if (!fanRef.current || !rgbRef.current) return;
+
+    let animFrame: number;
     let angle = 0;
-    let frameId: number;
+    let hue = 0;
+
     const animate = () => {
-      angle += speed; // Скорость вращения
+      angle += isMining ? 8 : 0.5;
       if (fanRef.current) {
         fanRef.current.style.transform = `rotate(${angle}deg)`;
       }
-      frameId = requestAnimationFrame(animate);
-    };
-    animate();
-    return () => cancelAnimationFrame(frameId);
-  }, [speed]);
 
-  // Создаем изогнутые лопасти
-  const blades = Array.from({ length: bladeCount }).map((_, i) => {
-    const deg = (i * 360) / bladeCount;
-    const rad = (deg * Math.PI) / 180;
-    // Кривая Безье для лопасти
-    const x1 = cx + Math.cos(rad) * (r * 0.2);
-    const y1 = cy + Math.sin(rad) * (r * 0.2);
-    const x2 = cx + Math.cos(rad + 0.5) * r;
-    const y2 = cy + Math.sin(rad + 0.5) * r;
-    
-    return (
-      <path
-        key={i}
-        d={`M ${cx} ${cy} Q ${x1} ${y1} ${x2} ${y2}`}
-        stroke={color}
-        strokeWidth={r > 20 ? 5 : 3}
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.9"
-      />
-    );
+      if (tier >= 3 && rgbRef.current) {
+        hue = (hue + (isMining ? 3 : 0.5)) % 360;
+        const color = tier >= 8 
+          ? `hsl(${hue}, 100%, 50%)` 
+          : `hsl(${(hue + tier * 30) % 360}, 80%, 60%)`;
+        rgbRef.current.style.fill = color;
+        rgbRef.current.style.filter = `drop-shadow(0 0 ${tier * 2}px ${color})`;
+      }
+
+      animFrame = requestAnimationFrame(animate);
+    };
+
+    animate();
+    return () => cancelAnimationFrame(animFrame);
+  }, [isMining, tier]);
+
+  const getConfig = (tierNum: number) => ({
+    fans: tierNum <= 2 ? 1 : tierNum <= 5 ? 2 : 3,
+    pipes: tierNum <= 2 ? 0 : tierNum <= 4 ? 2 : tierNum <= 6 ? 4 : tierNum <= 8 ? 6 : 8,
+    hasBackplate: tierNum >= 4,
+    hasEnergyCore: tierNum >= 7,
+    shroudColor: tierNum <= 3 ? '#374151' : tierNum <= 6 ? '#1f2937' : '#0a0a0a',
+    accentColor: tierNum <= 3 ? '#6b7280' : tierNum <= 6 ? '#3b82f6' : '#f59e0b'
   });
 
-  return (
-    <g ref={fanRef} style={{ transformOrigin: `${cx}px ${cy}px` }}>
-      {/* Кольцо вентилятора */}
-      <circle cx={cx} cy={cy} r={r + 1} fill="#000" opacity="0.8" />
-      {/* Лопасти */}
-      {blades}
-      {/* Центр */}
-      <circle cx={cx} cy={cy} r={r * 0.25} fill="#222" stroke={color} strokeWidth="2" />
-    </g>
-  );
-};
-
-export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
-  // Визуальный тир (1-10) на основе уровня (1-100)
-  const visualTier = Math.max(1, Math.min(10, Math.ceil(tier / 10)));
-
-  // Конфигурация дизайна для каждого тира
-  const getTheme = (t: number) => {
-    switch (t) {
-      case 1: return { shroud: '#52525b', accent: '#a1a1aa', fanColor: '#71717a', rgb: 'none', glow: false, fans: 1, label: 'STARTER' }; // Grey / Basic
-      case 2: return { shroud: '#3f3f46', accent: '#60a5fa', fanColor: '#93c5fd', rgb: '#60a5fa', glow: false, fans: 1, label: 'ECO' }; // Blueish
-      case 3: return { shroud: '#27272a', accent: '#4ade80', fanColor: '#86efac', rgb: '#4ade80', glow: true, fans: 2, label: 'LITE' }; // Green / Basic RGB
-      case 4: return { shroud: '#18181b', accent: '#f472b6', fanColor: '#fbcfe8', rgb: '#f472b6', glow: true, fans: 2, label: 'GAMER' }; // Pink
-      case 5: return { shroud: '#1e1b4b', accent: '#818cf8', fanColor: '#c7d2fe', rgb: '#818cf8', glow: true, fans: 3, label: 'PRO' }; // Indigo / 3 Fans
-      case 6: return { shroud: '#172554', accent: '#38bdf8', fanColor: '#bae6fd', rgb: '#38bdf8', glow: true, fans: 3, label: 'ELITE' }; // Cyan
-      case 7: return { shroud: '#14532d', accent: '#4ade80', fanColor: '#bbf7d0', rgb: '#22c55e', glow: true, fans: 3, label: 'MATRIX' }; // Green Matrix
-      case 8: return { shroud: '#7f1d1d', accent: '#f87171', fanColor: '#fca5a5', rgb: '#ef4444', glow: true, fans: 3, label: 'INFERNO' }; // Red / Aggressive
-      case 9: return { shroud: '#a16207', accent: '#fbbf24', fanColor: '#fde68a', rgb: '#fbbf24', glow: true, fans: 3, label: 'GOLD' }; // Gold
-      case 10: return { shroud: '#000000', accent: '#ff003c', fanColor: '#ff003c', rgb: '#ff003c', glow: true, fans: 4, label: 'GOD' }; // Cyberpunk Red / 4 Fans
-      default: return { shroud: '#333', accent: '#fff', fanColor: '#fff', rgb: 'none', glow: false, fans: 1, label: '???' };
-    }
-  };
-
-  const theme = getTheme(visualTier);
-  
-  // Скорость вращения
-  const fanSpeed = isMining ? (visualTier >= 8 ? 25 : 15) : 1;
-
-  // Размеры SVG
-  const W = 280;
-  const H = 160;
+  const cfg = getConfig(tier);
 
   return (
-    <div style={{ 
-      width: '100%', 
-      maxWidth: 320, 
-      margin: '0 auto', 
-      filter: theme.glow ? `drop-shadow(0 0 15px ${theme.rgb}40)` : 'none',
-      transition: 'filter 1s ease'
-    }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-        <defs>
-          {/* Градиент для корпуса (эффект объема) */}
-          <linearGradient id="shroudGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={theme.shroud} />
-            <stop offset="100%" stopColor="#000" />
-          </linearGradient>
-          {/* Градиент для RGB ленты */}
-          {theme.rgb !== 'none' && (
-            <linearGradient id="rgbGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={theme.rgb} stopOpacity="0.3" />
-              <stop offset="50%" stopColor={theme.rgb} stopOpacity="1" />
-              <stop offset="100%" stopColor={theme.rgb} stopOpacity="0.3" />
-            </linearGradient>
+    <div style={{ width: 280, height: 160, position: 'relative', margin: '0 auto' }}>
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+        }
+        .gpu-container { animation: float 4s ease-in-out infinite; }
+        .fan-blade { transform-origin: center; transition: transform 0.1s linear; }
+      `}</style>
+
+      <div className="gpu-container">
+        <svg viewBox="0 0 300 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Фоновое свечение для высоких тиров */}
+          {tier >= 5 && (
+            <ellipse cx="150" cy="80" rx="130" ry="60" fill={cfg.accentColor} opacity={0.15} filter="blur(20px)" />
           )}
-          {/* Тень */}
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#000" floodOpacity="0.8" />
-          </filter>
-        </defs>
 
-        {/* Группа с тенью */}
-        <g filter="url(#shadow)">
+          {/* Задняя пластина (Tier 4+) */}
+          {cfg.hasBackplate && (
+            <rect x="30" y="40" width="240" height="80" rx="8" fill="#111" stroke="#333" strokeWidth="2" />
+          )}
+
+          {/* Основной корпус */}
+          <rect x="20" y="30" width="260" height="100" rx="12" fill={cfg.shroudColor} stroke="#444" strokeWidth="2" />
           
-          {/* === 1. ЗАДНЯЯ ПЛАСТИНА (BACKPLATE) === */}
-          <rect x="30" y="40" width="220" height="70" rx="6" fill="#111" stroke="#333" strokeWidth="1" />
-          
-          {/* === 2. ТЕПЛОТРУБКИ (Видны сбоку) === */}
-          <rect x="245" y="50" width="4" height="50" rx="2" fill="#555" />
-          <rect x="252" y="50" width="4" height="50" rx="2" fill="#555" />
-          {visualTier >= 6 && <rect x="259" y="50" width="4" height="50" rx="2" fill="#888" />}
+          {/* Декоративные линии корпуса */}
+          <path d="M40 50 L260 50 M40 110 L260 110" stroke="#555" strokeWidth="1" opacity="0.5" />
 
-          {/* === 3. ОСНОВНОЙ КОРПУС (SHROUD) === */}
-          {/* Верхняя грань (3D эффект) */}
-          <path d="M 30 40 L 250 40 L 250 45 L 30 45 Z" fill={theme.accent} opacity="0.3" />
-          
-          {/* Основной прямоугольник */}
-          <rect x="30" y="45" width="220" height="60" fill="url(#shroudGrad)" stroke={theme.accent} strokeWidth={visualTier >= 9 ? 3 : 1} rx="4" />
+          {/* Тепловые трубки */}
+          {Array.from({ length: cfg.pipes }).map((_, i) => (
+            <rect
+              key={`pipe-${i}`}
+              x={45 + i * (210 / (cfg.pipes + 1))}
+              y="45"
+              width="6"
+              height="70"
+              rx="3"
+              fill={tier >= 7 ? '#fbbf24' : '#9ca3af'}
+              opacity={0.6 + (tier / 10) * 0.4}
+            />
+          ))}
 
-          {/* Детали на корпусе (Грани/Вырезы) */}
-          <path d="M 30 60 L 250 60" stroke={theme.accent} strokeWidth="1" opacity="0.3" />
-          <path d="M 30 90 L 250 90" stroke={theme.accent} strokeWidth="1" opacity="0.3" />
-
-          {/* Логотип / Название */}
-          <text x="240" y="85" textAnchor="end" fill={theme.accent} fontSize="10" fontWeight="bold" fontFamily="monospace" opacity="0.8">
-            {theme.label}
-          </text>
-
-          {/* === 4. ВЕНТИЛЯТОРЫ (Вырезы в корпусе) === */}
-          {/* Отрисовываем вентиляторы внутри "дырок" в корпусе */}
-          {Array.from({ length: theme.fans }).map((_, i) => {
-            // Распределяем вентиляторы равномерно
-            const spacing = 220 / (theme.fans + 1);
-            const cx = 30 + spacing * (i + 1);
-            const cy = 75;
-            const r = visualTier >= 8 ? 28 : 26;
-
+          {/* Вентиляторы */}
+          {Array.from({ length: cfg.fans }).map((_, i) => {
+            const cx = cfg.fans === 1 ? 150 : cfg.fans === 2 ? (i === 0 ? 100 : 200) : (i === 0 ? 80 : i === 1 ? 150 : 220);
             return (
-              <g key={i}>
-                {/* Темная подложка (внутренность) */}
-                <circle cx={cx} cy={cy} r={r + 2} fill="#050505" stroke={theme.accent} strokeWidth="2" />
-                
-                {/* Вентилятор */}
-                <Fan cx={cx} cy={cy} r={r} color={theme.fanColor} speed={fanSpeed} bladeCount={visualTier >= 9 ? 11 : 7} />
+              <g key={`fan-${i}`} ref={i === 0 ? fanRef : undefined} className="fan-blade" style={{ transformOrigin: `${cx}px 80px` }}>
+                <circle cx={cx} cy="80" r="32" fill="#000" stroke={tier >= 6 ? cfg.accentColor : '#555'} strokeWidth="3" />
+                {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+                  <path
+                    key={deg}
+                    d={`M ${cx} ${80} L ${cx + Math.cos((deg * Math.PI) / 180) * 28} ${80 + Math.sin((deg * Math.PI) / 180) * 28}`}
+                    stroke={tier >= 5 ? '#fff' : '#888'}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                ))}
+                <circle cx={cx} cy="80" r="8" fill={tier >= 7 ? cfg.accentColor : '#444'} />
               </g>
             );
           })}
 
-          {/* === 5. ПОДСВЕТКА (RGB) === */}
-          {theme.rgb !== 'none' && (
-            <>
-              {/* Нижняя полоса */}
-              <rect x="35" y="105" width="210" height="3" fill={theme.rgb} rx="1" filter={`drop-shadow(0 0 3px ${theme.rgb})`} />
-              
-              {/* Дополнительные точки на корпусе для высоких уровней */}
-              {visualTier >= 7 && (
-                <circle cx="40" cy="55" r="3" fill={theme.rgb} filter={`drop-shadow(0 0 4px ${theme.rgb})`}>
-                   {isMining && <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite" />}
-                </circle>
-              )}
-              {visualTier === 10 && (
-                <circle cx="240" cy="55" r="4" fill={theme.rgb} filter={`drop-shadow(0 0 6px ${theme.rgb})`}>
-                   <animate attributeName="r" values="3;5;3" dur="0.5s" repeatCount="indefinite" />
-                </circle>
-              )}
-            </>
+          {/* RGB полоса (Tier 3+) */}
+          {tier >= 3 && (
+            <rect
+              ref={rgbRef}
+              x="35"
+              y="125"
+              width="230"
+              height="4"
+              rx="2"
+              fill="#fff"
+              opacity={0.8}
+            />
           )}
 
-          {/* === 6. РАЗЪЕМЫ (PCIe Gold fingers) === */}
-          <path d="M 40 105 L 240 105" stroke="#ca8a04" strokeWidth="2" strokeDasharray="4 2" opacity="0.6" />
+          {/* Энергетическое ядро (Tier 7-10) */}
+          {cfg.hasEnergyCore && (
+            <g style={{ animation: 'pulse-glow 2s infinite' }}>
+              <circle cx="150" cy="80" r="18" fill="#000" stroke={cfg.accentColor} strokeWidth="2" />
+              <circle cx="150" cy="80" r="12" fill={cfg.accentColor} opacity="0.8" />
+              <circle cx="150" cy="80" r="6" fill="#fff" />
+            </g>
+          )}
 
-        </g>
-      </svg>
+          {/* Логотип/Текст на корпусе */}
+          <text x="150" y="20" textAnchor="middle" fill={cfg.accentColor} fontSize="12" fontWeight="bold" letterSpacing="2">
+            TIER {tier} GPU
+          </text>
+        </svg>
+      </div>
+
+      {/* Индикатор статуса майнинга */}
+      <div style={{
+        position: 'absolute',
+        bottom: -20,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 12,
+        color: isMining ? '#22c55e' : '#737373',
+        fontWeight: '500'
+      }}>
+        <span style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: isMining ? '#22c55e' : '#555',
+          boxShadow: isMining ? '0 0 8px #22c55e' : 'none'
+        }} />
+        {isMining ? 'MAKING MONEY' : 'IDLE'}
+      </div>
     </div>
   );
 };
