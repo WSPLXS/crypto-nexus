@@ -95,14 +95,10 @@ export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
                     
                     {/* Центр вентилятора */}
                     <div style={{
-                      ...styles.fanCenter,
-                      background: `radial-gradient(circle, ${glowColor}, ${glowColor}80)`,
-                      boxShadow: `0 0 20px ${glowColor}, inset 0 0 10px rgba(255,255,255,0.3)`,
-                    }}>
-                      <span style={{ fontSize: 9, fontWeight: 'bold', color: 'white' }}>
-                        {visualTier >= 3 ? 'GPU' : ''}
-                      </span>
-                    </div>
+                   ...styles.fanCenter,
+                  background: `radial-gradient(circle, ${glowColor}, ${glowColor}80)`,
+                  boxShadow: `0 0 20px ${glowColor}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                  }}></div>
                   </div>
                   
                   {/* RGB кольцо вокруг вентилятора */}
