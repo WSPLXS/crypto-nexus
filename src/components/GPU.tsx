@@ -1,118 +1,329 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 
-interface GPUProps {
-  tier: number;
-  isMining: boolean;
+interface GPUProps { 
+  tier: number; // Уровень игрока (1-100)
+  isMining: boolean; 
 }
 
 export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
+  // Визуальный тир 1-10 на основе уровня 1-100
   const visualTier = Math.max(1, Math.min(10, Math.ceil(tier / 10)));
-  const rgbRef = useRef<SVGGElement>(null);
-
-  useEffect(() => {
-    if (!rgbRef.current) return;
-
-    let animFrame: number;
-    let hue = 0;
-
-    const animate = () => {
-      if (visualTier >= 3 && rgbRef.current) {
-        hue = (hue + (isMining ? 4 : 0.5)) % 360;
-        const color = visualTier >= 8 
-          ? `hsl(${hue}, 100%, 50%)` 
-          : `hsl(${(hue + visualTier * 30) % 360}, 80%, 60%)`;
-        
-        const elements = rgbRef.current.children;
-        Array.from(elements).forEach((el: any) => {
-          if (el.tagName === 'rect' || el.tagName === 'circle') {
-            el.style.fill = color;
-            el.style.filter = `drop-shadow(0 0 ${visualTier * 2}px ${color})`;
-          }
-        });
-      }
-      animFrame = requestAnimationFrame(animate);
-    };
-
-    animate();
-    return () => cancelAnimationFrame(animFrame);
-  }, [isMining, visualTier]);
-
-  const getTheme = (t: number) => {
-    switch (t) {
-      case 1: return { slots: 1, color: '#6b7280', accent: '#9ca3af', glow: '#9ca3af', label: 'BASIC' };
-      case 2: return { slots: 1, color: '#374151', accent: '#60a5fa', glow: '#60a5fa', label: 'ECO' };
-      case 3: return { slots: 2, color: '#1f2937', accent: '#4ade80', glow: '#4ade80', label: 'LITE' };
-      case 4: return { slots: 2, color: '#312e81', accent: '#a78bfa', glow: '#a78bfa', label: 'GAMER' };
-      case 5: return { slots: 2, color: '#7c2d12', accent: '#fb923c', glow: '#fb923c', label: 'PRO' };
-      case 6: return { slots: 3, color: '#1e3a8a', accent: '#38bdf8', glow: '#38bdf8', label: 'ELITE' };
-      case 7: return { slots: 3, color: '#064e3b', accent: '#34d399', glow: '#34d399', label: 'MATRIX' };
-      case 8: return { slots: 3, color: '#7f1d1d', accent: '#f87171', glow: '#f87171', label: 'INFERNO' };
-      case 9: return { slots: 3, color: '#854d0e', accent: '#fbbf24', glow: '#fbbf24', label: 'GOLD' };
-      case 10: return { slots: 3, color: '#4a044e', accent: '#f472b6', glow: '#f472b6', label: 'GOD' };
-      default: return { slots: 1, color: '#333', accent: '#fff', glow: '#fff', label: '???' };
-    }
-  };
-
-  const theme = getTheme(visualTier);
-  const W = 200;
-  const H = 180;
-
+  
+  // Цветовая схема в зависимости от визуального тира
+  const glowColor = visualTier >= 8 ? '#ef4444' : visualTier >= 5 ? '#f59e0b' : visualTier >= 3 ? '#3b82f6' : '#64748b';
+  const fansCount = visualTier >= 6 ? 3 : visualTier >= 3 ? 2 : 1;
+  const cardHeight = 140 + (visualTier * 4);
+  
   return (
-    <div style={{ 
-      width: '100%', 
-      maxWidth: 240, 
-      margin: '0 auto',
-      filter: `drop-shadow(0 0 ${visualTier * 3}px ${theme.glow}40)`,
-      transition: 'filter 1s ease'
-    }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={theme.color} />
-            <stop offset="100%" stopColor="#000" />
-          </linearGradient>
-          <linearGradient id="slotGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1e293b" />
-            <stop offset="100%" stopColor="#0f172a" />
-          </linearGradient>
-        </defs>
-
-        <rect x="10" y="10" width="160" height="160" rx="12" fill="url(#bodyGrad)" stroke={theme.accent} strokeWidth="2" />
+    <div style={styles.container}>
+      {/* Анимация вращения */}
+      <style>{`
+        @keyframes spin {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+      `}</style>
+      
+      <div style={styles.scene}>
+        {/* Основная плата видеокарты */}
+        <div style={{
+          ...styles.gpuCard,
+          height: cardHeight,
+          width: 200,
+          transform: `rotateY(-15deg) rotateX(5deg)`,
+          boxShadow: `40px 20px 40px rgba(0,0,0,0.6), 
+                      0 0 ${visualTier * 12}px ${glowColor}40,
+                      inset 0 0 20px rgba(255,255,255,0.05)`,
+        }}>
+          {/* Боковая грань (толщина) */}
+          <div style={{
+            ...styles.gpuSide,
+            height: cardHeight,
+            background: `linear-gradient(90deg, #1e293b, #0f172a)`,
+          }}></div>
+          
+          {/* Верхняя часть (радиатор) */}
+          <div style={{
+            ...styles.gpuTop,
+            background: visualTier >= 3 
+              ? `repeating-linear-gradient(90deg, #334155 0px, #334155 2px, #1e293b 2px, #1e293b 6px)`
+              : 'linear-gradient(180deg, #475569 0%, #334155 100%)',
+          }}>
+            {/* Тепловые трубки */}
+            {visualTier >= 4 && Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{
+                ...styles.heatpipe,
+                top: 25 + (i * 28),
+                background: `linear-gradient(90deg, #b45309, #f59e0b, #b45309)`,
+                boxShadow: visualTier >= 5 ? '0 0 10px #f59e0b' : 'none',
+              }}></div>
+            ))}
+          </div>
+          
+          {/* Вентиляторы */}
+          <div style={{
+            ...styles.fansWrapper,
+            height: cardHeight - 30,
+          }}>
+            {Array.from({ length: fansCount }).map((_, i) => (
+              <div key={i} style={{
+                ...styles.fanHousing,
+                background: visualTier >= 2 
+                  ? `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent), 
+                     linear-gradient(135deg, #1e293b, #0f172a)`
+                  : 'linear-gradient(135deg, #334155, #1e293b)',
+                border: visualTier >= 2 ? `2px solid ${glowColor}30` : '1px solid rgba(255,255,255,0.1)',
+                boxShadow: visualTier >= 3 ? `inset 0 0 20px ${glowColor}20, 0 0 15px ${glowColor}30` : 'inset 0 0 10px rgba(0,0,0,0.5)',
+              }}>
+                {/* Сам вентилятор */}
+                <div style={styles.fanContainer}>
+                  <div style={{
+                    ...styles.fan,
+                    ...(isMining ? styles.spinning : {}),
+                  }}>
+                    {/* Лопасти */}
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <div key={j} style={{
+                        ...styles.fanBlade,
+                        transform: `rotate(${j * 40}deg)`,
+                        background: `linear-gradient(${135 + j * 40}deg, 
+                          ${visualTier >= 2 ? glowColor : '#64748b'}40 0%, 
+                          ${visualTier >= 2 ? glowColor : '#64748b'}20 50%, 
+                          transparent 100%)`,
+                      }}></div>
+                    ))}
+                    
+                    {/* Центр вентилятора */}
+                    <div style={{
+                      ...styles.fanCenter,
+                      background: `radial-gradient(circle, ${glowColor}, ${glowColor}80)`,
+                      boxShadow: `0 0 20px ${glowColor}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                    }}>
+                      <span style={{ fontSize: 9, fontWeight: 'bold', color: 'white' }}>
+                        {visualTier >= 3 ? 'GPU' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* RGB кольцо вокруг вентилятора */}
+                  {visualTier >= 2 && (
+                    <div style={{
+                      ...styles.rgbRing,
+                      border: `3px solid ${glowColor}`,
+                      boxShadow: `0 0 15px ${glowColor}, inset 0 0 10px ${glowColor}40`,
+                      opacity: isMining ? 1 : 0.6,
+                    }}></div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* RGB полоса снизу */}
+          <div style={{
+            ...styles.rgbStrip,
+            background: `linear-gradient(90deg, transparent, ${glowColor}, ${glowColor}80, ${glowColor}, transparent)`,
+            boxShadow: `0 0 20px ${glowColor}`,
+            opacity: visualTier >= 2 ? 1 : 0.7,
+          }}></div>
+          
+          {/* Разъемы питания (на высоких тирах) */}
+          {visualTier >= 4 && (
+            <div style={styles.powerConnectors}>
+              {Array.from({ length: visualTier >= 7 ? 3 : 2 }).map((_, i) => (
+                <div key={i} style={{
+                  ...styles.powerPin,
+                  background: 'linear-gradient(180deg, #1e293b, #0f172a)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}></div>
+              ))}
+            </div>
+          )}
+          
+          {/* PCIe разъем */}
+          <div style={{
+            ...styles.pcieSlot,
+            background: 'linear-gradient(180deg, #fbbf24, #d97706)',
+            boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)',
+          }}></div>
+        </div>
         
-        <rect x="15" y="15" width="150" height="15" rx="4" fill="#0f172a" stroke={theme.accent} strokeWidth="1" opacity="0.5" />
-        {Array.from({ length: 12 }).map((_, i) => (
-          <line key={i} x1={25 + i * 12} y1="18" x2={25 + i * 12} y2="27" stroke={theme.accent} strokeWidth="1" opacity="0.3" />
-        ))}
-
-        {Array.from({ length: theme.slots }).map((_, i) => {
-          const y = 35 + i * 45;
-          return (
-            <g key={i}>
-              <rect x="20" y={y} width="140" height="35" rx="6" fill="url(#slotGrad)" stroke={theme.accent} strokeWidth="1" opacity="0.8" />
-              <circle cx="90" cy={y + 17.5} r="12" fill="none" stroke={theme.accent} strokeWidth="2" opacity="0.6">
-                {isMining && <animate attributeName="stroke-opacity" values="0.3;0.9;0.3" dur="1s" repeatCount="indefinite" />}
-              </circle>
-              <path d={`M 90 ${y + 17.5} L 90 ${y + 5} A 12.5 12.5 0 0 1 102 ${y + 17.5}`} fill="none" stroke={theme.accent} strokeWidth="2" opacity="0.4" />
-              <path d={`M 90 ${y + 17.5} L 78 ${y + 17.5} A 12.5 12.5 0 0 1 90 ${y + 5}`} fill="none" stroke={theme.accent} strokeWidth="2" opacity="0.4" />
-              <circle cx="28" cy={y + 17.5} r="2" fill={theme.accent} opacity="0.8" />
-              <circle cx="152" cy={y + 17.5} r="2" fill={theme.accent} opacity="0.8" />
-            </g>
-          );
-        })}
-
-        <g ref={rgbRef}>
-          <rect x="30" y="160" width="120" height="6" rx="3" fill={theme.accent} opacity="0.6" />
-        </g>
-
-        <rect x="175" y="30" width="15" height="120" rx="4" fill="#1e293b" stroke={theme.accent} strokeWidth="1" />
-        {Array.from({ length: 3 }).map((_, i) => (
-          <rect key={i} x="180" y={40 + i * 35} width="5" height="15" rx="1" fill="none" stroke={theme.accent} strokeWidth="1" opacity="0.5" />
-        ))}
-
-        <text x="182" y="25" textAnchor="middle" fill={theme.accent} fontSize="8" fontWeight="bold" opacity="0.8">
-          {theme.label}
-        </text>
-      </svg>
+        {/* Тень под картой */}
+        <div style={{
+          ...styles.shadow,
+          height: cardHeight * 0.5,
+          width: 200,
+          boxShadow: `0 20px 60px rgba(0,0,0,0.8)`,
+        }}></div>
+      </div>
     </div>
   );
+};
+
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    position: 'relative',
+    width: '100%',
+    height: 400,
+    margin: '0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scene: {
+    position: 'relative',
+    width: 240,
+    height: 320,
+    transformStyle: 'preserve-3d',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gpuCard: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -100,
+    marginTop: -70,
+    transformStyle: 'preserve-3d',
+    borderRadius: 12,
+    transition: 'all 0.5s ease',
+    overflow: 'visible',
+  },
+  gpuSide: {
+    position: 'absolute',
+    right: -40,
+    top: 0,
+    width: 40,
+    borderRadius: '0 8px 8px 0',
+    zIndex: 1,
+  },
+  gpuTop: {
+    position: 'absolute',
+    top: -15,
+    left: 0,
+    right: 0,
+    height: 15,
+    borderRadius: '8px 8px 0 0',
+    zIndex: 2,
+  },
+  heatpipe: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    height: 6,
+    borderRadius: 3,
+    zIndex: 3,
+  },
+  fansWrapper: {
+    position: 'absolute',
+    top: 15,
+    left: 15,
+    right: 15,
+    bottom: 45,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    zIndex: 4,
+  },
+  fanHousing: {
+    flex: 1,
+    borderRadius: 8,
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fanContainer: {
+    position: 'relative',
+    width: 75,
+    height: 75,
+  },
+  fan: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 75,
+    height: 75,
+    borderRadius: '50%',
+  },
+  spinning: {
+    animation: 'spin 0.8s linear infinite',
+  },
+  fanBlade: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 38,
+    height: 10,
+    borderRadius: '5px',
+    transformOrigin: 'left center',
+    marginTop: -5,
+  },
+  fanCenter: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 30,
+    height: 30,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  rgbRing: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    borderRadius: '50%',
+    pointerEvents: 'none',
+  },
+  rgbStrip: {
+    position: 'absolute',
+    bottom: 15,
+    left: '10%',
+    right: '10%',
+    height: 5,
+    borderRadius: 3,
+    zIndex: 5,
+  },
+  powerConnectors: {
+    position: 'absolute',
+    top: 20,
+    right: -35,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    zIndex: 3,
+  },
+  powerPin: {
+    width: 22,
+    height: 14,
+    borderRadius: 3,
+  },
+  pcieSlot: {
+    position: 'absolute',
+    bottom: -10,
+    left: 25,
+    right: 25,
+    height: 10,
+    borderRadius: '0 0 4px 4px',
+    zIndex: 2,
+  },
+  shadow: {
+    position: 'absolute',
+    bottom: 30,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    borderRadius: '50%',
+    filter: 'blur(20px)',
+    background: 'radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%)',
+    zIndex: 0,
+  },
 };
