@@ -172,15 +172,15 @@ const saveProgress = async () => {
   if (isLoading) return;
   
   try {
-    // 🔥 Проверяем что данные валидны
+    // 🔥 ВАЖНО: Явно преобразуем массивы в JSON строки
     const saveData = {
       id: userIdNum,
       nickname: currentNickname,
       balance: balance,
       rub_balance: rubBalance,
       max_balance: maxBalance,
-      owned_currencies: ownedCurrencies, // Массив
-      price_multipliers: priceMultipliers,
+      owned_currencies: JSON.stringify(ownedCurrencies), // 👈 СТРОКА JSON
+      price_multipliers: JSON.stringify(priceMultipliers), // 👈 СТРОКА JSON
       selected_currency: selectedCurrencyId,
       last_login: new Date().toISOString(),
       total_spent: totalSpent,
@@ -191,10 +191,11 @@ const saveProgress = async () => {
       daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
     };
 
-    console.log('💾 Сохранение:', {
+    console.log('💾 Сохранение данных:', {
       balance: saveData.balance,
-      ownedCount: saveData.owned_currencies.length,
-      maxBalance: saveData.max_balance
+      ownedCurrencies: saveData.owned_currencies,
+      maxBalance: saveData.max_balance,
+      ownedCount: ownedCurrencies.length
     });
 
     const { error } = await supabase
@@ -206,7 +207,7 @@ const saveProgress = async () => {
       throw error;
     }
     
-    console.log('✅ Успешно сохранено');
+    console.log('✅ Успешно сохранено в БД');
   } catch (err) {
     console.error('Save error:', err);
   }
@@ -288,74 +289,102 @@ useEffect(() => {
         throw error;
       }
 
-      if (data) {
-        console.log('✅ Данные загружены:', {
-          balance: data.balance,
-          ownedCurrencies: data.owned_currencies?.length || 0,
-          maxBalance: data.max_balance
-        });
+if (data) {
+  console.log('✅ Данные загружены:', {
+    balance: data.balance,
+    ownedCurrenciesRaw: data.owned_currencies,
+    maxBalance: data.max_balance
+  });
 
-        setBalance(data.balance || 100);
-        setRubBalance(data.rub_balance || 0);
-        setMaxBalance(data.max_balance || 100);
-        
-        // 🔥 ВАЖНО: Проверяем что owned_currencies это массив
-        const owned = Array.isArray(data.owned_currencies) ? data.owned_currencies : [];
-        console.log('📦 Валюты:', owned);
-        setOwnedCurrencies(owned);
-        
-        setPriceMultipliers(data.price_multipliers || {});
-        setSelectedCurrencyId(data.selected_currency || 'btc');
-        setTotalSpent(data.total_spent || 0);
-        setReferrerId(data.referrer_id || null);
-        setReferralBonusGiven(data.referral_bonus_awarded || false);
-        
-        if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
-        else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
-        else setAvatarUrl(null);
-        
-        if (data.vip_status) setVipStatus(data.vip_status);
-        
-        if (data.boost_expires_at) {
-          const exp = new Date(data.boost_expires_at).getTime();
-          if (exp > Date.now()) {
-            setBoostMultiplier(data.boost_multiplier || 2);
-            setBoostExpiresAt(exp);
-          }
-        }
-        
-        if (data.daily_quests) {
-          try { 
-            const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests;
-            setDailyQuests(Array.isArray(quests) ? quests : []); 
-          } catch(e) { 
-            console.error('Quest parse error:', e);
-            setDailyQuests([]); 
-          }
-        }
-
-        if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
-
-        // Оффлайн заработок
-        if (data.last_login && owned.length > 0) {
-          const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-          if (diff > 60) { // Только если прошло больше минуты
-            const tier = getLevelInfo(data.max_balance || 0).tier;
-            const mult = getGlobalMultiplier(tier);
-            const inc = owned.reduce((t: number, o: OwnedCurrency) => {
-              const c = currencies.find(cur => cur.id === o.currencyId);
-              return t + (c ? c.incomePerSecond * o.amount * mult : 0);
-            }, 0);
-            const off = inc * diff * 0.2;
-            if (off > 0) { 
-              setOfflineAmount(off); 
-              setBalance(p => p + off); 
-              setShowOfflineEarnings(true); 
-              setTimeout(() => setShowOfflineEarnings(false), 5000); 
-            }
-          }
-        }
+  setBalance(data.balance || 100);
+  setRubBalance(data.rub_balance || 0);
+  setMaxBalance(data.max_balance || 100);
+  
+  // 🔥 ВАЖНО: Парсим JSON строку обратно в массив
+  let owned = [];
+  try {
+    if (data.owned_currencies) {
+      owned = typeof data.owned_currencies === 'string' 
+        ? JSON.parse(data.owned_currencies) 
+        : data.owned_currencies;
+      
+      if (!Array.isArray(owned)) {
+        console.warn('⚠️ owned_currencies не массив, сбрасываем');
+        owned = [];
       }
+    }
+  } catch (e) {
+    console.error('❌ Ошибка парсинга owned_currencies:', e);
+    owned = [];
+  }
+  
+  console.log('📦 Валюты после парсинга:', owned);
+  setOwnedCurrencies(owned);
+  
+  // Парсим price_multipliers
+  let multipliers = {};
+  try {
+    if (data.price_multipliers) {
+      multipliers = typeof data.price_multipliers === 'string'
+        ? JSON.parse(data.price_multipliers)
+        : data.price_multipliers;
+    }
+  } catch (e) {
+    console.error('Error parsing multipliers:', e);
+  }
+  setPriceMultipliers(multipliers);
+  
+  setSelectedCurrencyId(data.selected_currency || 'btc');
+  setTotalSpent(data.total_spent || 0);
+  setReferrerId(data.referrer_id || null);
+  setReferralBonusGiven(data.referral_bonus_awarded || false);
+  
+  if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
+  else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
+  else setAvatarUrl(null);
+  
+  if (data.vip_status) setVipStatus(data.vip_status);
+  
+  if (data.boost_expires_at) {
+    const exp = new Date(data.boost_expires_at).getTime();
+    if (exp > Date.now()) {
+      setBoostMultiplier(data.boost_multiplier || 2);
+      setBoostExpiresAt(exp);
+    }
+  }
+  
+  if (data.daily_quests) {
+    try { 
+      const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests;
+      setDailyQuests(Array.isArray(quests) ? quests : []); 
+    } catch(e) { 
+      console.error('Quest parse error:', e);
+      setDailyQuests([]); 
+    }
+  }
+
+  if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
+
+  // Оффлайн заработок
+  if (data.last_login && owned.length > 0) {
+    const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
+    if (diff > 60) {
+      const tier = getLevelInfo(data.max_balance || 0).tier;
+      const mult = getGlobalMultiplier(tier);
+      const inc = owned.reduce((t: number, o: any) => {
+        const c = currencies.find(cur => cur.id === o.currencyId);
+        return t + (c ? c.incomePerSecond * o.amount * mult : 0);
+      }, 0);
+      const off = inc * diff * 0.2;
+      if (off > 0) { 
+        setOfflineAmount(off); 
+        setBalance(p => p + off); 
+        setShowOfflineEarnings(true); 
+        setTimeout(() => setShowOfflineEarnings(false), 5000); 
+      }
+    }
+  }
+}
     } catch (err) {
       console.error('💀 Critical load error:', err);
     } finally { 

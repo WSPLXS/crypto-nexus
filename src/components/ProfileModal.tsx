@@ -93,7 +93,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: { 
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', 
     display: 'flex', alignItems: 'center', justifyContent: 'center', 
-    zIndex: 9999, backdropFilter: 'blur(8px)' 
+    zIndex: 10000, backdropFilter: 'blur(8px)' 
   },
   modal: { 
     background: '#141414', border: '1px solid rgba(156,163,175,0.15)', 
