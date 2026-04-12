@@ -467,7 +467,7 @@ function App() {
   return (
     <>
       <div style={styles.container}>
-        <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
+        <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 100 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
 
         <div style={styles.topBar}>
           <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance })}>
