@@ -88,14 +88,14 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const symbol = currency === 'usd' ? '$' : '₽';
 
   // Хелпер для рендера бейджа в модалке перевода
-  const renderMiniBadge = (status: string) => {
-    if (!status || status === 'none') return null;
-    let bg = '#9ca3af'; 
-    let text = 'VIP';
-    if (status === 'platinum') { bg = '#FFD700'; text = 'PLAT'; }
-    if (status === 'premium') { bg = '#00FFFF'; text = 'PREM'; }
-    return <span style={{fontSize: 8, padding: '1px 3px', borderRadius: 2, background: bg, color: '#000', marginLeft: 4, fontWeight: 'bold'}}>{text}</span>;
-  };
+const renderMiniBadge = (status: string) => {
+  if (!status || status === 'none') return null;
+  let bg = '#9ca3af'; 
+  let text = 'VIP';
+  if (status === 'platinum') { bg = '#FFD700'; text = 'PLATINUM'; } // 👈 Полное
+  if (status === 'premium') { bg = '#00FFFF'; text = 'PREMIUM'; } // 👈 Полное
+  return <span style={{fontSize: 8, padding: '1px 3px', borderRadius: 2, background: bg, color: '#000', marginLeft: 4, fontWeight: 'bold'}}>{text}</span>;
+};
 
   return (
     <div style={styles.overlay} onClick={onClose}>

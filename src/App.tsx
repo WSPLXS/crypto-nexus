@@ -132,11 +132,11 @@ function App() {
     if (status === 'platinum') {
       bg = 'linear-gradient(90deg, #FFD700, #FDB931)'; // Золото
       color = '#fff';
-      text = 'PLAT';
+      text = 'PLATINUM'; // 👈 Полное название
     } else if (status === 'premium') {
       bg = 'linear-gradient(90deg, #00FFFF, #B9F2FF)'; // Алмаз
       color = '#000';
-      text = 'PREM';
+      text = 'PREMIUM'; // 👈 Полное название
     }
 
     return (
@@ -415,7 +415,7 @@ function App() {
       setMyClan(null); setClanMembers([]); setClanApplications([]); setMyClanRole(0); setShowClanSettings(false); setShowClan(false); alert('Клан успешно удален');
     } catch (err) { console.error('Delete clan error:', err); alert('Ошибка при удалении клана'); }
   };
-  
+
 
   const handleKick = async (userId: number) => { if (!confirm('Исключить игрока?')) return; await supabase.from('clan_members').delete().eq('clan_id', myClan.id).eq('user_id', userId); fetchClanData(); };
   const handleRankUpdate = async () => { for (const uid of selectedForRank) { await supabase.from('clan_members').update({ role: newRank }).eq('clan_id', myClan.id).eq('user_id', uid); } setShowRankManager(false); setSelectedForRank([]); fetchClanData(); };
