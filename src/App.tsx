@@ -596,10 +596,11 @@ function App() {
 
       {/* 🔥 МОДАЛКИ ПЕРЕВОДА И ОБМЕНА */}
       <TransferModal 
-        isOpen={showTransfer} 
-        onClose={() => setShowTransfer(false)} 
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
         currentUserId={userIdNum}
-        currentBalance={balance}
+        usdBalance={balance}      
+        rubBalance={rubBalance}   
         onRefreshBalance={saveProgress} 
       />
       
