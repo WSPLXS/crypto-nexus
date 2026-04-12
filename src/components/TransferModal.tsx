@@ -22,12 +22,16 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  if (!isOpen) return null;
-
-  const currentBalance = currency === 'usd' ? usdBalance : rubBalance;
-  const symbol = currency === 'usd' ? '$' : '₽';
-  const colName = currency === 'usd' ? 'balance' : 'rub_balance';
-  const dbCurrency = currency === 'usd' ? 'USD' : 'RUB';
+  // Сброс состояния при открытии
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedUser(null);
+      setAmount('');
+      setCurrency('usd');
+    }
+  }, [isOpen]);
 
   // Поиск пользователя по нику
   useEffect(() => {
@@ -39,14 +43,14 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
       setSearching(true);
       try {
-const {  data } = await supabase
-  .from('users')
-  .select('id, nickname, balance, rub_balance')
-  .ilike('nickname', `%${searchQuery}%`)
-  .neq('id', currentUserId)
-  .limit(5);
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, nickname, balance, rub_balance')
+          .ilike('nickname', `%${searchQuery}%`)
+          .neq('id', currentUserId)
+          .limit(5);
 
-setSearchResults(data || []);
+        if (error) throw error;
         setSearchResults(data || []);
       } catch (err) {
         console.error('Search error:', err);
@@ -55,21 +59,37 @@ setSearchResults(data || []);
       }
     };
 
-    const timeoutId = setTimeout(searchUser, 300); // Debounce 300ms
+    const timeoutId = setTimeout(searchUser, 300);
     return () => clearTimeout(timeoutId);
   }, [searchQuery, currentUserId]);
 
   const handleSend = async () => {
-    if (!selectedUser) return alert('Выберите получателя из списка');
+    if (!selectedUser) {
+      alert('Выберите получателя из списка');
+      return;
+    }
     
     const num = parseFloat(amount);
     const target = selectedUser.id;
 
-    if (!num || num <= 0) return alert('Введите сумму больше 0');
-    if (num > currentBalance) return alert(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)}${symbol}`);
+    if (!num || num <= 0) {
+      alert('Введите сумму больше 0');
+      return;
+    }
+
+    const currentBalance = currency === 'usd' ? usdBalance : rubBalance;
+    const symbol = currency === 'usd' ? '$' : '₽';
+    
+    if (num > currentBalance) {
+      alert(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)}${symbol}`);
+      return;
+    }
 
     setLoading(true);
     try {
+      const colName = currency === 'usd' ? 'balance' : 'rub_balance';
+      const dbCurrency = currency === 'usd' ? 'USD' : 'RUB';
+
       // 1. Снимаем с отправителя
       const { error: senderError } = await supabase
         .from('users')
@@ -93,12 +113,8 @@ setSearchResults(data || []);
         currency: dbCurrency
       });
 
-      alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname}!`);
+      alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname || 'Player'}!`);
       onRefreshBalance();
-      setAmount('');
-      setSearchQuery('');
-      setSelectedUser(null);
-      setSearchResults([]);
       onClose();
     } catch (err: any) {
       console.error('Transfer error:', err);
@@ -108,30 +124,47 @@ setSearchResults(data || []);
     }
   };
 
+  if (!isOpen) return null;
+
+  const currentBalance = currency === 'usd' ? usdBalance : rubBalance;
+  const symbol = currency === 'usd' ? '$' : '₽';
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
+        <button onClick={onClose} style={styles.closeBtn}>
+          <X size={24} color="#9ca3af" />
+        </button>
+        
         <h2 style={styles.modalTitle}>💸 Перевод средств</h2>
 
+        {/* Переключатель валют */}
         <div style={styles.currencyToggle}>
           <button
             onClick={() => setCurrency('usd')}
-            style={{ ...styles.toggleBtn, ...(currency === 'usd' ? styles.toggleActive : {}) }}
+            style={{ 
+              ...styles.toggleBtn, 
+              ...(currency === 'usd' ? styles.toggleActive : {}) 
+            }}
           >
             <DollarSign size={16} /> USD
           </button>
           <button
             onClick={() => setCurrency('rub')}
-            style={{ ...styles.toggleBtn, ...(currency === 'rub' ? styles.toggleActive : {}) }}
+            style={{ 
+              ...styles.toggleBtn, 
+              ...(currency === 'rub' ? styles.toggleActive : {}) 
+            }}
           >
             <CircleDollarSign size={16} /> RUB
           </button>
         </div>
 
-        <p style={styles.balanceHint}>Ваш баланс: <b>{currentBalance.toFixed(2)}{symbol}</b></p>
+        <p style={styles.balanceHint}>
+          Ваш баланс: <b>{currentBalance.toFixed(2)}{symbol}</b>
+        </p>
 
-        {/* Поиск по нику */}
+        {/* Поле поиска */}
         <label style={styles.label}>
           Никнейм получателя:
           <div style={{position: 'relative'}}>
@@ -139,7 +172,7 @@ setSearchResults(data || []);
             <input
               style={{...styles.input, paddingLeft: 40}}
               type="text"
-              placeholder="Введите никнейм..."
+              placeholder="Введите никнейм (мин. 3 символа)..."
               value={searchQuery}
               onChange={e => {
                 setSearchQuery(e.target.value);
@@ -150,9 +183,10 @@ setSearchResults(data || []);
           </div>
         </label>
 
-        {/* Результаты поиска */}
-        {searching && <div style={styles.searching}>Поиск...</div>}
+        {/* Индикатор поиска */}
+        {searching && <div style={styles.searching}>🔍 Поиск...</div>}
         
+        {/* Результаты поиска */}
         {searchResults.length > 0 && !selectedUser && (
           <div style={styles.searchResults}>
             {searchResults.map(user => (
@@ -165,9 +199,13 @@ setSearchResults(data || []);
                   setSearchQuery(user.nickname || `Player${String(user.id).slice(-4)}`);
                 }}
               >
-                <div style={styles.searchAvatar}>{(user.nickname || '?')[0].toUpperCase()}</div>
+                <div style={styles.searchAvatar}>
+                  {(user.nickname || '?')[0].toUpperCase()}
+                </div>
                 <div style={{flex: 1}}>
-                  <div style={styles.searchName}>{user.nickname || `Player${String(user.id).slice(-4)}`}</div>
+                  <div style={styles.searchName}>
+                    {user.nickname || `Player${String(user.id).slice(-4)}`}
+                  </div>
                   <div style={styles.searchBalance}>
                     ${(user.balance || 0).toFixed(0)} | ₽{(user.rub_balance || 0).toFixed(0)}
                   </div>
@@ -180,9 +218,13 @@ setSearchResults(data || []);
         {/* Выбранный пользователь */}
         {selectedUser && (
           <div style={styles.selectedUser}>
-            <div style={styles.searchAvatar}>{(selectedUser.nickname || '?')[0].toUpperCase()}</div>
+            <div style={styles.searchAvatar}>
+              {(selectedUser.nickname || '?')[0].toUpperCase()}
+            </div>
             <div style={{flex: 1}}>
-              <div style={styles.searchName}>{selectedUser.nickname || `Player${String(selectedUser.id).slice(-4)}`}</div>
+              <div style={styles.searchName}>
+                {selectedUser.nickname || `Player${String(selectedUser.id).slice(-4)}`}
+              </div>
             </div>
             <button
               onClick={() => {
@@ -196,6 +238,7 @@ setSearchResults(data || []);
           </div>
         )}
 
+        {/* Поле суммы */}
         <label style={styles.label}>
           Сумма ({symbol}):
           <input
@@ -208,6 +251,7 @@ setSearchResults(data || []);
           />
         </label>
 
+        {/* Кнопка отправки */}
         <button
           onClick={handleSend}
           disabled={loading || !amount || !selectedUser}
@@ -217,31 +261,187 @@ setSearchResults(data || []);
             background: currency === 'usd' ? '#22c55e' : '#a855f7'
           }}
         >
-          {loading ? '⏳ Отправка...' : <><Send size={18} style={{marginRight: 8}}/> Перевести {symbol}</>}
+          {loading ? '⏳ Отправка...' : (
+            <>
+              <Send size={18} style={{marginRight: 8}}/> 
+              Перевести {symbol}
+            </>
+          )}
         </button>
       </div>
     </div>
   );
 };
 
-const styles: any = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
-  modal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 24, width: '90%', maxWidth: 380, position: 'relative', maxHeight: '90vh', overflowY: 'auto' },
-  closeBtn: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 20, textAlign: 'center' },
-  currencyToggle: { display: 'flex', background: '#262626', borderRadius: 12, padding: 4, marginBottom: 12 },
-  toggleBtn: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14 },
-  toggleActive: { background: '#3b82f6', color: 'white', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' },
-  balanceHint: { color: '#a3a3a3', fontSize: 13, textAlign: 'center', marginBottom: 16 },
-  label: { display: 'flex', flexDirection: 'column', gap: 6, color: '#a3a3a3', fontSize: 13, marginBottom: 12 },
-  input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: 16 },
-  btn: { width: '100%', padding: '14px', borderRadius: 12, border: 'none', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8, transition: 'opacity 0.2s' },
-  searching: { textAlign: 'center', color: '#737373', padding: '8px 0', fontSize: 13 },
-  searchResults: { background: '#1a1a1a', borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: '1px solid #404040' },
-  searchItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid #262626' },
-  searchAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
-  searchName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
-  searchBalance: { color: '#737373', fontSize: 12, marginTop: 2 },
-  selectedUser: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#1a1a1a', borderRadius: 12, marginBottom: 12, border: '1px solid #22c55e' },
-  clearBtn: { background: '#ef4444', border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }
+const styles: { [key: string]: React.CSSProperties } = {
+  overlay: { 
+    position: 'fixed' as const, 
+    inset: 0, 
+    background: 'rgba(0,0,0,0.85)', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    zIndex: 9999, 
+    backdropFilter: 'blur(8px)' 
+  },
+  modal: { 
+    background: '#141414', 
+    border: '1px solid rgba(156,163,175,0.15)', 
+    borderRadius: 20, 
+    padding: 24, 
+    width: '90%', 
+    maxWidth: 380, 
+    position: 'relative' as const, 
+    maxHeight: '90vh', 
+    overflowY: 'auto' as const
+  },
+  closeBtn: { 
+    position: 'absolute' as const, 
+    top: 16, 
+    right: 16, 
+    background: 'none', 
+    border: 'none', 
+    cursor: 'pointer' 
+  },
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#e5e5e5', 
+    marginBottom: 20, 
+    textAlign: 'center' as const 
+  },
+  currencyToggle: { 
+    display: 'flex', 
+    background: '#262626', 
+    borderRadius: 12, 
+    padding: 4, 
+    marginBottom: 12 
+  },
+  toggleBtn: { 
+    flex: 1, 
+    padding: '10px 0', 
+    borderRadius: 10, 
+    border: 'none', 
+    background: 'transparent', 
+    color: '#737373', 
+    fontWeight: '600' as const, 
+    cursor: 'pointer', 
+    transition: 'all 0.2s', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 6, 
+    fontSize: 14 
+  },
+  toggleActive: { 
+    background: '#3b82f6', 
+    color: 'white', 
+    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' 
+  },
+  balanceHint: { 
+    color: '#a3a3a3', 
+    fontSize: 13, 
+    textAlign: 'center' as const, 
+    marginBottom: 16 
+  },
+  label: { 
+    display: 'flex', 
+    flexDirection: 'column' as const, 
+    gap: 6, 
+    color: '#a3a3a3', 
+    fontSize: 13, 
+    marginBottom: 12 
+  },
+  input: { 
+    width: '100%', 
+    padding: '12px', 
+    borderRadius: 12, 
+    background: '#0a0a0a', 
+    border: '1px solid #404040', 
+    color: 'white', 
+    boxSizing: 'border-box' as const, 
+    outline: 'none', 
+    fontSize: 16 
+  },
+  btn: { 
+    width: '100%', 
+    padding: '14px', 
+    borderRadius: 12, 
+    border: 'none', 
+    color: 'white', 
+    fontWeight: 'bold' as const, 
+    fontSize: 16, 
+    cursor: 'pointer', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 8, 
+    transition: 'opacity 0.2s' 
+  },
+  searching: { 
+    textAlign: 'center' as const, 
+    color: '#737373', 
+    padding: '8px 0', 
+    fontSize: 13 
+  },
+  searchResults: { 
+    background: '#1a1a1a', 
+    borderRadius: 12, 
+    overflow: 'hidden', 
+    marginBottom: 12, 
+    border: '1px solid #404040' 
+  },
+  searchItem: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: 12, 
+    padding: '12px', 
+    cursor: 'pointer', 
+    transition: 'background 0.2s', 
+    borderBottom: '1px solid #262626' 
+  },
+  searchAvatar: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: '50%', 
+    background: '#3b82f6', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    fontSize: 16, 
+    fontWeight: 'bold' as const, 
+    color: 'white' 
+  },
+  searchName: { 
+    color: '#e5e5e5', 
+    fontSize: 14, 
+    fontWeight: '500' as const 
+  },
+  searchBalance: { 
+    color: '#737373', 
+    fontSize: 12, 
+    marginTop: 2 
+  },
+  selectedUser: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: 12, 
+    padding: '12px', 
+    background: '#1a1a1a', 
+    borderRadius: 12, 
+    marginBottom: 12, 
+    border: '1px solid #22c55e' 
+  },
+  clearBtn: { 
+    background: '#ef4444', 
+    border: 'none', 
+    borderRadius: 8, 
+    width: 28, 
+    height: 28, 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    cursor: 'pointer', 
+    color: 'white' 
+  }
 };
