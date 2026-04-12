@@ -302,22 +302,36 @@ const fetchFriendsData = async () => {
       if (q.type === 'reach_level') prog = level;
       
       const completed = prog >= q.target;
+      
+      // ИСПРАВЛЕНИЕ: Если квест выполнен, проверяем, есть ли уже активный буст
       if (completed && !q.completed) {
-        const expires = Date.now() + 30 * 60 * 1000;
-        setBoostMultiplier(2);
-        setBoostExpiresAt(expires);
-        supabase.from('users').update({ 
-          boost_multiplier: 2, 
-          boost_expires_at: new Date(expires).toISOString() 
-        }).eq('id', userIdNum);
+          const now = Date.now();
+          
+          // Если буст уже активен, просто помечаем квест выполненным, НЕ сбрасывая таймер
+          if (boostExpiresAt && boostExpiresAt > now) {
+              return { ...q, progress: prog, completed: true };
+          }
+
+          // Если буста нет, выдаем его
+          const expires = now + 30 * 60 * 1000;
+          setBoostMultiplier(2);
+          setBoostExpiresAt(expires);
+          
+          supabase.from('users').update({ 
+            boost_multiplier: 2, 
+            boost_expires_at: new Date(expires).toISOString() 
+          }).eq('id', userIdNum);
+          
+          return { ...q, progress: prog, completed: true };
       }
       return { ...q, progress: prog, completed };
     });
+    
     if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) {
       setDailyQuests(updated);
       supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum);
     }
-  }, [balance, rubBalance, level, dailyQuests]);
+  }, [balance, rubBalance, level, dailyQuests, boostExpiresAt]); // 👈 Добавил boostExpiresAt в зависимости
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
