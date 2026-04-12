@@ -393,13 +393,7 @@ function App() {
     } catch (err) { console.error('Delete clan error:', err); alert('Ошибка при удалении клана'); }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleAppResponse = async (appId: number, accept: boolean) => {
-    await supabase.from('clan_applications').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', appId);
-    if (accept) { const app = clanApplications.find(a => a.id === appId); if (app) await supabase.from('clan_members').insert({ clan_id: myClan.id, user_id: app.user_id, role: 1 }); }
-    fetchClanData();
-  };
-
+  
   const handleKick = async (userId: number) => { if (!confirm('Исключить игрока?')) return; await supabase.from('clan_members').delete().eq('clan_id', myClan.id).eq('user_id', userId); fetchClanData(); };
   const handleRankUpdate = async () => { for (const uid of selectedForRank) { await supabase.from('clan_members').update({ role: newRank }).eq('clan_id', myClan.id).eq('user_id', uid); } setShowRankManager(false); setSelectedForRank([]); fetchClanData(); };
   const handleAddFriend = async (targetId: number) => { await supabase.from('friend_requests').insert({ sender_id: userIdNum, receiver_id: targetId, status: 'pending' }); alert('Заявка отправлена!'); setShowProfile(false); setShowFriendSearch(false); };
