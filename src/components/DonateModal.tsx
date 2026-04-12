@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Crown, Zap, Star, CreditCard } from 'lucide-react';
+import { X, Crown, Zap, Star, } from 'lucide-react';
 
 interface DonateModalProps {
   isOpen: boolean;
