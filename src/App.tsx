@@ -264,7 +264,7 @@ const fetchFriendsData = async () => {
       const newQuests = [
         { id: 'q1', title: 'Заработай $50,000', type: 'earn_usd', target: 50000, progress: 0, unit: '$', completed: false },
         { id: 'q2', title: 'Достигни уровня ' + (level + 1), type: 'reach_level', target: level + 1, progress: level, unit: 'Lvl', completed: false },
-        { id: 'q3', title: 'Пополни казну на $500', type: 'donate_clan', target: 500, progress: 0, unit: '$', completed: false }
+        { id: 'q3', title: 'Пополни общак на $500', type: 'donate_clan', target: 500, progress: 0, unit: '$', completed: false }
       ];
       setDailyQuests(newQuests);
       supabase.from('users').update({ 
