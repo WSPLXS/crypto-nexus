@@ -14,7 +14,7 @@ import { TransferModal } from './components/TransferModal';
 import { ExchangeModal } from './components/ExchangeModal';
 import { ClanTreasuryModal } from './components/ClanTreasuryModal';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
-import { DonateModal } from './components/DonateModal'; // 👈 Импорт доната
+import { DonateModal } from './components/DonateModal';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
@@ -71,7 +71,7 @@ function App() {
   const [showExchange, setShowExchange] = useState(false);
   const [showTreasury, setShowTreasury] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
-  const [showDonate, setShowDonate] = useState(false); // 👈 Состояние доната
+  const [showDonate, setShowDonate] = useState(false);
   
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -90,6 +90,7 @@ function App() {
   const [boostMultiplier, setBoostMultiplier] = useState(1);
   const [boostExpiresAt, setBoostExpiresAt] = useState<number | null>(null);
   const [boostTimeLeft, setBoostTimeLeft] = useState(0);
+  const [vipStatus, setVipStatus] = useState<string>('none');
 
   const [currentScreen, setCurrentScreen] = useState<'main' | 'secondary'>('main');
 
@@ -110,7 +111,6 @@ function App() {
   const { level, progress, tier } = getLevelInfo(maxBalance);
   const globalMultiplier = getGlobalMultiplier(tier);
   
-  // 💰 Расчет дохода с учетом буста
   const totalIncome = useMemo(() => {
     const base = ownedCurrencies.reduce((t, o) => { 
       const c = currencies.find(cur => cur.id === o.currencyId); 
@@ -213,6 +213,8 @@ function App() {
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
           
+          if (data.vip_status) setVipStatus(data.vip_status);
+          
           if (data.boost_expires_at) {
             const exp = new Date(data.boost_expires_at).getTime();
             if (exp > Date.now()) {
@@ -221,9 +223,7 @@ function App() {
             }
           }
           if (data.daily_quests) {
-            try {
-              setDailyQuests(JSON.parse(data.daily_quests));
-            } catch(e) { setDailyQuests([]); }
+            try { setDailyQuests(JSON.parse(data.daily_quests)); } catch(e) { setDailyQuests([]); }
           }
 
           if (data.last_login && data.owned_currencies?.length > 0) {
@@ -255,7 +255,6 @@ function App() {
     return () => clearInterval(i);
   }, [isAuthenticated, totalIncome, isLoading]);
 
-  // 🔥 Логика сброса квестов каждые 24 часа
   useEffect(() => {
     if (!isAuthenticated || isLoading || !myClan) return;
     const now = Date.now();
@@ -267,16 +266,10 @@ function App() {
         { id: 'q3', title: 'Пополни общак на $500', type: 'donate_clan', target: 500, progress: 0, unit: '$', completed: false }
       ];
       setDailyQuests(newQuests);
-      supabase.from('users').update({ 
-        last_daily_reset: now, 
-        daily_quests: JSON.stringify(newQuests), 
-        quest_start_usd: balance, 
-        quest_start_rub: rubBalance 
-      }).eq('id', userIdNum);
+      supabase.from('users').update({ last_daily_reset: now, daily_quests: JSON.stringify(newQuests), quest_start_usd: balance, quest_start_rub: rubBalance }).eq('id', userIdNum);
     }
   }, [isAuthenticated, isLoading, myClan]);
 
-  // ⏰ Отслеживание времени буста
   useEffect(() => {
     if (!boostExpiresAt) return;
     const interval = setInterval(() => {
@@ -291,7 +284,6 @@ function App() {
     return () => clearInterval(interval);
   }, [boostExpiresAt]);
 
-  // 📊 Проверка прогресса квестов
   useEffect(() => {
     if (dailyQuests.length === 0) return;
     const updated = dailyQuests.map(q => {
@@ -310,10 +302,7 @@ function App() {
           const expires = now + 30 * 60 * 1000;
           setBoostMultiplier(2);
           setBoostExpiresAt(expires);
-          supabase.from('users').update({ 
-            boost_multiplier: 2, 
-            boost_expires_at: new Date(expires).toISOString() 
-          }).eq('id', userIdNum);
+          supabase.from('users').update({ boost_multiplier: 2, boost_expires_at: new Date(expires).toISOString() }).eq('id', userIdNum);
       }
       return { ...q, progress: prog, completed };
     });
@@ -416,43 +405,26 @@ function App() {
     setBalance(newUsd);
     setRubBalance(newRub);
     try {
-      await supabase.from('users').update({
-        balance: newUsd,
-        rub_balance: newRub
-      }).eq('id', userIdNum);
+      await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum);
     } catch (e) { console.error('Exchange save error:', e); }
   };
 
-  // 👇 Функция для обработки покупки товаров из доната
   const handlePurchase = (type: string, currency: string, days: number) => {
-    // 1. Формируем код товара
-    // Формат: buy_[тип]_[валюта]_[цена]
     let payload = `buy_${type}_${currency}`;
-
-    // Цены (примерные, настроишь под себя)
     let price = 0;
     if (type === 'vip') price = currency === 'stars' ? 15 : 50;
     if (type === 'platinum') price = currency === 'stars' ? 50 : 150;
     if (type === 'premium') price = currency === 'stars' ? 150 : 250;
-    
-    // Для бустов цена зависит от дней
     if (type.includes('boost')) {
         price = currency === 'stars' ? 15 * days : 50 * days;
-        // Добавляем дни в payload, чтобы бот знал сколько выдать
         payload += `_days_${days}`; 
     }
-    
-    // Добавляем цену в конец
     payload += `_${price}`;
 
-    // 2. Ссылка на бота
-    // ⚠️ ЗАМЕНИ ЭТО НА СВОЕГО БОТА (без @)
-    const botUsername = "CryptoNexusWsp_Bot"; 
-    
-    // Формируем ссылку с параметром startapp
+    // ⚠️ ЗАМЕНИ 'YourBotUsername' НА РЕАЛЬНОЕ ИМЯ ТВОЕГО БОТА (БЕЗ @)
+    const botUsername = "YourBotUsername"; 
     const deepLink = `https://t.me/${botUsername}?start=${payload}`;
 
-    // 3. Открываем ссылку
     if (WebApp && WebApp.openTelegramLink) {
         WebApp.openTelegramLink(deepLink);
     } else {
@@ -523,7 +495,13 @@ function App() {
               <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance })}>
                 <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
                 <div style={styles.userInfo}>
-                  <span style={styles.nickname}>{currentNickname} <span style={styles.levelBadge}>Lvl {level}</span></span>
+                  <span style={styles.nickname}>
+                    {currentNickname}
+                    {vipStatus === 'vip' && <span style={{...styles.vipBadge, background: '#9ca3af', color: '#fff'}}>VIP</span>}
+                    {vipStatus === 'platinum' && <span style={{...styles.vipBadge, background: 'linear-gradient(90deg, #FFD700, #FDB931)', color: '#fff'}}>PLATINUM</span>}
+                    {vipStatus === 'premium' && <span style={{...styles.vipBadge, background: 'linear-gradient(90deg, #00FFFF, #B9F2FF)', color: '#000'}}>PREMIUM</span>}
+                    <span style={styles.levelBadge}>Lvl {level}</span>
+                  </span>
                   <div style={styles.balances}>
                     <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -554,8 +532,6 @@ function App() {
               </button>
               <button style={styles.menuCard} onClick={() => setShowTransfer(true)}><div style={{...styles.iconCircle, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e'}}><Banknote size={28} /></div><span style={styles.menuCardTitle}>Перевод</span><span style={styles.menuCardSub}>Отправить другу</span><ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} /></button>
               <button style={styles.menuCard} onClick={() => setShowExchange(true)}><div style={{...styles.iconCircle, background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7'}}><Repeat size={28} /></div><span style={styles.menuCardTitle}>Обмен</span><span style={styles.menuCardSub}>USD ↔ RUB</span><ChevronRight size={20} color="#52525b" style={{position:'absolute', right: 16}} /></button>
-              
-              {/* 👇 Кнопка Доната */}
               <button style={styles.menuCard} onClick={() => setShowDonate(true)}>
                 <div style={{...styles.iconCircle, background: 'rgba(234, 179, 8, 0.2)', color: '#eab308'}}><Gem size={28} /></div>
                 <span style={styles.menuCardTitle}>Донат</span>
@@ -615,7 +591,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
   userInfo: { flex: 1 },
-  nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'block' },
+  nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
   levelBadge: { fontSize: 11, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 6px', borderRadius: 4, marginLeft: 4 },
   balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
   rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
@@ -667,7 +643,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   offlineText: { fontSize: 14, color: '#9ca3af' },
   btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
   btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }
+  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' }
 };
 
 export default App;
