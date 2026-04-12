@@ -163,37 +163,36 @@ function App() {
     } catch (err) { console.error('Leaderboard error:', err); }
   };
 
-  const fetchClanData = async () => {
-    if (!isAuthenticated) return;
-    const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
-    if (member) {
-      const {  clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
-      if (clan) {
-        const {  members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
-        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
-          const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
-          return { ...m, ...u, incomePerMin: calculateIncome(u) };
-        }));
-        const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
-        setMyClan({ ...clan, total_income: totalInc }); setClanMembers(enrichedMembers); setMyClanRole(member.role);
-      } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
+const fetchClanData = async () => {
+  if (!isAuthenticated) return;
+  const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
+  if (member) {
+    const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
+    if (clan) {
+      const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+      const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
+        const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', m.user_id).single();
+        return { ...m, ...u, incomePerMin: calculateIncome(u) };
+      }));
+      const totalInc = enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0);
+      setMyClan({ ...clan, total_income: totalInc }); setClanMembers(enrichedMembers); setMyClanRole(member.role);
     } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
-  };
+  } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
+};
 
-  const fetchFriendsData = async () => {
-    if (!isAuthenticated) return;
-    const {  reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
-    const incoming = (reqs || []).filter((r: any) => r.receiver_id === userIdNum);
-    setMessages(incoming.map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
-    const {  accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
-    const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
-    const friendsData = await Promise.all(friendIds.map(async (id: number) => {
-      const {  u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
-      return { ...u, incomePerMin: calculateIncome(u) };
-    }));
-    setFriends(friendsData);
-  };
-
+const fetchFriendsData = async () => {
+  if (!isAuthenticated) return;
+  const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
+  const incoming = (reqs || []).filter((r: any) => r.receiver_id === userIdNum);
+  setMessages(incoming.map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
+  const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
+  const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
+  const friendsData = await Promise.all(friendIds.map(async (id: number) => {
+    const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url').eq('id', id).single();
+    return { ...u, incomePerMin: calculateIncome(u) };
+  }));
+  setFriends(friendsData);
+};
   const loadSocial = async () => { await Promise.all([fetchClanData(), fetchFriendsData(), fetchLeaderboard()]); };
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
