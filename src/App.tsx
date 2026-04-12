@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, ArrowUpRight, ArrowDownLeft, Package } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -73,6 +73,9 @@ function App() {
   const [showQuests, setShowQuests] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
   
+  // 👇 Новое состояние для квеста на пополнение общака
+  const [questStartTreasury, setQuestStartTreasury] = useState(0);
+
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
   const [clanSearchQuery, setClanSearchQuery] = useState('');
@@ -226,6 +229,9 @@ function App() {
             try { setDailyQuests(JSON.parse(data.daily_quests)); } catch(e) { setDailyQuests([]); }
           }
 
+          // Загружаем старт квеста общака
+          if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
+
           if (data.last_login && data.owned_currencies?.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
             if (diff > 0) {
@@ -260,13 +266,21 @@ function App() {
     const now = Date.now();
     const lastReset = myClan.last_daily_reset || 0;
     if (now - lastReset > 24 * 60 * 60 * 1000) {
+      const currentTreasury = myClan.treasury_usd || 0;
       const newQuests = [
         { id: 'q1', title: 'Заработай $50,000', type: 'earn_usd', target: 50000, progress: 0, unit: '$', completed: false },
         { id: 'q2', title: 'Достигни уровня ' + (level + 1), type: 'reach_level', target: level + 1, progress: level, unit: 'Lvl', completed: false },
         { id: 'q3', title: 'Пополни общак на $500', type: 'donate_clan', target: 500, progress: 0, unit: '$', completed: false }
       ];
       setDailyQuests(newQuests);
-      supabase.from('users').update({ last_daily_reset: now, daily_quests: JSON.stringify(newQuests), quest_start_usd: balance, quest_start_rub: rubBalance }).eq('id', userIdNum);
+      setQuestStartTreasury(currentTreasury);
+      supabase.from('users').update({ 
+        last_daily_reset: now, 
+        daily_quests: JSON.stringify(newQuests), 
+        quest_start_usd: balance, 
+        quest_start_rub: rubBalance,
+        quest_start_treasury: currentTreasury 
+      }).eq('id', userIdNum);
     }
   }, [isAuthenticated, isLoading, myClan]);
 
@@ -284,21 +298,27 @@ function App() {
     return () => clearInterval(interval);
   }, [boostExpiresAt]);
 
+  // 🔥 ИСПРАВЛЕНИЕ: Логика квестов и Х2 буста
   useEffect(() => {
     if (dailyQuests.length === 0) return;
     const updated = dailyQuests.map(q => {
       if (q.completed) return q;
       let prog = q.progress;
+      
       if (q.type === 'earn_usd') prog = Math.max(0, balance - (myClan?.quest_start_usd || 0));
       if (q.type === 'earn_rub') prog = Math.max(0, rubBalance - (myClan?.quest_start_rub || 0));
       if (q.type === 'reach_level') prog = level;
+      if (q.type === 'donate_clan') prog = Math.max(0, (myClan?.treasury_usd || 0) - questStartTreasury);
       
       const completed = prog >= q.target;
       if (completed && !q.completed) {
           const now = Date.now();
+          
+          // 🔥 ФИКС: Если буст уже активен, НЕ сбрасываем таймер!
           if (boostExpiresAt && boostExpiresAt > now) {
               return { ...q, progress: prog, completed: true };
           }
+
           const expires = now + 30 * 60 * 1000;
           setBoostMultiplier(2);
           setBoostExpiresAt(expires);
@@ -306,11 +326,12 @@ function App() {
       }
       return { ...q, progress: prog, completed };
     });
+    
     if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) {
       setDailyQuests(updated);
       supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum);
     }
-  }, [balance, rubBalance, level, dailyQuests, boostExpiresAt]);
+  }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => {
     localStorage.setItem('cryptoNexus_nickname', nickname);
@@ -553,7 +574,17 @@ function App() {
         {showClan && (<div style={styles.overlay} onClick={() => setShowClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>{renderClanMenu()}</div></div>)}
         {showFriends && (<div style={styles.overlay} onClick={() => setShowFriends(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Друзья</h2><button onClick={() => setShowFriendSearch(true)} style={styles.btnSecondary}><Search size={16} /> Поиск друзей</button><div style={styles.list}>{friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (<div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
         {showFriendSearch && (<div style={styles.overlay} onClick={() => setShowFriendSearch(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriendSearch(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск друзей</h2><input placeholder="Введите никнейм..." value={friendSearchQuery} onChange={(e) => { setFriendSearchQuery(e.target.value); searchFriends(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{friendSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите имя для поиска</p> : friendSearchResults.map(f => (<div key={f.id} style={styles.listItem}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div><button onClick={() => handleAddFriend(f.id)} style={styles.btnSmall}><UserPlus size={16} /></button></div>))}</div></div></div>)}
-        {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Сообщения</h2><div style={styles.list}>{messages.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Нет заявок</p> : messages.map((msg: any) => (<div key={msg.id} style={styles.listItem}><div style={{flex:1}}><div style={styles.listName}>{msg.type === 'friend' ? 'Заявка в друзья' : 'Заявка в клан'}</div><div style={styles.listSub}>От: {msg.sender_nickname || msg.nickname}</div></div><div style={{display:'flex', gap:8}}><button onClick={() => msg.type === 'friend' ? handleFriendResponse(msg.id, true) : handleAppResponse(msg.id, true)} style={styles.btnYes}><Check size={16} /></button><button onClick={() => msg.type === 'friend' ? handleFriendResponse(msg.id, false) : handleAppResponse(msg.id, false)} style={styles.btnNo}><X size={16} /></button></div></div>))}</div></div></div>)}
+        
+        {/* 🔥 НОВОЕ МЕНЮ СООБЩЕНИЙ С ВКЛАДКАМИ */}
+        {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}>
+            <div style={styles.modal} onClick={e => e.stopPropagation()}>
+                <button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
+                <h2 style={styles.modalTitle}>Сообщения</h2>
+                
+                <MessageTabs currentUserId={userIdNum} handleFriendResponse={handleFriendResponse} calculateIncome={calculateIncome} />
+            </div>
+        </div>)}
+        
         {showCreateClan && (<div style={styles.overlay} onClick={() => setShowCreateClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Создать клан</h3><input id="clanName" placeholder="Название (до 25)" maxLength={25} style={styles.input} /><textarea id="clanDesc" placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="requireApproval" /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="minLevel" min={1} max={30} defaultValue={1} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="maxMembers" min={5} max={1000} defaultValue={50} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowCreateClan(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('clanName') as HTMLInputElement).value; const description = (document.getElementById('clanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('requireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('minLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('maxMembers') as HTMLInputElement).value); handleCreateClan({ name, emoji: '🏰', description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Создать</button></div></div></div>)}
         {showClanSettings && myClan && (<div style={styles.overlay} onClick={() => setShowClanSettings(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Настройки клана</h3><label style={styles.label}>Название клана:<input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={{...styles.input, marginTop: 8}} /></label><textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('editClanName') as HTMLInputElement).value; const description = (document.getElementById('editClanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('editRequireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('editMinLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('editMaxMembers') as HTMLInputElement).value); handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Сохранить</button></div><div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}><button onClick={() => { if (confirm('⚠️ ВНИМАНИЕ! Удалить клан навсегда? Все участники будут исключены.')) handleDeleteClan(); }} style={styles.btnDanger}><Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/> Удалить клан</button></div></div></div>)}
         {showRankManager && (<div style={styles.overlay} onClick={() => setShowRankManager(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Управление рангами</h3><div style={styles.memberList}>{clanMembers.filter(m => m.role < 4).map(m => (<div key={m.user_id} style={styles.memberItem}><input type="checkbox" checked={selectedForRank.includes(m.user_id)} onChange={(e) => { if (e.target.checked) setSelectedForRank([...selectedForRank, m.user_id]); else setSelectedForRank(selectedForRank.filter(id => id !== m.user_id)); }} style={{width: 20, height: 20, marginRight: 12}} /><div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div><div style={{flex:1}}><div style={styles.memberName}>{m.nickname}</div><div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div></div></div>))}</div><div style={{marginTop: 16}}><label style={styles.label}>Новый ранг: <select value={newRank} onChange={(e) => setNewRank(parseInt(e.target.value))} style={{marginLeft: 8, padding: '4px 8px', background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4}}><option value={1}>1 - Участник</option><option value={2}>2 - Фармила</option><option value={3}>3 - Заместитель</option></select></label></div><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => { setShowRankManager(false); setSelectedForRank([]); }} style={styles.btnSecondary}>Отменить</button><button onClick={handleRankUpdate} style={styles.btnPrimary}>Сохранить</button></div></div></div>)}
@@ -570,6 +601,83 @@ function App() {
     </>
   );
 }
+
+// Компонент вкладок сообщений
+const MessageTabs = ({ currentUserId, handleFriendResponse, calculateIncome }: any) => {
+  const [tab, setTab] = useState<'requests' | 'transfers'>('requests');
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    if (tab === 'requests') {
+      // Заявки в друзья
+      supabase.from('friend_requests').select('*').eq('status', 'pending').eq('receiver_id', currentUserId).order('created_at', {ascending: false}).then(({data}) => {
+        if (data) {
+          Promise.all(data.map(async (r: any) => {
+            const { data: u } = await supabase.from('users').select('nickname, owned_currencies, max_balance').eq('id', r.sender_id).single();
+            return { ...r, senderData: u };
+          })).then(setData);
+        } else setData([]);
+        setLoading(false);
+      });
+    } else {
+      // История переводов
+      supabase.from('transactions').select('*').or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`).order('created_at', {ascending: false}).limit(50).then(({data}) => {
+        if (data) {
+          Promise.all(data.map(async (t: any) => {
+            const otherId = t.sender_id === currentUserId ? t.receiver_id : t.sender_id;
+            const { data: u } = await supabase.from('users').select('nickname').eq('id', otherId).single();
+            return { ...t, otherName: u?.nickname || 'Пользователь' };
+          })).then(setData);
+        } else setData([]);
+        setLoading(false);
+      });
+    }
+  }, [tab, currentUserId]);
+
+  return (
+    <div>
+      <div style={{display:'flex', background:'#262626', borderRadius:12, padding:4, marginBottom:16}}>
+        <button onClick={() => setTab('requests')} style={{...styles.tabBtn, ...(tab === 'requests' ? styles.tabActive : {})}}>Заявки</button>
+        <button onClick={() => setTab('transfers')} style={{...styles.tabBtn, ...(tab === 'transfers' ? styles.tabActive : {})}}>Переводы</button>
+      </div>
+
+      {loading ? <div style={{textAlign:'center', color:'#737373'}}>Загрузка...</div> : (
+        <div style={styles.list}>
+          {data.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Пусто</p> : data.map((item: any) => (
+            tab === 'requests' ? (
+              <div key={item.id} style={styles.listItem}>
+                <div style={styles.listAvatar}>{item.senderData?.nickname?.[0] || '?'}</div>
+                <div style={{flex:1}}>
+                  <div style={styles.listName}>{item.senderData?.nickname || 'Игрок'}</div>
+                  <div style={{...styles.listSub, color:'#22c55e'}}>+${calculateIncome(item.senderData || {}).toFixed(0)}/мин</div>
+                </div>
+                <div style={{display:'flex', gap:8}}>
+                  <button onClick={() => handleFriendResponse(item.id, true)} style={styles.btnYes}><Check size={16} /></button>
+                  <button onClick={() => handleFriendResponse(item.id, false)} style={styles.btnNo}><X size={16} /></button>
+                </div>
+              </div>
+            ) : (
+              <div key={item.id} style={styles.listItem}>
+                <div style={styles.listAvatar}>{item.otherName[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={{...styles.listName, color: item.receiver_id === currentUserId ? '#22c55e' : '#ef4444'}}>
+                    {item.receiver_id === currentUserId ? 'Получено' : 'Отправлено'}
+                  </div>
+                  <div style={styles.listSub}>С: {item.otherName} • {new Date(item.created_at).toLocaleDateString()}</div>
+                </div>
+                <div style={{fontWeight:'bold', color: item.receiver_id === currentUserId ? '#22c55e' : '#ef4444'}}>
+                  {item.receiver_id === currentUserId ? '+' : '-'}{item.amount.toFixed(2)}{item.currency === 'USD' ? '$' : '₽'}
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
@@ -644,7 +752,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
   btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
   btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' }
+  vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' },
+  tabBtn: { flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'transparent', color:'#737373', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', fontSize:14 },
+  tabActive: { background:'#3b82f6', color:'white', boxShadow:'0 2px 8px rgba(59, 130, 246, 0.4)' }
 };
 
 export default App;
