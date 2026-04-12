@@ -126,19 +126,20 @@ function App() {
     } catch {}
   };
 
-  const saveProgress = async () => {
-    if (isLoading) return;
-    try {
-      await supabase.from('users').upsert({
-        id: userIdNum, nickname: currentNickname, balance, rub_balance: rubBalance, max_balance: maxBalance,
-        owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
-        selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
-        total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven,
-        boost_multiplier: boostMultiplier, boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
-        daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
-      }, { onConflict: 'id' });
-    } catch {}
-  };
+const saveProgress = async () => {
+  if (isLoading) return;
+  try {
+    await supabase.from('users').upsert({
+      id: userIdNum, nickname: currentNickname, balance, rub_balance: rubBalance, max_balance: maxBalance,
+      owned_currencies: ownedCurrencies, price_multipliers: priceMultipliers,
+      selected_currency: selectedCurrencyId, last_login: new Date().toISOString(),
+      total_spent: totalSpent, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven,
+      boost_multiplier: boostMultiplier, 
+      boost_expires_at: boostExpiresAt ? new Date(boostExpiresAt).toISOString() : null,
+      daily_quests: dailyQuests.length > 0 ? JSON.stringify(dailyQuests) : '[]'
+    }, { onConflict: 'id' });
+  } catch {}
+};
 
   const calculateIncome = (userData: any) => {
     if (!userData?.owned_currencies?.length) return 0;
@@ -405,11 +406,20 @@ const fetchFriendsData = async () => {
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
-  const handleExchange = (usdChange: number, rubChange: number) => {
-    setBalance(prev => prev + usdChange);
-    setRubBalance(prev => prev + rubChange);
-    saveProgress();
-  };
+const handleExchange = async (usdChange: number, rubChange: number) => {
+  setBalance(prev => prev + usdChange);
+  setRubBalance(prev => prev + rubChange);
+  
+  // Сохраняем сразу в базу
+  try {
+    await supabase.from('users').update({
+      balance: balance + usdChange,
+      rub_balance: rubBalance + rubChange
+    }).eq('id', userIdNum);
+  } catch (e) {
+    console.error('Exchange save error:', e);
+  }
+};
 
   const renderClanMenu = () => {
     if (myClan && !showClanHub) {
@@ -445,7 +455,7 @@ const fetchFriendsData = async () => {
              </button>
              {/* 👇 Кнопка казны */}
              <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}>
-               <Banknote size={16} style={{marginRight: 8}}/> Казна клана
+               <Banknote size={16} style={{marginRight: 8}}/> Общак клана
              </button>
           </div>
         </>
