@@ -120,8 +120,8 @@ export const DonateModal: React.FC<DonateModalProps> = ({ isOpen, onClose, onPur
 
       {/* Попап выбора дней */}
       {showDaysPopup && (
-        <div style={styles.daysOverlay}>
-          <div style={styles.daysModal}>
+        <div style={styles.daysOverlay} onClick={e => e.stopPropagation()}>
+          <div style={styles.daysModal} onClick={e => e.stopPropagation()}>
             <h3 style={styles.daysTitle}>Сколько дней?</h3>
             <div style={styles.dayOptions}>
               {[1, 3, 7, 30].map(d => (
