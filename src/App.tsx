@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, ArrowUpRight, ArrowDownLeft, Package } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -393,6 +393,7 @@ function App() {
     } catch (err) { console.error('Delete clan error:', err); alert('Ошибка при удалении клана'); }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAppResponse = async (appId: number, accept: boolean) => {
     await supabase.from('clan_applications').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', appId);
     if (accept) { const app = clanApplications.find(a => a.id === appId); if (app) await supabase.from('clan_members').insert({ clan_id: myClan.id, user_id: app.user_id, role: 1 }); }
