@@ -689,7 +689,21 @@ function App() {
       />
       
       <ExchangeModal isOpen={showExchange} onClose={() => setShowExchange(false)} usdBalance={balance} rubBalance={rubBalance} onExchange={handleExchange} />
-      <ClanTreasuryModal isOpen={showTreasury} onClose={() => setShowTreasury(false)} clan={myClan} myRole={myClanRole} onRefreshClan={fetchClanData} />
+      <ClanTreasuryModal 
+  isOpen={showTreasury} 
+  onClose={() => setShowTreasury(false)} 
+  clan={myClan} 
+  myRole={myClanRole} 
+  userId={userIdNum} 
+  playerUsd={balance} 
+  playerRub={rubBalance} 
+  onPlayerUpdate={(newUsd, newRub) => {
+    setBalance(newUsd);
+    setRubBalance(newRub);
+    saveProgress(); // Мгновенно сохраняем новый баланс в БД
+  }} 
+  onClanUpdate={fetchClanData} // Обновляем данные клана после транзакции
+/>
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
     </>
