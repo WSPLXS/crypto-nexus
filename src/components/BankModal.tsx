@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, MoreVertical, TrendingUp, Shield, CreditCard } from 'lucide-react';
+import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, MoreVertical, TrendingUp, Shield } from 'lucide-react';
 import { CRYPTO_LIST, STAKING_CONFIG } from '../data/economy';
 import { supabase } from '../lib/supabase';
 
@@ -22,11 +22,23 @@ export const BankModal: React.FC<BankModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  // Экраны
   const [screen, setScreen] = useState<'main' | 'operations' | 'transfer' | 'account' | 'exchange' | 'trade' | 'staking'>('main');
+  
+  // Состояния экранов
   const [cardSide, setCardSide] = useState<'rub' | 'usd'>('rub');
+  const [transferCurrency, setTransferCurrency] = useState<'rub' | 'usd'>('rub');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferTarget, setTransferTarget] = useState('');
+  
+  const [accountCurrency, setAccountCurrency] = useState<'rub' | 'usd'>('usd');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  
+  const [exchangeDirection, setExchangeDirection] = useState<'rub-to-usd' | 'usd-to-rub'>('rub-to-usd');
   const [exchangeAmount, setExchangeAmount] = useState('');
+
+  // Данные
   const [monthlySpend, setMonthlySpend] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [stakedAmount, setStakedAmount] = useState(0);
@@ -37,9 +49,7 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   // Загрузка транзакций
   useEffect(() => {
-    if (isOpen && screen === 'operations') {
-      loadTransactions();
-    }
+    if (isOpen && screen === 'operations') loadTransactions();
   }, [isOpen, screen]);
 
   // Живые цены крипты
@@ -62,105 +72,131 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   const loadTransactions = async () => {
     try {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
+      const { data } = await supabase.from('transactions').select('*').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).order('created_at', { ascending: false }).limit(50);
       if (data) {
         setTransactions(data);
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        const monthTxs = data.filter(t => 
-          t.sender_id === userId && 
-          new Date(t.created_at) > monthAgo
-        );
-        const total = monthTxs.reduce((sum, t) => sum + t.amount, 0);
+        const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const total = data.filter(t => t.sender_id === userId && new Date(t.created_at) > monthAgo).reduce((s, t) => s + t.amount, 0);
         setMonthlySpend(total);
       }
-    } catch (err) {
-      console.error('Load transactions error:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  const fmt = (n: number, curr: string = '') => 
-    `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })}${curr ? ' ' + curr : ''}`;
+  const fmt = (n: number, curr: string = '') => `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })}${curr ? ' ' + curr : ''}`;
 
+  // --- ПЕРЕВОД ---
   const handleTransfer = async () => {
-    const amt = parseFloat(transferAmount);
-    if (!amt || amt <= 0) return alert('Введите сумму');
-    if (!transferTarget.trim()) return alert('Введите ник получателя');
-    if (amt > rubBalance) return alert('Недостаточно рублей');
+  const amt = parseFloat(transferAmount);
+  if (!amt || amt <= 0) return alert('Введите сумму');
+  if (!transferTarget.trim()) return alert('Введите ник получателя');
+
+  const col = transferCurrency === 'rub' ? 'rub_balance' : 'balance';
+  const currentBal = transferCurrency === 'rub' ? rubBalance : balance;
+  if (amt > currentBal) return alert('Недостаточно средств!');
+
+  try {
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('id, nickname, balance, rub_balance')
+      .ilike('nickname', transferTarget.trim())
+      .neq('id', userId)
+      .single();
+
+    if (!targetUser) return alert('Пользователь не найден');
+
+    // 🔥 Исправление: используем any для динамического доступа
+    const targetCurrentBal = (targetUser as any)[col] || 0;
     
-    try {
-      const { data: targetUser } = await supabase
-        .from('users')
-        .select('id, nickname, rub_balance')
-        .ilike('nickname', transferTarget.trim())
-        .neq('id', userId)
-        .single();
+    await supabase.from('users').update({ [col]: currentBal - amt }).eq('id', userId);
+    await supabase.from('users').update({ [col]: targetCurrentBal + amt }).eq('id', targetUser.id);
+    await supabase.from('transactions').insert({ 
+      sender_id: userId, 
+      receiver_id: targetUser.id, 
+      amount: amt, 
+      currency: transferCurrency === 'rub' ? 'RUB' : 'USD' 
+    });
 
-      if (!targetUser) return alert('Пользователь не найден');
+    onBalanceUpdate(
+      transferCurrency === 'usd' ? balance - amt : balance, 
+      transferCurrency === 'rub' ? rubBalance - amt : rubBalance
+    );
+    
+    alert(`✅ Переведено ${fmt(amt, transferCurrency === 'rub' ? '₽' : '$')} игроку ${targetUser.nickname}`);
+    setTransferAmount(''); 
+    setTransferTarget(''); 
+    setScreen('main');
+  } catch (err: any) { 
+    alert('Ошибка: ' + err.message); 
+  }
+};
 
-      await supabase.from('users').update({ rub_balance: rubBalance - amt }).eq('id', userId);
-      await supabase.from('users').update({ rub_balance: (targetUser.rub_balance || 0) + amt }).eq('id', targetUser.id);
-      await supabase.from('transactions').insert({
-        sender_id: userId,
-        receiver_id: targetUser.id,
-        amount: amt,
-        currency: 'RUB'
-      });
+  // --- СЧЕТ (Пополнение/Снятие) ---
+  const handleAccountAction = (type: 'deposit' | 'withdraw') => {
+    const amt = type === 'deposit' ? parseFloat(depositAmount) : parseFloat(withdrawAmount);
+    if (!amt || amt <= 0) return alert('Введите сумму');
 
-      onBalanceUpdate(balance, rubBalance - amt);
-      alert(`✅ Переведено ${fmt(amt, '₽')} игроку ${targetUser.nickname}`);
-      setTransferAmount(''); setTransferTarget(''); setScreen('main');
-    } catch (err: any) {
-      alert('Ошибка: ' + err.message);
+    if (type === 'deposit') {
+      const walletBal = accountCurrency === 'rub' ? rubBalance : balance;
+      if (amt > walletBal) return alert('Недостаточно средств на кошельке');
+      onBalanceUpdate(accountCurrency === 'usd' ? balance - amt : balance, accountCurrency === 'rub' ? rubBalance - amt : rubBalance);
+      onBankUpdate(accountCurrency === 'usd' ? bankUsd + amt : bankUsd, accountCurrency === 'rub' ? bankRub + amt : bankRub);
+      alert(`✅ Пополнено ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
+      setDepositAmount('');
+    } else {
+      const bankBal = accountCurrency === 'rub' ? bankRub : bankUsd;
+      if (amt > bankBal) return alert('Недостаточно средств на счете');
+      onBankUpdate(accountCurrency === 'usd' ? bankUsd - amt : bankUsd, accountCurrency === 'rub' ? bankRub - amt : bankRub);
+      onBalanceUpdate(accountCurrency === 'usd' ? balance + amt : balance, accountCurrency === 'rub' ? rubBalance + amt : rubBalance);
+      alert(`✅ Снято ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
+      setWithdrawAmount('');
     }
   };
 
+  // --- ОБМЕН ---
   const handleExchange = () => {
     const amt = parseFloat(exchangeAmount);
     if (!amt || amt <= 0) return alert('Введите сумму');
-    if (amt > rubBalance) return alert('Недостаточно рублей');
-    
-    const usdGot = amt / 80;
-    onBalanceUpdate(balance + usdGot, rubBalance - amt);
-    alert(`✅ Обменяно ${fmt(amt, '₽')} на ${fmt(usdGot, '$')}`);
+
+    if (exchangeDirection === 'rub-to-usd') {
+      if (amt > rubBalance) return alert('Недостаточно рублей');
+      const usdGot = amt / 80;
+      onBalanceUpdate(balance + usdGot, rubBalance - amt);
+      alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
+    } else {
+      if (amt > balance) return alert('Недостаточно долларов');
+      const rubGot = amt * 80;
+      onBalanceUpdate(balance - amt, rubBalance + rubGot);
+      alert(`✅ Обменяно ${amt}$ на ${rubGot}₽`);
+    }
     setExchangeAmount('');
   };
 
+  // --- ТОРГОВЛЯ И СТЕЙКИНГ (как было) ---
   const handleTrade = (type: 'buy' | 'sell') => {
     const amt = parseFloat(tradeAmount);
     if (!amt || amt <= 0) return alert('Введите количество');
-    
     const price = livePrices[selectedCrypto] || CRYPTO_LIST.find(c => c.id === selectedCrypto)?.basePrice || 0;
     const totalRub = amt * price;
-
     if (type === 'buy') {
       if (totalRub > rubBalance) return alert('Недостаточно рублей');
       onBalanceUpdate(balance, rubBalance - totalRub);
-      alert(`✅ Куплено ${amt} ${selectedCrypto.toUpperCase()} за ${fmt(totalRub, '₽')}`);
     } else {
       onBalanceUpdate(balance, rubBalance + totalRub);
-      alert(`✅ Продано ${amt} ${selectedCrypto.toUpperCase()} за ${fmt(totalRub, '₽')}`);
     }
+    alert(`✅ ${type === 'buy' ? 'Куплено' : 'Продано'} ${amt} ${selectedCrypto.toUpperCase()}`);
     setTradeAmount('');
   };
-
   const handleStake = () => {
     const amt = parseFloat(stakeInput);
     if (!amt || amt <= 0) return alert('Введите сумму');
     if (amt > balance) return alert('Недостаточно долларов');
-    
     onBalanceUpdate(balance - amt, rubBalance);
     setStakedAmount(prev => prev + amt);
-    alert(`✅ В стейкинг отправлено $${amt}. Доход: ${STAKING_CONFIG.dailyYieldPercent}%/день`);
+    alert(`✅ В стейкинг отправлено $${amt}`);
     setStakeInput('');
   };
 
+  // СТИЛИ
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
@@ -177,7 +213,7 @@ export const BankModal: React.FC<BankModalProps> = ({
     middleGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 },
     midBtn: { background: '#1C1C1E', borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer' },
     midBtnText: { fontSize: 12, color: '#fff', fontWeight: '500' },
-    cardWrapper: { background: 'linear-gradient(135deg, #1C1C1E 0%, #2C2C2E 100%)', borderRadius: 24, padding: 20, position: 'relative', cursor: 'pointer', marginBottom: 24, border: '1px solid #3A3A3C' },
+    cardWrapper: { background: 'linear-gradient(135deg, #1C1C1E 0%, #2C2C2E 100%)', borderRadius: 24, padding: 20, position: 'relative', cursor: 'pointer', marginBottom: 16, border: '1px solid #3A3A3C' },
     cardContent: { display: 'flex', flexDirection: 'column', gap: 16 },
     cardTop: { display: 'flex', alignItems: 'center', gap: 12 },
     currencyIcon: { width: 44, height: 44, borderRadius: 12, background: '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 'bold', color: '#fff' },
@@ -192,8 +228,14 @@ export const BankModal: React.FC<BankModalProps> = ({
     input: { width: '100%', padding: '14px', borderRadius: 14, background: '#1C1C1E', border: '1px solid #2C2C2E', color: '#fff', fontSize: 16, marginBottom: 12, outline: 'none', boxSizing: 'border-box' },
     btn: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', fontWeight: '700', fontSize: 15, cursor: 'pointer', marginBottom: 8 },
     btnPrimary: { background: '#007AFF', color: '#fff' },
+    btnGreen: { background: '#34C759', color: '#fff' },
+    btnRed: { background: '#FF453A', color: '#fff' },
     list: { display: 'flex', flexDirection: 'column', gap: 12 },
-    opItem: { background: '#1C1C1E', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+    opItem: { background: '#1C1C1E', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    currencySwitcher: { display: 'flex', background: '#2C2C2E', borderRadius: 12, padding: 4, marginBottom: 16 },
+    switchBtn: { flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'transparent', color: '#8E8E93', fontWeight: '600', cursor: 'pointer' },
+    switchBtnActive: { background: '#007AFF', color: '#fff' },
+    accountCard: { background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 16 }
   };
 
   // ЭКРАН ОПЕРАЦИЙ
@@ -201,35 +243,12 @@ export const BankModal: React.FC<BankModalProps> = ({
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Все операции</span>
-            <div style={{width: 24}} />
-          </div>
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Все операции</span><div style={{width: 24}} /></div>
           <div style={s.list}>
-            {transactions.length === 0 ? (
-              <div style={{textAlign: 'center', color: '#8E8E93', padding: 40}}>Нет операций</div>
-            ) : (
-              transactions.map((tx: any) => {
-                const isOut = tx.sender_id === userId;
-                const amount = isOut ? -tx.amount : tx.amount;
-                const color = isOut ? '#FF453A' : '#34C759';
-                const title = isOut ? 'Перевод/Оплата' : 'Пополнение';
-                const date = new Date(tx.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                
-                return (
-                  <div key={tx.id} style={s.opItem}>
-                    <div>
-                      <div style={{fontWeight: '500', color: '#fff'}}>{title}</div>
-                      <div style={{fontSize: 13, color: '#8E8E93'}}>{date}</div>
-                    </div>
-                    <span style={{fontSize: 16, fontWeight: '600', color}}>
-                      {amount > 0 ? '+' : ''}{fmt(amount, tx.currency)}
-                    </span>
-                  </div>
-                );
-              })
-            )}
+            {transactions.length === 0 ? <div style={{textAlign: 'center', color: '#8E8E93', padding: 40}}>Нет операций</div> : transactions.map((tx: any) => {
+              const isOut = tx.sender_id === userId;
+              return (<div key={tx.id} style={s.opItem}><div><div style={{fontWeight: '500', color: '#fff'}}>{isOut ? 'Перевод/Оплата' : 'Пополнение'}</div><div style={{fontSize: 13, color: '#8E8E93'}}>{new Date(tx.created_at).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</div></div><span style={{fontSize: 16, fontWeight: '600', color: isOut ? '#FF453A' : '#34C759'}}>{isOut ? '-' : '+'}{fmt(tx.amount, tx.currency)}</span></div>);
+            })}
           </div>
         </div>
       </div>
@@ -241,13 +260,27 @@ export const BankModal: React.FC<BankModalProps> = ({
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Перевод</span>
-            <div style={{width: 24}} />
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Перевод</span><div style={{width: 24}} /></div>
+          
+          <div style={s.cardWrapper} onClick={() => setTransferCurrency(transferCurrency === 'rub' ? 'usd' : 'rub')}>
+            <div style={s.cardContent}>
+              <div style={s.cardTop}>
+                <div style={s.currencyIcon}>{transferCurrency === 'rub' ? '₽' : '$'}</div>
+                <span style={s.cardBalance}>{transferCurrency === 'rub' ? fmt(rubBalance, '₽') : fmt(balance, '$')}</span>
+                <div style={s.dots}><div style={s.dot} /><div style={s.dot} /></div>
+              </div>
+              <span style={s.cardLabel}>Black WSP</span>
+              <div style={s.miniCard} />
+            </div>
           </div>
+
+          <div style={s.currencySwitcher}>
+            <button style={{...s.switchBtn, ...(transferCurrency === 'rub' ? s.switchBtnActive : {})}} onClick={() => setTransferCurrency('rub')}>Рубли</button>
+            <button style={{...s.switchBtn, ...(transferCurrency === 'usd' ? s.switchBtnActive : {})}} onClick={() => setTransferCurrency('usd')}>Доллары</button>
+          </div>
+
           <input style={s.input} placeholder="Никнейм получателя" value={transferTarget} onChange={e => setTransferTarget(e.target.value)} />
-          <input style={s.input} placeholder="Сумма (₽)" type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} />
+          <input style={s.input} placeholder={`Сумма (${transferCurrency === 'rub' ? '₽' : '$'})`} type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} />
           <button style={{...s.btn, ...s.btnPrimary}} onClick={handleTransfer}>Перевести</button>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Отмена</button>
         </div>
@@ -260,23 +293,28 @@ export const BankModal: React.FC<BankModalProps> = ({
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Банковский счет</span>
-            <div style={{width: 24}} />
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Банковский счет</span><div style={{width: 24}} /></div>
+          
+          <div style={s.currencySwitcher}>
+            <button style={{...s.switchBtn, ...(accountCurrency === 'rub' ? s.switchBtnActive : {})}} onClick={() => setAccountCurrency('rub')}>Рубли</button>
+            <button style={{...s.switchBtn, ...(accountCurrency === 'usd' ? s.switchBtnActive : {})}} onClick={() => setAccountCurrency('usd')}>Доллары</button>
           </div>
-          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 16}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #2C2C2E'}}>
-              <span style={{color: '#8E8E93'}}>Счет USD</span>
-              <span style={{color: '#fff', fontSize: 18, fontWeight: 'bold'}}>${fmt(bankUsd)}</span>
-            </div>
-            <div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0'}}>
-              <span style={{color: '#8E8E93'}}>Счет RUB</span>
-              <span style={{color: '#fff', fontSize: 18, fontWeight: 'bold'}}>{fmt(bankRub, '₽')}</span>
+
+          <div style={s.accountCard}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <span style={{color: '#8E8E93', fontSize: 14}}>Счет {accountCurrency === 'rub' ? 'RUB' : 'USD'}</span>
+              <span style={{color: '#fff', fontSize: 20, fontWeight: 'bold'}}>{accountCurrency === 'rub' ? fmt(bankRub, '₽') : fmt(bankUsd, '$')}</span>
             </div>
           </div>
-          <button style={{...s.btn, ...s.btnPrimary}} onClick={() => { onBankUpdate(bankUsd + 100, bankRub); alert('Пополнено на $100'); }}>Пополнить $</button>
-          <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Назад</button>
+
+          <input style={s.input} placeholder="Сумма" type="number" value={depositAmount} onChange={e => { setDepositAmount(e.target.value); setWithdrawAmount(''); }} />
+          <input style={s.input} placeholder="Сумма для снятия" type="number" value={withdrawAmount} onChange={e => { setWithdrawAmount(e.target.value); setDepositAmount(''); }} />
+          
+          <div style={{display: 'flex', gap: 12, marginTop: 8}}>
+            <button style={{...s.btn, ...s.btnGreen}} onClick={() => handleAccountAction('deposit')}>Пополнить</button>
+            <button style={{...s.btn, ...s.btnRed}} onClick={() => handleAccountAction('withdraw')}>Снять</button>
+          </div>
+          <button style={{...s.btn, background: '#2C2C2E', color: '#fff', marginTop: 12}} onClick={() => setScreen('main')}>Назад</button>
         </div>
       </div>
     );
@@ -284,20 +322,35 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   // ЭКРАН ОБМЕНА
   if (screen === 'exchange') {
+    const inputAmt = parseFloat(exchangeAmount) || 0;
+    const receiveAmt = exchangeDirection === 'rub-to-usd' ? inputAmt / 80 : inputAmt * 80;
+    const outCurr = exchangeDirection === 'rub-to-usd' ? '$' : '₽';
+
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Обмен валют</span>
-            <div style={{width: 24}} />
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Обмен валют</span><div style={{width: 24}} /></div>
+          
+          <div style={s.currencySwitcher}>
+            <button style={{...s.switchBtn, ...(exchangeDirection === 'rub-to-usd' ? s.switchBtnActive : {})}} onClick={() => setExchangeDirection('rub-to-usd')}>₽ → $</button>
+            <button style={{...s.switchBtn, ...(exchangeDirection === 'usd-to-rub' ? s.switchBtnActive : {})}} onClick={() => setExchangeDirection('usd-to-rub')}>$ → ₽</button>
           </div>
+
           <div style={{textAlign: 'center', marginBottom: 20, padding: 20, background: '#1C1C1E', borderRadius: 16}}>
             <div style={{fontSize: 13, color: '#8E8E93'}}>Курс обмена</div>
             <div style={{fontSize: 28, fontWeight: '800', color: '#fff', margin: '8px 0'}}>1 $ = 80 ₽</div>
           </div>
-          <input style={s.input} placeholder="Сумма в ₽" type="number" value={exchangeAmount} onChange={e => setExchangeAmount(e.target.value)} />
-          <button style={{...s.btn, ...s.btnPrimary}} onClick={handleExchange}>Обменять ₽ на $</button>
+
+          <input style={s.input} placeholder={`Сумма (${exchangeDirection === 'rub-to-usd' ? '₽' : '$'})`} type="number" value={exchangeAmount} onChange={e => setExchangeAmount(e.target.value)} />
+          
+          {inputAmt > 0 && (
+            <div style={{textAlign: 'center', padding: 16, background: 'rgba(52, 199, 89, 0.1)', borderRadius: 16, marginBottom: 16, border: '1px solid rgba(52, 199, 89, 0.3)'}}>
+              <div style={{fontSize: 13, color: '#8E8E93', marginBottom: 4}}>Вы получите</div>
+              <div style={{fontSize: 24, fontWeight: '800', color: '#34C759'}}>{fmt(receiveAmt, outCurr)}</div>
+            </div>
+          )}
+
+          <button style={{...s.btn, ...s.btnPrimary}} onClick={handleExchange}>Обменять</button>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Отмена</button>
         </div>
       </div>
@@ -308,39 +361,16 @@ export const BankModal: React.FC<BankModalProps> = ({
   if (screen === 'trade') {
     const crypto = CRYPTO_LIST.find(c => c.id === selectedCrypto);
     const currentPrice = livePrices[selectedCrypto] || crypto?.basePrice || 0;
-    
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Торговля</span>
-            <div style={{width: 24}} />
-          </div>
-          
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Торговля</span><div style={{width: 24}} /></div>
           <div style={{maxHeight: 200, overflowY: 'auto', marginBottom: 16}}>
-            {CRYPTO_LIST.map(c => (
-              <div 
-                key={c.id} 
-                style={{...s.opItem, background: selectedCrypto === c.id ? '#2C2C2E' : '#1C1C1E', border: selectedCrypto === c.id ? '1px solid #007AFF' : '1px solid transparent', cursor: 'pointer'}}
-                onClick={() => setSelectedCrypto(c.id)}
-              >
-                <span style={{fontWeight: 'bold', color: '#fff'}}>{c.name}</span>
-                <span style={{color: '#8E8E93'}}>{fmt(livePrices[c.id] || c.basePrice, '₽')}</span>
-              </div>
-            ))}
+            {CRYPTO_LIST.map(c => (<div key={c.id} style={{...s.opItem, background: selectedCrypto === c.id ? '#2C2C2E' : '#1C1C1E', border: selectedCrypto === c.id ? '1px solid #007AFF' : '1px solid transparent', cursor: 'pointer'}} onClick={() => setSelectedCrypto(c.id)}><span style={{fontWeight: 'bold', color: '#fff'}}>{c.name}</span><span style={{color: '#8E8E93'}}>{fmt(livePrices[c.id] || c.basePrice, '₽')}</span></div>))}
           </div>
-
-          <div style={{textAlign: 'center', marginBottom: 16, padding: 20, background: '#1C1C1E', borderRadius: 16}}>
-            <div style={{fontSize: 13, color: '#8E8E93'}}>Курс {selectedCrypto.toUpperCase()}</div>
-            <div style={{fontSize: 32, fontWeight: '800', color: '#fff'}}>{fmt(currentPrice, '₽')}</div>
-          </div>
-
+          <div style={{textAlign: 'center', marginBottom: 16, padding: 20, background: '#1C1C1E', borderRadius: 16}}><div style={{fontSize: 13, color: '#8E8E93'}}>Курс {selectedCrypto.toUpperCase()}</div><div style={{fontSize: 32, fontWeight: '800', color: '#fff'}}>{fmt(currentPrice, '₽')}</div></div>
           <input style={s.input} placeholder="Количество монет" type="number" value={tradeAmount} onChange={e => setTradeAmount(e.target.value)} />
-          <div style={{display: 'flex', gap: 12}}>
-            <button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#34C759'}} onClick={() => handleTrade('buy')}>Купить</button>
-            <button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#FF453A'}} onClick={() => handleTrade('sell')}>Продать</button>
-          </div>
+          <div style={{display: 'flex', gap: 12}}><button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#34C759'}} onClick={() => handleTrade('buy')}>Купить</button><button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#FF453A'}} onClick={() => handleTrade('sell')}>Продать</button></div>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Назад</button>
         </div>
       </div>
@@ -352,17 +382,8 @@ export const BankModal: React.FC<BankModalProps> = ({
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
-          <div style={s.header}>
-            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Стейкинг</span>
-            <div style={{width: 24}} />
-          </div>
-          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, textAlign: 'center', marginBottom: 20}}>
-            <Shield size={48} color="#FFD60A" style={{margin: '0 auto 12px'}}/>
-            <div style={{fontSize: 14, color: '#8E8E93'}}>В стейкинге</div>
-            <div style={{fontSize: 36, fontWeight: '800', color: '#FFD60A', margin: '8px 0'}}>${fmt(stakedAmount)}</div>
-            <div style={{fontSize: 14, color: '#34C759'}}>+{STAKING_CONFIG.dailyYieldPercent}% / день</div>
-          </div>
+          <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Стейкинг</span><div style={{width: 24}} /></div>
+          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, textAlign: 'center', marginBottom: 20}}><Shield size={48} color="#FFD60A" style={{margin: '0 auto 12px'}}/><div style={{fontSize: 14, color: '#8E8E93'}}>В стейкинге</div><div style={{fontSize: 36, fontWeight: '800', color: '#FFD60A', margin: '8px 0'}}>${fmt(stakedAmount)}</div><div style={{fontSize: 14, color: '#34C759'}}>+{STAKING_CONFIG.dailyYieldPercent}% / день</div></div>
           <input style={s.input} placeholder="Сумма в $" type="number" value={stakeInput} onChange={e => setStakeInput(e.target.value)} />
           <button style={{...s.btn, ...s.btnPrimary}} onClick={handleStake}>Отправить в стейкинг</button>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Назад</button>
@@ -371,18 +392,16 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // ГЛАВНЫЙ ЭКРАН БАНКА (ПО РЕФЕРЕНСУ)
+  // ГЛАВНЫЙ ЭКРАН
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.container} onClick={e => e.stopPropagation()}>
-        {/* Шапка с аватаркой */}
         <div style={s.header}>
           <button onClick={onClose} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
           <div style={s.avatar}>{userNickname?.[0]?.toUpperCase() || 'U'}</div>
           <span style={s.nickname}>{userNickname} ›</span>
         </div>
 
-        {/* Верхний ряд: Все операции + VIP */}
         <div style={s.topGrid}>
           <button style={s.actionBlock} onClick={() => setScreen('operations')}>
             <span style={s.blockTitle}>Все операции</span>
@@ -395,61 +414,32 @@ export const BankModal: React.FC<BankModalProps> = ({
           </div>
         </div>
 
-        {/* Средний ряд: 3 кнопки */}
         <div style={s.middleGrid}>
-          <button style={s.midBtn} onClick={() => setScreen('transfer')}>
-            <ArrowUpRight size={24} color="#007AFF" />
-            <span style={s.midBtnText}>Перевести</span>
-          </button>
-          <button style={s.midBtn} onClick={() => setScreen('account')}>
-            <Wallet size={24} color="#34C759" />
-            <span style={s.midBtnText}>Мой Б/С</span>
-          </button>
-          <button style={s.midBtn} onClick={() => setScreen('exchange')}>
-            <Repeat size={24} color="#AF52DE" />
-            <span style={s.midBtnText}>Обменять</span>
-          </button>
+          <button style={s.midBtn} onClick={() => setScreen('transfer')}><ArrowUpRight size={24} color="#007AFF" /><span style={s.midBtnText}>Перевести</span></button>
+          <button style={s.midBtn} onClick={() => setScreen('account')}><Wallet size={24} color="#34C759" /><span style={s.midBtnText}>Мой Б/С</span></button>
+          <button style={s.midBtn} onClick={() => setScreen('exchange')}><Repeat size={24} color="#AF52DE" /><span style={s.midBtnText}>Обменять</span></button>
         </div>
 
-        {/* Карточка-кошелек (переворачивается) */}
         <div style={s.cardWrapper} onClick={() => setCardSide(cardSide === 'rub' ? 'usd' : 'rub')}>
           <div style={s.cardContent}>
             <div style={s.cardTop}>
-              <div style={s.currencyIcon}>
-                {cardSide === 'rub' ? '₽' : '$'}
-              </div>
-              <span style={s.cardBalance}>
-                {cardSide === 'rub' ? fmt(rubBalance, '₽') : fmt(balance, '$')}
-              </span>
-              <div style={s.dots}>
-                <div style={s.dot} />
-                <div style={s.dot} />
-              </div>
+              <div style={s.currencyIcon}>{cardSide === 'rub' ? '₽' : '$'}</div>
+              <span style={s.cardBalance}>{cardSide === 'rub' ? fmt(rubBalance, '₽') : fmt(balance, '$')}</span>
+              <div style={s.dots}><div style={s.dot} /><div style={s.dot} /></div>
             </div>
             <span style={s.cardLabel}>Black WSP</span>
             <div style={s.miniCard} />
           </div>
         </div>
 
-        {/* Нижний ряд: Торговля + Стейкинг */}
         <div style={s.bottomGrid}>
           <button style={s.bottomBtn} onClick={() => setScreen('trade')}>
-            <div style={{width: 44, height: 44, borderRadius: 12, background: 'rgba(52, 199, 89, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-              <TrendingUp size={24} color="#34C759" />
-            </div>
-            <div>
-              <div style={{fontWeight: '600', fontSize: 15}}>Торговля</div>
-              <div style={{fontSize: 12, color: '#8E8E93'}}>Криптобиржа</div>
-            </div>
+            <div style={{width: 44, height: 44, borderRadius: 12, background: 'rgba(52, 199, 89, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><TrendingUp size={24} color="#34C759" /></div>
+            <div><div style={{fontWeight: '600', fontSize: 15}}>Торговля</div><div style={{fontSize: 12, color: '#8E8E93'}}>Криптобиржа</div></div>
           </button>
           <button style={s.bottomBtn} onClick={() => setScreen('staking')}>
-            <div style={{width: 44, height: 44, borderRadius: 12, background: 'rgba(255, 214, 10, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-              <Shield size={24} color="#FFD60A" />
-            </div>
-            <div>
-              <div style={{fontWeight: '600', fontSize: 15}}>Стейкинг</div>
-              <div style={{fontSize: 12, color: '#8E8E93'}}>{STAKING_CONFIG.dailyYieldPercent}% в день</div>
-            </div>
+            <div style={{width: 44, height: 44, borderRadius: 12, background: 'rgba(255, 214, 10, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Shield size={24} color="#FFD60A" /></div>
+            <div><div style={{fontWeight: '600', fontSize: 15}}>Стейкинг</div><div style={{fontSize: 12, color: '#8E8E93'}}>{STAKING_CONFIG.dailyYieldPercent}% в день</div></div>
           </button>
         </div>
       </div>
