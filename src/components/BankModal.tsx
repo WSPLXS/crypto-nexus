@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, CreditCard, MoreVertical, User, Shield, Clock, TrendingUp } from 'lucide-react';
+import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, MoreVertical, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface BankModalProps {
@@ -25,16 +25,27 @@ export const BankModal: React.FC<BankModalProps> = ({
   if (!isOpen) return null;
 
   const [screen, setScreen] = useState<'main' | 'operations' | 'transfer' | 'account' | 'exchange'>('main');
+  
+  // Transfer States
   const [transferCurrency, setTransferCurrency] = useState<'usd' | 'rub'>('usd');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferTarget, setTransferTarget] = useState('');
+  
+  // Exchange States
+  const [exchangeMode, setExchangeMode] = useState<'buy' | 'sell'>('buy'); // 'buy' = RUB->USD, 'sell' = USD->RUB
   const [exchangeAmount, setExchangeAmount] = useState('');
+
+  // Account States
   const [accountCurrency, setAccountCurrency] = useState<'usd' | 'rub'>('usd');
+  
   const [transactions, setTransactions] = useState<any[]>([]);
   const [monthlySpend, setMonthlySpend] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Загрузка транзакций при открытии
+  // Курс обмена: 1$ = 80₽
+  const EXCHANGE_RATE = 80;
+
+  // Загрузка транзакций при открытии экрана операций
   useEffect(() => {
     if (isOpen && screen === 'operations') {
       loadTransactions();
@@ -70,6 +81,7 @@ export const BankModal: React.FC<BankModalProps> = ({
   const fmt = (n: number, curr: string) => 
     `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${curr}`;
 
+  // --- ЛОГИКА ПЕРЕВОДА ---
   const handleTransfer = async () => {
     const amt = parseFloat(transferAmount);
     if (!amt || amt <= 0) return alert('Введите сумму');
@@ -96,7 +108,7 @@ export const BankModal: React.FC<BankModalProps> = ({
       const currency = transferCurrency === 'usd' ? 'USD' : 'RUB';
 
       if (amt > currentBalance) {
-        alert(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)} ${transferCurrency === 'usd' ? '$' : '₽'}`);
+        alert(`Недостаточно средств!`);
         setLoading(false);
         return;
       }
@@ -117,16 +129,11 @@ export const BankModal: React.FC<BankModalProps> = ({
       });
 
       // Обновляем локально
-      if (transferCurrency === 'usd') {
-        onBalanceUpdate(balance - amt, rubBalance);
-      } else {
-        onBalanceUpdate(balance, rubBalance - amt);
-      }
+      if (transferCurrency === 'usd') onBalanceUpdate(balance - amt, rubBalance);
+      else onBalanceUpdate(balance, rubBalance - amt);
 
       alert(`✅ Переведено ${amt}${transferCurrency === 'usd' ? '$' : '₽'} игроку ${targetUser.nickname}!`);
-      setTransferAmount('');
-      setTransferTarget('');
-      setScreen('main');
+      setTransferAmount(''); setTransferTarget(''); setScreen('main');
     } catch (err: any) {
       alert('Ошибка перевода: ' + err.message);
     } finally {
@@ -134,22 +141,31 @@ export const BankModal: React.FC<BankModalProps> = ({
     }
   };
 
+  // --- ЛОГИКА ОБМЕНА ---
   const handleExchange = () => {
     const amt = parseFloat(exchangeAmount);
     if (!amt || amt <= 0) return alert('Введите сумму');
-    if (amt > rubBalance) return alert('Недостаточно рублей');
-    const usdRate = 95;
-    const usdGot = amt / usdRate;
-    onBalanceUpdate(balance + usdGot, rubBalance - amt);
-    alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
+
+    if (exchangeMode === 'buy') {
+      // Покупаем USD (тратим RUB)
+      if (amt > rubBalance) return alert('Недостаточно рублей');
+      const usdGot = amt / EXCHANGE_RATE;
+      onBalanceUpdate(balance + usdGot, rubBalance - amt);
+      alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(4)}$`);
+    } else {
+      // Продаем USD (получаем RUB)
+      if (amt > balance) return alert('Недостаточно долларов');
+      const rubGot = amt * EXCHANGE_RATE;
+      onBalanceUpdate(balance - amt, rubBalance + rubGot);
+      alert(`✅ Обменяно ${amt}$ на ${rubGot}₽`);
+    }
     setExchangeAmount('');
-    setScreen('main');
   };
 
+  // --- ЛОГИКА СЧЕТА ---
   const handleWithdraw = () => {
     const amt = parseFloat(prompt('Сколько снять?') || '0');
     if (!amt || amt <= 0) return;
-    const col = accountCurrency === 'usd' ? 'bankUsd' : 'bankRub';
     const current = accountCurrency === 'usd' ? bankUsd : bankRub;
     if (amt > current) return alert('Недостаточно средств на счете');
     
@@ -167,7 +183,6 @@ export const BankModal: React.FC<BankModalProps> = ({
   const handleDeposit = () => {
     const amt = parseFloat(prompt('Сколько пополнить?') || '0');
     if (!amt || amt <= 0) return;
-    const col = accountCurrency === 'usd' ? 'balance' : 'rubBalance';
     const current = accountCurrency === 'usd' ? balance : rubBalance;
     if (amt > current) return alert('Недостаточно средств на кошельке');
     
@@ -208,7 +223,6 @@ export const BankModal: React.FC<BankModalProps> = ({
     cardBalance: { fontSize: 28, fontWeight: '800', color: '#fff' },
     cardLabel: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
     miniCard: { width: 60, height: 40, background: 'linear-gradient(135deg, #333, #111)', borderRadius: 8, border: '1px solid #444' },
-    sectionTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 16 },
     list: { display: 'flex', flexDirection: 'column', gap: 12 },
     opItem: { background: '#1C1C1E', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     opInfo: { display: 'flex', flexDirection: 'column', gap: 2 },
@@ -231,7 +245,7 @@ export const BankModal: React.FC<BankModalProps> = ({
     dotActive: { background: '#FFD60A' }
   };
 
-  // 📱 ЭКРАН ОПЕРАЦИЙ
+  // --- ЭКРАН ОПЕРАЦИЙ ---
   if (screen === 'operations') {
     return (
       <div style={s.overlay} onClick={onClose}>
@@ -249,12 +263,8 @@ export const BankModal: React.FC<BankModalProps> = ({
                 const isOut = tx.sender_id === userId;
                 const amount = isOut ? -tx.amount : tx.amount;
                 const color = isOut ? '#FF453A' : '#34C759';
-                const title = isOut 
-                  ? (tx.receiver_id ? `Перевод: ${tx.currency}` : `Оплата: ${tx.currency}`)
-                  : `Получено: ${tx.currency}`;
-                const date = new Date(tx.created_at).toLocaleString('ru-RU', { 
-                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                });
+                const title = isOut ? 'Перевод/Оплата' : 'Пополнение';
+                const date = new Date(tx.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                 
                 return (
                   <div key={tx.id} style={s.opItem}>
@@ -275,7 +285,7 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // 📱 ЭКРАН ПЕРЕВОДА
+  // --- ЭКРАН ПЕРЕВОДА ---
   if (screen === 'transfer') {
     const currentBalance = transferCurrency === 'usd' ? balance : rubBalance;
     const currency = transferCurrency === 'usd' ? '$' : '₽';
@@ -289,7 +299,6 @@ export const BankModal: React.FC<BankModalProps> = ({
             <div style={{width: 24}} />
           </div>
 
-          {/* Карточка баланса (свайп) */}
           <div style={s.transferCard}>
             <div style={s.cardTop}>
               <div style={s.currencyIcon}>{currency}</div>
@@ -304,35 +313,23 @@ export const BankModal: React.FC<BankModalProps> = ({
             </div>
           </div>
 
-          {/* Переключатель валют */}
           <div style={s.currencySwitcher}>
             <button 
               style={{...s.switchBtn, ...(transferCurrency === 'usd' ? s.switchBtnActive : {})}}
               onClick={() => setTransferCurrency('usd')}
             >
-              Доллары
+              Доллары ($)
             </button>
             <button 
               style={{...s.switchBtn, ...(transferCurrency === 'rub' ? s.switchBtnActive : {})}}
               onClick={() => setTransferCurrency('rub')}
             >
-              Рубли
+              Рубли (₽)
             </button>
           </div>
 
-          <input 
-            style={s.input} 
-            placeholder="Никнейм получателя" 
-            value={transferTarget} 
-            onChange={e => setTransferTarget(e.target.value)} 
-          />
-          <input 
-            style={s.input} 
-            placeholder={`Сумма (${currency})`} 
-            type="number" 
-            value={transferAmount} 
-            onChange={e => setTransferAmount(e.target.value)} 
-          />
+          <input style={s.input} placeholder="Никнейм получателя" value={transferTarget} onChange={e => setTransferTarget(e.target.value)} />
+          <input style={s.input} placeholder={`Сумма (${currency})`} type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} />
           <button style={s.primaryBtn} onClick={handleTransfer} disabled={loading}>
             {loading ? '⏳ Отправка...' : 'Перевести'}
           </button>
@@ -342,7 +339,7 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // 📱 ЭКРАН БАНКОВСКОГО СЧЕТА
+  // --- ЭКРАН БАНКОВСКОГО СЧЕТА ---
   if (screen === 'account') {
     const currentBank = accountCurrency === 'usd' ? bankUsd : bankRub;
     const currency = accountCurrency === 'usd' ? '$' : '₽';
@@ -356,7 +353,6 @@ export const BankModal: React.FC<BankModalProps> = ({
             <div style={{width: 24}} />
           </div>
 
-          {/* Переключатель валют */}
           <div style={s.currencySwitcher}>
             <button 
               style={{...s.switchBtn, ...(accountCurrency === 'usd' ? s.switchBtnActive : {})}}
@@ -395,8 +391,14 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // 📱 ЭКРАН ОБМЕНА
+  // --- ЭКРАН ОБМЕНА ---
   if (screen === 'exchange') {
+    const isBuy = exchangeMode === 'buy';
+    const currentBalance = isBuy ? rubBalance : balance;
+    const inputCurrency = isBuy ? '₽' : '$';
+    const outputCurrency = isBuy ? '$' : '₽';
+    const rateText = isBuy ? `1 $ = ${EXCHANGE_RATE} ₽` : `1 $ = ${EXCHANGE_RATE} ₽`;
+    
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
@@ -405,23 +407,55 @@ export const BankModal: React.FC<BankModalProps> = ({
             <span style={s.nickname}>Обмен валюты</span>
             <div style={{width: 24}} />
           </div>
-          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 20, textAlign: 'center'}}>
-            <span style={{color: '#8E8E93', fontSize: 13}}>Курс ЦБ</span>
-            <div style={{fontSize: 28, fontWeight: '800', color: '#fff', margin: '8px 0'}}>1 $ = 95 ₽</div>
+
+          {/* Переключатель направления */}
+          <div style={s.currencySwitcher}>
+            <button 
+              style={{...s.switchBtn, ...(isBuy ? s.switchBtnActive : {})}}
+              onClick={() => { setExchangeMode('buy'); setExchangeAmount(''); }}
+            >
+              RUB → USD
+            </button>
+            <button 
+              style={{...s.switchBtn, ...(!isBuy ? s.switchBtnActive : {})}}
+              onClick={() => { setExchangeMode('sell'); setExchangeAmount(''); }}
+            >
+              USD → RUB
+            </button>
           </div>
-          <input style={s.input} placeholder="Сумма в ₽" type="number" value={exchangeAmount} onChange={e => setExchangeAmount(e.target.value)} />
-          <button style={s.primaryBtn} onClick={handleExchange}>Обменять ₽ на $</button>
+
+          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 20, textAlign: 'center'}}>
+            <span style={{color: '#8E8E93', fontSize: 13}}>Курс обмена</span>
+            <div style={{fontSize: 28, fontWeight: '800', color: '#fff', margin: '8px 0'}}>
+              {rateText}
+            </div>
+          </div>
+
+          <div style={{marginBottom: 8, color: '#8E8E93', fontSize: 13, textAlign: 'right'}}>
+            Баланс: {fmt(currentBalance, inputCurrency)}
+          </div>
+          
+          <input 
+            style={s.input} 
+            placeholder={`Сумма ${inputCurrency}`} 
+            type="number" 
+            value={exchangeAmount} 
+            onChange={e => setExchangeAmount(e.target.value)} 
+          />
+          
+          <button style={s.primaryBtn} onClick={handleExchange}>
+            Обменять {inputCurrency} на {outputCurrency}
+          </button>
           <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Отмена</button>
         </div>
       </div>
     );
   }
 
-  // 🏦 ГЛАВНЫЙ ЭКРАН БАНКА
+  // --- ГЛАВНЫЙ ЭКРАН БАНКА ---
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.container} onClick={e => e.stopPropagation()}>
-        {/* Шапка */}
         <div style={s.header}>
           <button onClick={onClose} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
           <div style={s.userSection}>
@@ -431,7 +465,6 @@ export const BankModal: React.FC<BankModalProps> = ({
           <div style={{width: 24}} />
         </div>
 
-        {/* Верхние блоки */}
         <div style={s.topGrid}>
           <button style={s.actionBlock} onClick={() => setScreen('operations')}>
             <span style={s.blockTitle}>Все операции</span>
@@ -444,7 +477,6 @@ export const BankModal: React.FC<BankModalProps> = ({
           </div>
         </div>
 
-        {/* Средние кнопки */}
         <div style={s.middleGrid}>
           <button style={s.midBtn} onClick={() => setScreen('transfer')}>
             <ArrowUpRight size={20} color="#007AFF" />
@@ -460,7 +492,6 @@ export const BankModal: React.FC<BankModalProps> = ({
           </button>
         </div>
 
-        {/* Карточка-кошелек (перелистывается) */}
         <div style={s.cardWrapper} onClick={() => {}}>
           <div style={s.cardContent}>
             <div style={s.cardTop}>
@@ -471,10 +502,6 @@ export const BankModal: React.FC<BankModalProps> = ({
             <span style={s.cardLabel}>Black WSP</span>
             <div style={s.miniCard} />
           </div>
-        </div>
-
-        <div style={{textAlign: 'center', color: '#666', fontSize: 12, marginTop: 8}}>
-          Нажмите на карту, чтобы переключить валюту
         </div>
       </div>
     </div>
