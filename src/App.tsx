@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -21,7 +21,7 @@ import { CasinoModal } from './components/CasinoModal';
 import type { OwnedCurrency } from './types';
 import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
-import { BUSINESSES, JOBS } from './data/economy';
+import { BUSINESSES, STAKING_CONFIG } from './data/economy';
 import { supabase } from './lib/supabase';
 
 function App() {
@@ -62,6 +62,7 @@ function App() {
   const [ownedBusinesses, setOwnedBusinesses] = useState<any[]>([]);
   const [businessMaintenance, setBusinessMaintenance] = useState<Record<string, {electricity: number, repair: number}>>({});
   const [managerHired, setManagerHired] = useState(false);
+  const [stakedAmount, setStakedAmount] = useState(0);
   const [jobCooldowns, setJobCooldowns] = useState<Record<string, number>>({});
   const [cryptoRates, setCryptoRates] = useState<any>({});
   const [totalBusinessIncome, setTotalBusinessIncome] = useState(0);
@@ -185,10 +186,11 @@ function App() {
         daily_quests: dailyQuestsRef.current.length > 0 ? JSON.stringify(dailyQuestsRef.current) : '[]',
         bank_usd: bankUsd, bank_rub: bankRub, 
         crypto_holdings: cryptoHoldings, casino_chips: casinoChips, 
-        owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, manager_hired: managerHired, job_cooldowns: jobCooldowns 
+        owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, 
+        manager_hired: managerHired, staked_amount: stakedAmount,
+        job_cooldowns: jobCooldowns 
       };
-      const { data, error } = await supabase.from('users').upsert(payload, { onConflict: 'id' }).select().single();
-      if (error) throw error;
+      await supabase.from('users').upsert(payload, { onConflict: 'id' }).single();
     } catch (err) { console.error('❌ Ошибка сохранения:', err); }
   };
 
@@ -209,43 +211,35 @@ function App() {
   const fetchLeaderboard = async () => {
     try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at, vip_status'); if (error) throw error; const sorted = (data || []).map((u: any) => { let owned = []; try { owned = typeof u.owned_currencies === 'string' ? JSON.parse(u.owned_currencies) : u.owned_currencies || []; } catch { owned = []; } return { id: u.id, nickname: u.nickname || `Player${String(u.id).slice(-4)}`, incomePerMin: calculateIncome({ ...u, owned_currencies: owned }), avatarUrl: u.custom_avatar_url, first_login: u.first_login, created_at: u.created_at, max_balance: u.max_balance, vip_status: u.vip_status }; }).sort((a, b) => b.incomePerMin - a.incomePerMin).slice(0, 10); setLeaderboard(sorted); } catch (err) { console.error('Leaderboard error:', err); }
   };
-const fetchClanData = async () => {
-  if (!isAuthenticated) return; 
-  const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
-  if (member) { 
-    const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single(); 
-    if (clan) { 
-      const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
-      const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
-        const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', m.user_id).single(); 
-        return { ...m, ...u, incomePerMin: calculateIncome(u) }; 
-      })); 
-      setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0) }); 
-      setClanMembers(enrichedMembers); 
-      setMyClanRole(member.role); 
-    } else { 
-      setMyClan(null); 
-      setClanMembers([]); 
-      setMyClanRole(0); 
-    } 
-  } else { 
-    setMyClan(null); 
-    setClanMembers([]); 
-    setMyClanRole(0); 
-  }
-};
-const fetchFriendsData = async () => {
-  if (!isAuthenticated) return; 
-  const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending'); 
-  setMessages((reqs || []).filter((r: any) => r.receiver_id === userIdNum).map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' }))); 
-  const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted'); 
-  const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id); 
-  const friendsData = await Promise.all(friendIds.map(async (id: number) => { 
-    const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single(); 
-    return { ...u, incomePerMin: calculateIncome(u) }; 
-  })); 
-  setFriends(friendsData);
-};
+  const fetchClanData = async () => {
+    if (!isAuthenticated) return; 
+    const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
+    if (member) { 
+      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single(); 
+      if (clan) { 
+        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
+        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
+          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', m.user_id).single(); 
+          return { ...m, ...u, incomePerMin: calculateIncome(u) }; 
+        })); 
+        setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0) }); 
+        setClanMembers(enrichedMembers); 
+        setMyClanRole(member.role); 
+      } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); } 
+    } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
+  };
+  const fetchFriendsData = async () => {
+    if (!isAuthenticated) return; 
+    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending'); 
+    setMessages((reqs || []).filter((r: any) => r.receiver_id === userIdNum).map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' }))); 
+    const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted'); 
+    const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id); 
+    const friendsData = await Promise.all(friendIds.map(async (id: number) => { 
+      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single(); 
+      return { ...u, incomePerMin: calculateIncome(u) }; 
+    })); 
+    setFriends(friendsData);
+  };
   const loadSocial = async () => { await Promise.all([fetchClanData(), fetchFriendsData(), fetchLeaderboard()]); };
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
@@ -256,7 +250,7 @@ const fetchFriendsData = async () => {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
         if (data) {
-          setBalance(data.balance || 100); setRubBalance(data.rub_balance || 0); setMaxBalance(data.max_balance || 100);
+          setBalance(data.balance || 0); setRubBalance(data.rub_balance || 1000); setMaxBalance(data.max_balance || 100);
           let owned = []; try { if (data.owned_currencies) { if (Array.isArray(data.owned_currencies)) owned = data.owned_currencies; else if (typeof data.owned_currencies === 'string') { const p = JSON.parse(data.owned_currencies); owned = Array.isArray(p) ? p : []; } } } catch { owned = []; }
           setOwnedCurrencies(owned);
           let mults = {}; try { if (data.price_multipliers) { mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers; if (typeof mults !== 'object' || Array.isArray(mults)) mults = {}; } } catch { mults = {}; }
@@ -277,6 +271,7 @@ const fetchFriendsData = async () => {
           setOwnedBusinesses(typeof data.owned_businesses === 'string' ? JSON.parse(data.owned_businesses || '[]') : data.owned_businesses || []);
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
           setManagerHired(data.manager_hired || false);
+          setStakedAmount(data.staked_amount || 0);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
 
           if (data.last_login && owned.length > 0) {
@@ -290,31 +285,18 @@ const fetchFriendsData = async () => {
   }, [userIdNum]);
 
   useEffect(() => {
-    const fetchRates = async () => {
-      try { const { data } = await supabase.from('crypto_rates').select('*'); if (data) setCryptoRates(data.reduce((acc, r) => ({ ...acc, [r.currency]: r }), {})); } catch {}
-    };
-    fetchRates();
-    const interval = setInterval(fetchRates, 3600000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
       let income = 0;
       const now = Date.now();
-      const updatedMaintenance = { ...businessMaintenance };
-      
       ownedBusinesses.forEach(biz => {
         const conf = BUSINESSES.find(c => c.id === biz.id);
         if (!conf) return;
-        const maint = updatedMaintenance[biz.id] || { electricity: 0, repair: 0 };
+        const maint = businessMaintenance[biz.id] || { electricity: 0, repair: 0 };
         const elecDiff = (now - maint.electricity) / 1000 / 3600;
         const repDiff = (now - maint.repair) / 1000 / 3600 / 24;
-        
-        if (elecDiff >= 36 || repDiff >= 7) { income += 0; } else { income += conf.incomePerHour / 60; }
+        if (elecDiff < 36 && repDiff < 7) income += conf.incomePerHour / 60;
       });
-      
       if (income > 0) {
         setTotalBusinessIncome(prev => prev + income);
         setBankUsd(prev => prev + income);
@@ -322,6 +304,21 @@ const fetchFriendsData = async () => {
     }, 60000);
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, ownedBusinesses, businessMaintenance]);
+
+  // 🔥 Менеджер и Стейкинг
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    const interval = setInterval(() => {
+      if (managerHired && ownedBusinesses.length > 0) {
+        setRubBalance(prev => prev + (ownedBusinesses.length * 50));
+      }
+      if (stakedAmount > 0) {
+        const hourlyYield = stakedAmount * (STAKING_CONFIG.dailyYieldPercent / 100 / 24);
+        setBalance(prev => prev + hourlyYield);
+      }
+    }, 3600000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading, managerHired, ownedBusinesses, stakedAmount]);
 
   useEffect(() => { const handleSave = () => saveProgress(); window.addEventListener('beforeunload', handleSave); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') handleSave(); }); return () => { window.removeEventListener('beforeunload', handleSave); document.removeEventListener('visibilitychange', handleSave); }; }, []);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
@@ -415,7 +412,7 @@ const fetchFriendsData = async () => {
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none' }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
-  const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); console.log('✅ Обмен сохранен'); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
+  const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
 
   const renderClanMenu = () => {
@@ -541,53 +538,16 @@ const fetchFriendsData = async () => {
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
       <BankModal 
-  isOpen={showBank} 
-  onClose={() => setShowBank(false)} 
-  userId={userIdNum} 
-  userNickname={currentNickname}  // 👈 Добавь это!
-  balance={balance} 
-  rubBalance={rubBalance} 
-  bankUsd={bankUsd} 
-  bankRub={bankRub} 
-  cryptoHoldings={cryptoHoldings} 
-  cryptoRates={cryptoRates} 
-  onBalanceUpdate={(usd, rub) => { setBalance(usd); setRubBalance(rub); saveProgress(); }} 
-  onBankUpdate={(usd, rub) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} 
-  onCryptoUpdate={(holdings) => { setCryptoHoldings(holdings); saveProgress(); }} 
-/>
-      <BusinessCenterModal
-  isOpen={showBusiness}
-  onClose={() => setShowBusiness(false)}
+  isOpen={showBank}
+  onClose={() => setShowBank(false)}
   userId={userIdNum}
-  bankUsd={bankUsd}
-  ownedBusinesses={ownedBusinesses}
-  businessMaintenance={businessMaintenance}
-  totalIncome={totalBusinessIncome}
-  managerHired={managerHired} // 🔥 Передаем состояние
-  onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }}
-  onPayMaintenance={(bizId, type) => {
-    const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}};
-    setBusinessMaintenance(newMaint); saveProgress();
-  }}
-  onHireManager={() => {
-    if (balance >= 500) {
-      setBalance(p => p - 500);
-      setManagerHired(true);
-      saveProgress();
-    } else alert('Нужно $500');
-  }}
+  userNickname={currentNickname}
+  balance={balance}
+  rubBalance={rubBalance}
+  onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
 />
-      <CasinoModal 
-  isOpen={showCasino} 
-  onClose={() => setShowCasino(false)} 
-  userId={userIdNum} 
-  usdBalance={balance} // 🔥 Теперь берет главный $ баланс
-  rubBalance={rubBalance} 
-  bankUsd={bankUsd} 
-  bankRub={bankRub} 
-  chips={casinoChips} 
-  onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} 
-/>
+      <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (balance >= 500) { setBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно $500'); }} />
+      <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>

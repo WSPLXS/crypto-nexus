@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowLeft, TrendingUp, Lock, Shield } from 'lucide-react';
+import { X, ArrowLeft, TrendingUp, Shield } from 'lucide-react';
 import { CRYPTO_LIST, STAKING_CONFIG } from '../data/economy';
 
 interface BankModalProps {
@@ -9,20 +9,11 @@ interface BankModalProps {
   userNickname: string;
   balance: number;
   rubBalance: number;
-  bankUsd: number;
-  bankRub: number;
-  cryptoHoldings: Record<string, number>;
-  cryptoRates: Record<string, number>;
   onBalanceUpdate: (usd: number, rub: number) => void;
-  onBankUpdate: (usd: number, rub: number) => void;
-  onCryptoUpdate: (holdings: Record<string, number>) => void;
 }
 
 export const BankModal: React.FC<BankModalProps> = ({
-  isOpen, onClose, userNickname, balance, rubBalance,
-  bankUsd, bankRub,
-  onBalanceUpdate, onBankUpdate,
-  cryptoHoldings, cryptoRates, onCryptoUpdate
+  isOpen, onClose, userNickname, balance, rubBalance, onBalanceUpdate
 }) => {
   if (!isOpen) return null;
 
@@ -33,7 +24,6 @@ export const BankModal: React.FC<BankModalProps> = ({
   const [stakeAmount, setStakeAmount] = useState('');
   const [stakedAmount, setStakedAmount] = useState(0);
 
-  // 🔥 Симуляция живого рынка (цены немного меняются)
   useEffect(() => {
     const initPrices: Record<string, number> = {};
     CRYPTO_LIST.forEach(c => initPrices[c.id] = c.basePrice);
@@ -43,7 +33,6 @@ export const BankModal: React.FC<BankModalProps> = ({
       setLivePrices(prev => {
         const next = { ...prev };
         CRYPTO_LIST.forEach(c => {
-          // Флуктуация +/- 2%
           const change = 1 + (Math.random() * 0.04 - 0.02);
           next[c.id] = Math.max(c.basePrice * 0.5, next[c.id] * change);
         });
@@ -55,7 +44,6 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   const fmt = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
-  // --- Логика Торговли ---
   const handleTrade = (type: 'buy' | 'sell') => {
     const amt = parseFloat(tradeAmount);
     if (!amt || amt <= 0) return alert('Введите количество монет');
@@ -68,14 +56,12 @@ export const BankModal: React.FC<BankModalProps> = ({
       onBalanceUpdate(balance, rubBalance - totalRub);
       alert(`✅ Куплено ${amt} ${selectedCrypto.toUpperCase()} за ${fmt(totalRub)}₽`);
     } else {
-      // В полной версии тут проверка cryptoHoldings, сейчас упрощено
       onBalanceUpdate(balance, rubBalance + totalRub);
       alert(`✅ Продано ${amt} ${selectedCrypto.toUpperCase()} за ${fmt(totalRub)}₽`);
     }
     setTradeAmount('');
   };
 
-  // --- Логика Стейкинга ---
   const handleStake = () => {
     const amt = parseFloat(stakeAmount);
     if (!amt || amt <= 0) return alert('Введите сумму в $');
@@ -87,7 +73,6 @@ export const BankModal: React.FC<BankModalProps> = ({
     setStakeAmount('');
   };
 
-  // --- СТИЛИ (Тёмная тема) ---
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
@@ -108,7 +93,6 @@ export const BankModal: React.FC<BankModalProps> = ({
     activeItem: { background: '#2C2C2E', border: '1px solid #007AFF' }
   };
 
-  // --- ЭКРАН ТОРГОВЛИ ---
   if (screen === 'trade') {
     const crypto = CRYPTO_LIST.find(c => c.id === selectedCrypto);
     const currentPrice = livePrices[selectedCrypto] || crypto?.basePrice || 0;
@@ -124,11 +108,7 @@ export const BankModal: React.FC<BankModalProps> = ({
           
           <div style={s.list}>
             {CRYPTO_LIST.map(c => (
-              <div 
-                key={c.id} 
-                style={selectedCrypto === c.id ? {...s.item, ...s.activeItem} : s.item} 
-                onClick={() => setSelectedCrypto(c.id)}
-              >
+              <div key={c.id} style={selectedCrypto === c.id ? {...s.item, ...s.activeItem} : s.item} onClick={() => setSelectedCrypto(c.id)}>
                 <span style={{fontWeight: 'bold', color: '#fff'}}>{c.name}</span>
                 <span style={{color: '#8E8E93'}}>{fmt(livePrices[c.id] || c.basePrice)} ₽</span>
               </div>
@@ -151,7 +131,6 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // --- ЭКРАН СТЕЙКИНГА ---
   if (screen === 'staking') {
     return (
       <div style={s.overlay} onClick={onClose}>
@@ -162,7 +141,7 @@ export const BankModal: React.FC<BankModalProps> = ({
             <div style={{width: 24}} />
           </div>
           <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, textAlign: 'center', marginBottom: 20}}>
-            <Lock size={32} color="#FFD60A" style={{marginBottom: 8}}/>
+            <Shield size={32} color="#FFD60A" style={{marginBottom: 8}}/>
             <div style={{fontSize: 14, color: '#8E8E93'}}>В стейкинге</div>
             <div style={{fontSize: 32, fontWeight: '800', color: '#FFD60A'}}>${fmt(stakedAmount)}</div>
             <div style={{fontSize: 12, color: '#34C759', marginTop: 4}}>+{STAKING_CONFIG.dailyYieldPercent}% / день</div>
@@ -175,7 +154,6 @@ export const BankModal: React.FC<BankModalProps> = ({
     );
   }
 
-  // --- ГЛАВНЫЙ ЭКРАН ---
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.container} onClick={e => e.stopPropagation()}>
@@ -196,7 +174,6 @@ export const BankModal: React.FC<BankModalProps> = ({
             <span style={s.cardTitle}>Стейкинг</span>
             <span style={s.cardSub}>{STAKING_CONFIG.dailyYieldPercent}% доход в день</span>
           </button>
-          {/* Здесь можно добавить кнопки для Счета и Обмена, если нужно */}
         </div>
       </div>
     </div>
