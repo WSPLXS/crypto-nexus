@@ -1,18 +1,13 @@
 {
-  "name": "crypto-rates-updater",
+  "name": "crypto-updater",
   "version": "1.0.0",
-  "type": "module",
-  "description": "Crypto rates updater for Railway",
+  "type": "module", 
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "express": "^4.18.2"
-  },
-  "engines": {
-    "node": "18.x"
   }
 }
