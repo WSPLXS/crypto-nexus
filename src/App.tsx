@@ -565,33 +565,31 @@ function App() {
     if (myClan && !showClanHub) {
       return (
         <>
-          {/* 🔥 НОВАЯ ШАПКА КЛАНА */}
-          <div style={styles.clanHeader}>
-            <div style={styles.clanAvatar}>{myClan.emoji}</div>
-            
-            <div style={styles.clanInfo}>
-              <h3 style={{...styles.clanName, fontSize: getFontSize(myClan.name)}}>{myClan.name}</h3>
-              <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
+          {/* 🔝 КНОПКИ ЛИДЕРА (по центру, только для создателя) */}
+          {myClanRole === 4 && (
+            <div style={styles.clanTopActions}>
+              <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
+              <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
+              <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
+                <MessageCircle size={18} />
+                {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
+              </button>
             </div>
-
-            {myClanRole === 4 && (
-              <div style={styles.clanActions}>
-                <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
-                <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
-                <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
-                  <MessageCircle size={18} />
-                  {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 🔥 ОПИСАНИЕ ОТДЕЛЬНО (без курсива, с отступом) */}
-          {myClan.description && (
-            <p style={styles.clanDescription}>{myClan.description}</p>
           )}
 
-          {/* Список участников */}
+          {/* 📛 НАЗВАНИЕ И ДОХОД (полная ширина, без сжатия) */}
+          <div style={styles.clanInfoBlock}>
+            <div style={styles.clanAvatar}>{myClan.emoji}</div>
+            <div style={styles.clanDetails}>
+              <h3 style={styles.clanName}>{myClan.name}</h3>
+              <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
+            </div>
+          </div>
+
+          {/* 📝 ОПИСАНИЕ */}
+          {myClan.description && <p style={styles.clanDescription}>{myClan.description}</p>}
+
+          {/* 👥 СПИСОК УЧАСТНИКОВ */}
           <div style={styles.memberList}>
             {clanMembers.sort((a,b) => b.role - a.role).map(m => (
               <div key={m.user_id} style={styles.memberItem} onClick={() => openProfile(m)}>
@@ -605,9 +603,14 @@ function App() {
             ))}
           </div>
 
+          {/* 🔘 НАВИГАЦИЯ */}
           <div style={{marginTop: 16}}>
-             <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}><ArrowLeft size={16} style={{marginRight: 8}}/> Назад</button>
-             <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}><Banknote size={16} style={{marginRight: 8}}/> Общак клана</button>
+             <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}>
+               <ArrowLeft size={16} style={{marginRight: 8}}/> Назад
+             </button>
+             <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}>
+               <Banknote size={16} style={{marginRight: 8}}/> Общак клана
+             </button>
           </div>
         </>
       );
@@ -832,32 +835,37 @@ const styles: { [key: string]: React.CSSProperties } = {
   btnPrimary: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
   btnSecondary: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnSmall: { width: 36, height: 36, borderRadius: 10, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  clanHeader: { 
+  clanTopActions: { 
+    display: 'flex', 
+    justifyContent: 'center', 
+    gap: 16, 
+    marginBottom: 20 
+  },
+  clanInfoBlock: { 
     display: 'flex', 
     alignItems: 'center', 
-    gap: 16, 
+    gap: 14, 
     marginBottom: 8, 
-    paddingBottom: 12, 
-    borderBottom: '1px solid rgba(156,163,175,0.1)' 
+    width: '100%' 
   },
   clanAvatar: { 
-    width: 56, 
-    height: 56, 
-    borderRadius: 16, 
+    width: 52, 
+    height: 52, 
+    borderRadius: 14, 
     background: '#262626', 
     display: 'flex', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    fontSize: 28, 
+    fontSize: 26, 
     flexShrink: 0,
     border: '1px solid rgba(156,163,175,0.1)'
   },
-  clanInfo: { 
+  clanDetails: { 
     flex: 1, 
+    minWidth: 0, 
     display: 'flex', 
     flexDirection: 'column', 
-    gap: 2,
-    minWidth: 0 // Предотвращает переполнение текста
+    gap: 2 
   },
   clanName: { 
     fontSize: 18, 
@@ -865,27 +873,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#e5e5e5', 
     margin: 0, 
     lineHeight: 1.2,
-    wordBreak: 'break-word'
+    wordBreak: 'break-word',
+    width: '100%' 
   },
   clanIncome: { 
     fontSize: 13, 
     color: '#22c55e', 
     margin: 0, 
-    fontWeight: '500' 
-  },
-  clanActions: { 
-    display: 'flex', 
-    gap: 8, 
-    alignItems: 'center' 
+    fontWeight: '500',
+    whiteSpace: 'nowrap' 
   },
   clanDescription: { 
     fontSize: 13, 
     color: '#a3a3a3', 
     margin: '0 0 16px 0', 
     lineHeight: 1.5, 
-    fontStyle: 'normal', // ✅ Курсив убран
-    padding: '0 4px'
-  },  
+    fontStyle: 'normal',
+    padding: '0 2px'
+  },
   iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
   badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #141414' },
   memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
