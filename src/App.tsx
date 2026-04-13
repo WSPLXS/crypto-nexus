@@ -45,8 +45,8 @@ function App() {
   const [offlineAmount, setOfflineAmount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
-  const [balance, setBalance] = useState(100);
-  const [rubBalance, setRubBalance] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [rubBalance, setRubBalance] = useState(1000); // 🔥 Старт 1000₽
   const [maxBalance, setMaxBalance] = useState(100);
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
@@ -61,6 +61,7 @@ function App() {
   const [casinoChips, setCasinoChips] = useState(0);
   const [ownedBusinesses, setOwnedBusinesses] = useState<any[]>([]);
   const [businessMaintenance, setBusinessMaintenance] = useState<Record<string, {electricity: number, repair: number}>>({});
+  const [managerHired, setManagerHired] = useState(false);
   const [jobCooldowns, setJobCooldowns] = useState<Record<string, number>>({});
   const [cryptoRates, setCryptoRates] = useState<any>({});
   const [totalBusinessIncome, setTotalBusinessIncome] = useState(0);
@@ -184,7 +185,7 @@ function App() {
         daily_quests: dailyQuestsRef.current.length > 0 ? JSON.stringify(dailyQuestsRef.current) : '[]',
         bank_usd: bankUsd, bank_rub: bankRub, 
         crypto_holdings: cryptoHoldings, casino_chips: casinoChips, 
-        owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, job_cooldowns: jobCooldowns 
+        owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, manager_hired: managerHired, job_cooldowns: jobCooldowns 
       };
       const { data, error } = await supabase.from('users').upsert(payload, { onConflict: 'id' }).select().single();
       if (error) throw error;
@@ -275,6 +276,7 @@ const fetchFriendsData = async () => {
           setCasinoChips(data.casino_chips || 0);
           setOwnedBusinesses(typeof data.owned_businesses === 'string' ? JSON.parse(data.owned_businesses || '[]') : data.owned_businesses || []);
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
+          setManagerHired(data.manager_hired || false);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
 
           if (data.last_login && owned.length > 0) {
@@ -553,8 +555,39 @@ const fetchFriendsData = async () => {
   onBankUpdate={(usd, rub) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} 
   onCryptoUpdate={(holdings) => { setCryptoHoldings(holdings); saveProgress(); }} 
 />
-      <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} />
-      <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
+      <BusinessCenterModal
+  isOpen={showBusiness}
+  onClose={() => setShowBusiness(false)}
+  userId={userIdNum}
+  bankUsd={bankUsd}
+  ownedBusinesses={ownedBusinesses}
+  businessMaintenance={businessMaintenance}
+  totalIncome={totalBusinessIncome}
+  managerHired={managerHired} // 🔥 Передаем состояние
+  onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }}
+  onPayMaintenance={(bizId, type) => {
+    const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}};
+    setBusinessMaintenance(newMaint); saveProgress();
+  }}
+  onHireManager={() => {
+    if (balance >= 500) {
+      setBalance(p => p - 500);
+      setManagerHired(true);
+      saveProgress();
+    } else alert('Нужно $500');
+  }}
+/>
+      <CasinoModal 
+  isOpen={showCasino} 
+  onClose={() => setShowCasino(false)} 
+  userId={userIdNum} 
+  usdBalance={balance} // 🔥 Теперь берет главный $ баланс
+  rubBalance={rubBalance} 
+  bankUsd={bankUsd} 
+  bankRub={bankRub} 
+  chips={casinoChips} 
+  onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} 
+/>
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>

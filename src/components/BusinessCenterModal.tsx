@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { X, TrendingUp, Zap, Clock, ShoppingBag, Briefcase } from 'lucide-react';
+import { X, TrendingUp, Zap, Clock, ShoppingBag, Briefcase, UserCheck } from 'lucide-react';
 import { BUSINESSES } from '../data/economy';
 
 interface BusinessCenterModalProps {
   isOpen: boolean; onClose: () => void; userId: number; bankUsd: number;
   ownedBusinesses: any[]; businessMaintenance: any; totalIncome: number;
-  onBuy: (biz: any) => void; onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
+  managerHired: boolean; // 🔥 Новое состояние
+  onBuy: (biz: any) => void;
+  onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
+  onHireManager: () => void; // 🔥 Функция найма
 }
 
-export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({ isOpen, onClose, bankUsd, ownedBusinesses, businessMaintenance, totalIncome, onBuy, onPayMaintenance }) => {
+export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
+  isOpen, onClose, bankUsd, ownedBusinesses, businessMaintenance, totalIncome,
+  managerHired, onBuy, onPayMaintenance, onHireManager
+}) => {
   if (!isOpen) return null;
   const [view, setView] = useState<'dashboard' | 'shop' | 'my'>('dashboard');
   const fmt = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
@@ -28,19 +34,42 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({ isOpen
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
         <div style={styles.header}><Briefcase size={24} color="#22c55e" /><h2 style={styles.title}>Бизнес Центр</h2></div>
-        
+
         <div style={styles.tabs}>
           {['dashboard', 'shop', 'my'].map(t => (
-            <button key={t} onClick={() => setView(t as any)} style={{...styles.tab, ...(view === t ? styles.tabActive : {})}}>{t === 'dashboard' ? 'Доход' : t === 'shop' ? 'Купить' : 'Мои'}</button>
+            <button key={t} onClick={() => setView(t as any)} style={{ ...styles.tab, ...(view === t ? styles.tabActive : {}) }}>
+              {t === 'dashboard' ? 'Доход' : t === 'shop' ? 'Купить' : 'Мои'}
+            </button>
           ))}
         </div>
 
         {view === 'dashboard' && (
           <div style={styles.content}>
-            <div style={styles.statCard}><TrendingUp size={24} color="#22c55e" /><div><span style={styles.statLabel}>Доход в час</span><span style={styles.statValue}>${fmt(totalIncome * 60)}</span></div></div>
+            <div style={styles.statCard}>
+              <TrendingUp size={24} color="#22c55e" />
+              <div><span style={styles.statLabel}>Доход в час</span><span style={styles.statValue}>${fmt(totalIncome * 60)}</span></div>
+            </div>
+
+            {/* 🔥 Блок менеджера */}
+            <div style={{ ...styles.statCard, background: managerHired ? 'rgba(34,197,94,0.1)' : '#1a1a1a' }}>
+              <UserCheck size={24} color={managerHired ? '#22c55e' : '#a3a3a3'} />
+              <div style={{ flex: 1 }}>
+                <span style={styles.statLabel}>Менеджер</span>
+                {managerHired ? (
+                  <span style={{ ...styles.statSub, color: '#22c55e' }}>✅ Работает: авто-сбор на ₽</span>
+                ) : (
+                  <span style={styles.statSub}>Автоматически собирает доход</span>
+                )}
+              </div>
+              {!managerHired && (
+                <button style={styles.btnHire} onClick={onHireManager}>
+                  Нанять ($500)
+                </button>
+              )}
+            </div>
+
             <div style={styles.statCard}><Zap size={24} color="#fbbf24" /><div><span style={styles.statLabel}>Электричество</span><span style={styles.statSub}>Каждые 36ч</span></div></div>
             <div style={styles.statCard}><Clock size={24} color="#ef4444" /><div><span style={styles.statLabel}>Ремонт</span><span style={styles.statSub}>Каждые 168ч</span></div></div>
-            <p style={{color:'#737373', fontSize:12, textAlign:'center', marginTop:8}}>Прибыль автоматически поступает на банковский счет</p>
           </div>
         )}
 
@@ -48,12 +77,12 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({ isOpen
           <div style={styles.list}>
             {BUSINESSES.map(b => (
               <div key={b.id} style={styles.item}>
-                <div style={{fontSize:32}}>{b.icon}</div>
-                <div style={{flex:1}}>
+                <div style={{ fontSize: 32 }}>{b.icon}</div>
+                <div style={{ flex: 1 }}>
                   <div style={styles.itemTitle}>{b.name}</div>
                   <div style={styles.itemSub}>{b.desc} • +${b.incomePerHour}/ч</div>
                 </div>
-                <button onClick={() => { if(bankUsd >= b.priceUsd) { onBuy(b); alert(`✅ ${b.name} куплен!`); } else alert('❌ Недостаточно средств на счете'); }} style={styles.btnBuy}>${b.priceUsd}</button>
+                <button onClick={() => { if (bankUsd >= b.priceUsd) { onBuy(b); alert(`✅ ${b.name} куплен!`); } else alert('❌ Недостаточно средств на счете'); }} style={styles.btnBuy}>${b.priceUsd}</button>
               </div>
             ))}
           </div>
@@ -61,21 +90,21 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({ isOpen
 
         {view === 'my' && (
           <div style={styles.list}>
-            {ownedBusinesses.length === 0 ? <p style={{color:'#737373', textAlign:'center'}}>У вас нету бизнесов</p> : ownedBusinesses.map((b, i) => {
+            {ownedBusinesses.length === 0 ? <p style={{ color: '#737373', textAlign: 'center', padding: 20 }}>У вас нету бизнесов</p> : ownedBusinesses.map((b, i) => {
               const conf = BUSINESSES.find(c => c.id === b.id);
               const status = getMaintenanceStatus(b.id);
               return (
                 <div key={i} style={styles.item}>
-                  <div style={{fontSize:28}}>{conf?.icon}</div>
-                  <div style={{flex:1}}>
+                  <div style={{ fontSize: 28 }}>{conf?.icon}</div>
+                  <div style={{ flex: 1 }}>
                     <div style={styles.itemTitle}>{conf?.name}</div>
                     <div style={styles.itemSub}>
-                      {!status.electricity && <span style={{color:'#fbbf24'}}>⚡ Свет выкл. </span>}
-                      {!status.repair && <span style={{color:'#ef4444'}}>🔧 Треб. ремонт </span>}
-                      {status.electricity && status.repair && <span style={{color:'#22c55e'}}>✅ Работает</span>}
+                      {!status.electricity && <span style={{ color: '#fbbf24' }}>⚡ Свет выкл. </span>}
+                      {!status.repair && <span style={{ color: '#ef4444' }}>🔧 Треб. ремонт </span>}
+                      {status.electricity && status.repair && <span style={{ color: '#22c55e' }}>✅ Работает</span>}
                     </div>
                   </div>
-                  <div style={{display:'flex', gap:4}}>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {!status.electricity && <button onClick={() => onPayMaintenance(b.id, 'electricity')} style={styles.btnSmall}>Свет $50</button>}
                     {!status.repair && <button onClick={() => onPayMaintenance(b.id, 'repair')} style={styles.btnSmall}>Ремонт $200</button>}
                   </div>
@@ -103,6 +132,7 @@ const styles: any = {
   statLabel: { display: 'block', color: '#737373', fontSize: 12 },
   statValue: { display: 'block', color: '#fff', fontSize: 18, fontWeight: 'bold' },
   statSub: { display: 'block', color: '#fbbf24', fontSize: 11 },
+  btnHire: { padding: '6px 12px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', fontSize: 11, cursor: 'pointer' },
   list: { display: 'flex', flexDirection: 'column', gap: 12 },
   item: { background: '#1a1a1a', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', gap: 12 },
   itemTitle: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
