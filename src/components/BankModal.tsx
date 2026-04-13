@@ -1,137 +1,258 @@
 import React, { useState } from 'react';
-import { X, ArrowUpRight, ArrowDownLeft, Repeat, TrendingUp, Wallet } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, CreditCard, MoreVertical, ChevronRight, User, Shield, Clock } from 'lucide-react';
 
 interface BankModalProps {
-  isOpen: boolean; onClose: () => void; userId: number; balance: number; rubBalance: number;
-  bankUsd: number; bankRub: number; cryptoHoldings: any; cryptoRates: any;
+  isOpen: boolean;
+  onClose: () => void;
+  userId: number;
+  balance: number;
+  rubBalance: number;
+  bankUsd: number;
+  bankRub: number;
+  cryptoHoldings: any;
+  cryptoRates: any;
   onBalanceUpdate: (usd: number, rub: number) => void;
   onBankUpdate: (usd: number, rub: number) => void;
   onCryptoUpdate: (holdings: any) => void;
 }
 
-export const BankModal: React.FC<BankModalProps> = ({ isOpen, onClose, userId, balance, rubBalance, bankUsd, bankRub, cryptoHoldings, cryptoRates, onBalanceUpdate, onBankUpdate, onCryptoUpdate }) => {
+export const BankModal: React.FC<BankModalProps> = ({
+  isOpen, onClose, balance, rubBalance, bankUsd, bankRub,
+  onBalanceUpdate, onBankUpdate
+}) => {
   if (!isOpen) return null;
-  const [tab, setTab] = useState<'account' | 'transfer' | 'exchange' | 'crypto'>('account');
-  const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const fmt = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+  const [screen, setScreen] = useState<'main' | 'operations' | 'transfer' | 'account' | 'exchange'>('main');
+  const [cardSide, setCardSide] = useState<'rub' | 'usd'>('rub');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferTarget, setTransferTarget] = useState('');
+  const [exchangeAmount, setExchangeAmount] = useState('');
 
-  const handleTransfer = async (toId: number, usd: number, rub: number) => {
-    setLoading(true);
-    try {
-      const newBalUsd = balance - usd; const newBalRub = rubBalance - rub;
-      if (newBalUsd < 0 || newBalRub < 0) throw new Error('Недостаточно средств');
-      
-      await supabase.from('users').update({ balance: newBalUsd, rub_balance: newBalRub }).eq('id', userId);
-      const { data: target } = await supabase.from('users').select('balance, rub_balance').eq('id', toId).single();
-      await supabase.from('users').update({ balance: (target?.balance || 0) + usd, rub_balance: (target?.rub_balance || 0) + rub }).eq('id', toId);
-      await supabase.from('transactions').insert({ sender_id: userId, receiver_id: toId, amount: usd + rub, currency: 'MIX' });
-      
-      onBalanceUpdate(newBalUsd, newBalRub);
-      alert('✅ Перевод выполнен');
-      setAmount('');
-    } catch (e: any) { alert('❌ ' + e.message); } finally { setLoading(false); }
+  // Моковые траты (в проде подключим к таблице transactions)
+  const monthlySpend = 2064;
+  const operations = [
+    { id: 1, title: 'Перевод другу', date: '12 апр, 14:30', amount: -500, currency: '₽' },
+    { id: 2, title: 'Обмен валюты', date: '11 апр, 09:15', amount: -1200, currency: '₽' },
+    { id: 3, title: 'Пополнение Б/С', date: '10 апр, 18:45', amount: 3500, currency: '₽' },
+    { id: 4, title: 'Оплата бизнес-света', date: '09 апр, 12:00', amount: -50, currency: '$' },
+  ];
+
+  const fmt = (n: number, curr: string) => 
+    `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${curr}`;
+
+  const handleTransfer = () => {
+    const amt = parseFloat(transferAmount);
+    if (!amt || amt <= 0) return alert('Введите сумму');
+    if (amt > rubBalance) return alert('Недостаточно средств');
+    onBalanceUpdate(balance, rubBalance - amt);
+    onBankUpdate(bankUsd, bankRub + amt); // В реальном банке деньги уходят на счет получателя
+    alert(`✅ Переведено ${amt}₽`);
+    setTransferAmount(''); setTransferTarget(''); setScreen('main');
   };
 
-  const handleCryptoExchange = async (currency: string, amountCrypto: number, direction: 'sell' | 'buy') => {
-    setLoading(true);
-    try {
-      const rate = cryptoRates[currency];
-      if (!rate) throw new Error('Курс не найден');
-      const totalRub = amountCrypto * rate.rate_rub;
-      const totalUsd = amountCrypto * rate.rate_usd;
-
-      if (direction === 'sell') {
-        const current = cryptoHoldings[currency] || 0;
-        if (current < amountCrypto) throw new Error('Недостаточно крипты');
-        await supabase.from('users').update({ rub_balance: rubBalance + totalRub, balance: balance + totalUsd, crypto_holdings: {...cryptoHoldings, [currency]: current - amountCrypto} }).eq('id', userId);
-        onBalanceUpdate(balance + totalUsd, rubBalance + totalRub);
-        onCryptoUpdate({...cryptoHoldings, [currency]: current - amountCrypto});
-      } else {
-        if (rubBalance < totalRub) throw new Error('Недостаточно рублей');
-        await supabase.from('users').update({ rub_balance: rubBalance - totalRub, crypto_holdings: {...cryptoHoldings, [currency]: (cryptoHoldings[currency] || 0) + amountCrypto} }).eq('id', userId);
-        onBalanceUpdate(balance, rubBalance - totalRub);
-        onCryptoUpdate({...cryptoHoldings, [currency]: (cryptoHoldings[currency] || 0) + amountCrypto});
-      }
-      alert('✅ Обмен выполнен');
-      setAmount('');
-    } catch (e: any) { alert('❌ ' + e.message); } finally { setLoading(false); }
+  const handleExchange = () => {
+    const amt = parseFloat(exchangeAmount);
+    if (!amt || amt <= 0) return alert('Введите сумму');
+    if (amt > rubBalance) return alert('Недостаточно рублей');
+    const usdRate = 95;
+    const usdGot = amt / usdRate;
+    onBalanceUpdate(balance + usdGot, rubBalance - amt);
+    alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
+    setExchangeAmount(''); setScreen('main');
   };
 
-  return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
-        <div style={styles.header}><Wallet size={24} color="#3b82f6" /><h2 style={styles.title}>Т-Банк</h2></div>
-        
-        <div style={styles.tabs}>
-          {['account', 'transfer', 'exchange', 'crypto'].map(t => (
-            <button key={t} onClick={() => setTab(t as any)} style={{...styles.tab, ...(tab === t ? styles.tabActive : {})}}>{t === 'account' ? 'Счета' : t === 'transfer' ? 'Переводы' : t === 'exchange' ? 'Валюта' : 'Крипта'}</button>
-          ))}
-        </div>
+  // 🎨 СТИЛИ (Т-Банк Dark Mode)
+  const s: any = {
+    overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
+    container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
+    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
+    backBtn: { background: 'none', border: 'none', padding: 8, cursor: 'pointer' },
+    userSection: { display: 'flex', alignItems: 'center', gap: 12 },
+    avatar: { width: 40, height: 40, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: '#fff' },
+    nickname: { fontSize: 20, fontWeight: '800', color: '#fff' },
+    topGrid: { display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 20 },
+    actionBlock: { background: '#1C1C1E', borderRadius: 22, padding: 16, textAlign: 'left', border: 'none', color: '#fff', cursor: 'pointer' },
+    infoBlock: { background: '#1C1C1E', borderRadius: 22, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'center' },
+    blockTitle: { fontSize: 17, fontWeight: '600', display: 'block', marginBottom: 4 },
+    blockSub: { fontSize: 13, color: '#8E8E93', display: 'block' },
+    progressBar: { height: 6, background: '#2C2C2E', borderRadius: 3, marginTop: 12, overflow: 'hidden' },
+    progressFill: { width: '60%', height: '100%', background: 'linear-gradient(90deg, #00C6FF, #0072FF)', borderRadius: 3 },
+    middleGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 },
+    midBtn: { background: '#1C1C1E', borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer' },
+    midBtnText: { fontSize: 12, color: '#fff', fontWeight: '500' },
+    cardWrapper: { background: '#1C1C1E', borderRadius: 24, padding: 20, position: 'relative', cursor: 'pointer', transition: 'transform 0.2s', marginBottom: 24 },
+    cardContent: { display: 'flex', flexDirection: 'column', gap: 16 },
+    cardTop: { display: 'flex', alignItems: 'center', gap: 12 },
+    currencyIcon: { width: 44, height: 44, borderRadius: 12, background: '#2C2C2E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 'bold', color: '#fff' },
+    cardBalance: { fontSize: 28, fontWeight: '800', color: '#fff' },
+    cardLabel: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
+    miniCard: { width: 60, height: 40, background: 'linear-gradient(135deg, #333, #111)', borderRadius: 8, border: '1px solid #444' },
+    sectionTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 16 },
+    list: { display: 'flex', flexDirection: 'column', gap: 12 },
+    opItem: { background: '#1C1C1E', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    opInfo: { display: 'flex', flexDirection: 'column', gap: 2 },
+    opTitle: { fontSize: 16, fontWeight: '500', color: '#fff' },
+    opDate: { fontSize: 13, color: '#8E8E93' },
+    opAmount: { fontSize: 16, fontWeight: '600' },
+    input: { width: '100%', padding: '16px', borderRadius: 14, background: '#1C1C1E', border: '1px solid #2C2C2E', color: '#fff', fontSize: 16, marginBottom: 12, outline: 'none', boxSizing: 'border-box' },
+    primaryBtn: { width: '100%', padding: '16px', borderRadius: 14, background: '#007AFF', color: '#fff', fontWeight: '700', fontSize: 16, border: 'none', cursor: 'pointer', marginBottom: 12 },
+    secondaryBtn: { width: '100%', padding: '16px', borderRadius: 14, background: '#2C2C2E', color: '#fff', fontWeight: '600', fontSize: 16, border: 'none', cursor: 'pointer' },
+    accountCard: { background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 16 },
+    accRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #2C2C2E' },
+    accLabel: { color: '#8E8E93', fontSize: 14 },
+    accValue: { color: '#fff', fontSize: 16, fontWeight: '600' }
+  };
 
-        {tab === 'account' && (
-          <div style={styles.content}>
-            <div style={styles.card}><span style={styles.cardLabel}>Основной счет ($)</span><span style={styles.cardValue}>${fmt(bankUsd)}</span></div>
-            <div style={styles.card}><span style={styles.cardLabel}>Основной счет (₽)</span><span style={styles.cardValue}>₽{fmt(bankRub)}</span></div>
-            <div style={styles.card}><span style={styles.cardLabel}>Кошелек ($)</span><span style={styles.cardValue}>${fmt(balance)}</span></div>
-            <div style={styles.card}><span style={styles.cardLabel}>Кошелек (₽)</span><span style={styles.cardValue}>₽{fmt(rubBalance)}</span></div>
+  // 📱 ЭКРАНЫ
+  if (screen === 'operations') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
+            <span style={s.nickname}>Все операции</span>
+            <div style={{width: 24}} />
           </div>
-        )}
-
-        {tab === 'transfer' && (
-          <div style={styles.content}>
-            <input style={styles.input} placeholder="ID получателя" type="number" id="targetId" />
-            <input style={styles.input} placeholder="Сумма USD" type="number" id="usdAmt" />
-            <input style={styles.input} placeholder="Сумма RUB" type="number" id="rubAmt" />
-            <button onClick={() => handleTransfer(parseInt((document.getElementById('targetId') as HTMLInputElement).value), parseFloat((document.getElementById('usdAmt') as HTMLInputElement).value) || 0, parseFloat((document.getElementById('rubAmt') as HTMLInputElement).value) || 0)} disabled={loading} style={styles.btn}>Перевести</button>
-          </div>
-        )}
-
-        {tab === 'exchange' && (
-          <div style={styles.content}>
-            <p style={{color:'#737373', fontSize:12, marginBottom:8}}>Курс: 1$ = 95₽ (фикс)</p>
-            <input style={styles.input} placeholder="Сумма USD" type="number" id="exUsd" />
-            <button onClick={() => { const usd = parseFloat((document.getElementById('exUsd') as HTMLInputElement).value) || 0; const rub = usd * 95; onBalanceUpdate(balance - usd, rubBalance + rub); onBankUpdate(bankUsd, bankRub); alert(`✅ Обменяно ${usd}$ на ${rub}₽`); }} style={styles.btn}>Обменять $ на ₽</button>
-          </div>
-        )}
-
-        {tab === 'crypto' && (
-          <div style={styles.content}>
-            <h3 style={{color:'#fff', fontSize:16, marginBottom:12}}>Крипто-портфель</h3>
-            {Object.entries(cryptoHoldings).map(([curr]) => (
-              <div key={curr} style={styles.cryptoRow}>
-                <div><span style={{fontWeight:'bold', color:'#fff'}}>{curr}</span><span style={{color:'#737373', fontSize:12, marginLeft:8}}>Курс: {cryptoRates[curr]?.rate_rub}₽</span></div>
-                <div style={{display:'flex', gap:8}}>
-                  <button onClick={() => handleCryptoExchange(curr, parseFloat(prompt('Сколько продать?') || '0'), 'sell')} style={styles.btnSmall}>Продать</button>
-                  <button onClick={() => handleCryptoExchange(curr, parseFloat(prompt('Сколько купить?') || '0'), 'buy')} style={styles.btnSmall}>Купить</button>
+          <div style={s.list}>
+            {operations.map(op => (
+              <div key={op.id} style={s.opItem}>
+                <div style={s.opInfo}>
+                  <span style={s.opTitle}>{op.title}</span>
+                  <span style={s.opDate}>{op.date}</span>
                 </div>
+                <span style={{...s.opAmount, color: op.amount > 0 ? '#34C759' : '#FF453A'}}>
+                  {op.amount > 0 ? '+' : ''}{fmt(op.amount, op.currency)}
+                </span>
               </div>
             ))}
           </div>
-        )}
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'transfer') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
+            <span style={s.nickname}>Перевод</span>
+            <div style={{width: 24}} />
+          </div>
+          <input style={s.input} placeholder="ID или ник получателя" value={transferTarget} onChange={e => setTransferTarget(e.target.value)} />
+          <input style={s.input} placeholder="Сумма (₽)" type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} />
+          <button style={s.primaryBtn} onClick={handleTransfer}>Перевести</button>
+          <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Отмена</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'account') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
+            <span style={s.nickname}>Мой Б/С</span>
+            <div style={{width: 24}} />
+          </div>
+          <div style={s.accountCard}>
+            <div style={s.accRow}><span style={s.accLabel}>Счет RUB</span><span style={s.accValue}>{fmt(bankRub, '₽')}</span></div>
+            <div style={s.accRow}><span style={s.accLabel}>Счет USD</span><span style={s.accValue}>{fmt(bankUsd, '$')}</span></div>
+            <div style={s.accRow}><span style={s.accLabel}>Кошелек RUB</span><span style={s.accValue}>{fmt(rubBalance, '₽')}</span></div>
+            <div style={{...s.accRow, borderBottom: 'none'}}><span style={s.accLabel}>Кошелек USD</span><span style={s.accValue}>{fmt(balance, '$')}</span></div>
+          </div>
+          <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Назад</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'exchange') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
+            <span style={s.nickname}>Обмен валюты</span>
+            <div style={{width: 24}} />
+          </div>
+          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 20, textAlign: 'center'}}>
+            <span style={{color: '#8E8E93', fontSize: 13}}>Курс ЦБ</span>
+            <div style={{fontSize: 28, fontWeight: '800', color: '#fff', margin: '8px 0'}}>1 $ = 95 ₽</div>
+          </div>
+          <input style={s.input} placeholder="Сумма в ₽" type="number" value={exchangeAmount} onChange={e => setExchangeAmount(e.target.value)} />
+          <button style={s.primaryBtn} onClick={handleExchange}>Обменять ₽ на $</button>
+          <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Отмена</button>
+        </div>
+      </div>
+    );
+  }
+
+  // 🏦 ГЛАВНЫЙ ЭКРАН БАНКА
+  return (
+    <div style={s.overlay} onClick={onClose}>
+      <div style={s.container} onClick={e => e.stopPropagation()}>
+        {/* Шапка */}
+        <div style={s.header}>
+          <button onClick={onClose} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
+          <div style={s.userSection}>
+            <div style={s.avatar}>Р</div>
+            <span style={s.nickname}>Роман</span>
+          </div>
+          <div style={{width: 24}} />
+        </div>
+
+        {/* Верхние блоки */}
+        <div style={s.topGrid}>
+          <button style={s.actionBlock} onClick={() => setScreen('operations')}>
+            <span style={s.blockTitle}>Все операции</span>
+            <span style={s.blockSub}>Трат за месяц: {monthlySpend} ₽</span>
+            <div style={s.progressBar}><div style={s.progressFill} /></div>
+          </button>
+          <div style={s.infoBlock}>
+            <span style={s.blockTitle}>Покупай VIP</span>
+            <span style={s.blockSub}>в донат магазине</span>
+          </div>
+        </div>
+
+        {/* Средние кнопки */}
+        <div style={s.middleGrid}>
+          <button style={s.midBtn} onClick={() => setScreen('transfer')}>
+            <ArrowUpRight size={20} color="#007AFF" />
+            <span style={s.midBtnText}>Перевести</span>
+          </button>
+          <button style={s.midBtn} onClick={() => setScreen('account')}>
+            <Wallet size={20} color="#34C759" />
+            <span style={s.midBtnText}>Мой Б/С</span>
+          </button>
+          <button style={s.midBtn} onClick={() => setScreen('exchange')}>
+            <Repeat size={20} color="#AF52DE" />
+            <span style={s.midBtnText}>Обменять</span>
+          </button>
+        </div>
+
+        {/* Карточка-кошелек (перелистывается) */}
+        <div style={s.cardWrapper} onClick={() => setCardSide(cardSide === 'rub' ? 'usd' : 'rub')}>
+          <div style={s.cardContent}>
+            <div style={s.cardTop}>
+              <div style={s.currencyIcon}>{cardSide === 'rub' ? '₽' : '$'}</div>
+              <span style={s.cardBalance}>
+                {cardSide === 'rub' ? fmt(rubBalance, '₽') : fmt(balance, '$')}
+              </span>
+              <MoreVertical size={20} color="#666" style={{marginLeft: 'auto'}} />
+            </div>
+            <span style={s.cardLabel}>Black WSP</span>
+            <div style={s.miniCard} />
+          </div>
+        </div>
+
+        <div style={{textAlign: 'center', color: '#666', fontSize: 12, marginTop: 8}}>
+          Нажмите на карту, чтобы переключить валюту
+        </div>
       </div>
     </div>
   );
-};
-
-const styles: any = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  modal: { background: '#141414', border: '1px solid #3b82f6', borderRadius: 24, padding: 20, width: '90%', maxWidth: 360, position: 'relative' },
-  closeBtn: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
-  header: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: '800', color: '#fff', margin: 0 },
-  tabs: { display: 'flex', background: '#1a1a1a', borderRadius: 14, padding: 4, marginBottom: 20 },
-  tab: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600', cursor: 'pointer', fontSize: 13 },
-  tabActive: { background: '#3b82f6', color: '#fff' },
-  content: { display: 'flex', flexDirection: 'column', gap: 12 },
-  card: { background: '#1a1a1a', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  cardLabel: { color: '#737373', fontSize: 13 },
-  cardValue: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: 16 },
-  btn: { width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer' },
-  cryptoRow: { background: '#1a1a1a', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  btnSmall: { padding: '6px 12px', borderRadius: 8, border: 'none', background: '#22c55e', color: 'white', fontSize: 12, cursor: 'pointer' }
 };
