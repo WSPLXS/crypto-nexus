@@ -503,12 +503,43 @@ function App() {
           <div style={styles.screen}>
             <div style={styles.secondaryHeader}><h2 style={{margin: 0, fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: '-0.5px'}}>Меню</h2><span style={{color: '#737373', fontSize: 13, marginTop: 4}}>Управление активами</span></div>
             <div style={styles.grid20}>
-              <button style={styles.card} onClick={() => setShowQuests(true)}><div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div><span style={styles.cardTitle}>Квесты</span><span style={styles.cardSub}>Ежедневные задания</span></button>
-              <button style={styles.card} onClick={() => setShowBank(true)}><div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div><span style={styles.cardTitle}>Банк</span><span style={styles.cardSub}>Счета и переводы</span></button>
-              <button style={styles.card} onClick={() => setShowBusiness(true)}><div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div><span style={styles.cardTitle}>Бизнес</span><span style={styles.cardSub}>Пассивный доход</span></button>
-              <button style={styles.card} onClick={() => setShowCasino(true)}><div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div><span style={styles.cardTitle}>Казино</span><span style={styles.cardSub}>Фишки и игры</span></button>
-              <button style={styles.card} onClick={() => setShowDonate(true)}><div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div><span style={styles.cardTitle}>Донат</span><span style={styles.cardSub}>VIP и бусты</span></button>
-            </div>
+  <button style={styles.card} onClick={() => setShowQuests(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
+    <span style={styles.cardTitle}>Квесты</span>
+    <span style={styles.cardSub}>Ежедневные задания</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowBank(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
+    <span style={styles.cardTitle}>Банк</span>
+    <span style={styles.cardSub}>Счета и переводы</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowBusiness(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
+    <span style={styles.cardTitle}>Бизнес</span>
+    <span style={styles.cardSub}>Пассивный доход</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowCasino(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
+    <span style={styles.cardTitle}>Казино</span>
+    <span style={styles.cardSub}>Фишки и игры</span>
+  </button>
+  {/* 🔥 НОВЫЕ КНОПКИ */}
+  <button style={styles.card} onClick={() => {/* Открой торговлю */}}>
+    <div style={{...styles.cardIcon, background: 'rgba(52, 199, 89, 0.15)', color: '#22c55e'}}><TrendingUp size={26} /></div>
+    <span style={styles.cardTitle}>Торговля</span>
+    <span style={styles.cardSub}>Криптобиржа</span>
+  </button>
+  <button style={styles.card} onClick={() => {/* Открой стейкинг */}}>
+    <div style={{...styles.cardIcon, background: 'rgba(255, 214, 10, 0.15)', color: '#FFD60A'}}><Shield size={26} /></div>
+    <span style={styles.cardTitle}>Стейкинг</span>
+    <span style={styles.cardSub}>3.5% в день</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowDonate(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
+    <span style={styles.cardTitle}>Донат</span>
+    <span style={styles.cardSub}>VIP и бусты</span>
+  </button>
+</div> 
           </div>
         </div>
 
@@ -537,14 +568,17 @@ function App() {
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-      <BankModal 
+      <BankModal
   isOpen={showBank}
   onClose={() => setShowBank(false)}
   userId={userIdNum}
   userNickname={currentNickname}
   balance={balance}
   rubBalance={rubBalance}
+  bankUsd={bankUsd}           // 🔥 Добавь
+  bankRub={bankRub}           // 🔥 Добавь
   onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
+  onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}  // 🔥 Добавь
 />
       <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (balance >= 500) { setBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно $500'); }} />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
