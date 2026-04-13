@@ -53,22 +53,25 @@ export const BankModal: React.FC<BankModalProps> = ({
   }, [isOpen, screen]);
 
   // Живые цены крипты
+    // 🔥 Загрузка курсов из базы Supabase (единые для всех)
   useEffect(() => {
-    const initPrices: Record<string, number> = {};
-    CRYPTO_LIST.forEach(c => initPrices[c.id] = c.basePrice);
-    setLivePrices(initPrices);
-    const interval = setInterval(() => {
-      setLivePrices(prev => {
-        const next = { ...prev };
-        CRYPTO_LIST.forEach(c => {
-          const change = 1 + (Math.random() * 0.04 - 0.02);
-          next[c.id] = Math.max(c.basePrice * 0.5, next[c.id] * change);
-        });
-        return next;
-      });
-    }, 10000);
+    loadCryptoRates();
+    const interval = setInterval(loadCryptoRates, 30000); // Обновляем каждые 30 сек
     return () => clearInterval(interval);
   }, []);
+
+  const loadCryptoRates = async () => {
+    try {
+      const {  data } = await supabase.from('crypto_rates').select('*');
+      if (data) {
+        const prices: Record<string, number> = {};
+        data.forEach(r => prices[r.currency] = r.rate_rub);
+        setLivePrices(prices);
+      }
+    } catch (err) {
+      console.error('Load rates error:', err);
+    }
+  };
 
   const loadTransactions = async () => {
     try {
