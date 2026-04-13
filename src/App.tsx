@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -85,6 +85,10 @@ function App() {
   const [showDonate, setShowDonate] = useState(false);
   
   const [questStartTreasury, setQuestStartTreasury] = useState(0);
+
+  // 🔔 НОВЫЕ СОСТОЯНИЯ ДЛЯ ПОДПИСКИ
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -182,7 +186,6 @@ function App() {
 
   const saveProgress = async () => {
     try {
-      // 🔥 Читаем из Refs = берем 100% свежие данные
       const payload = {
         id: userIdNum,
         nickname: currentNickname,
@@ -201,11 +204,7 @@ function App() {
         daily_quests: dailyQuestsRef.current.length > 0 ? JSON.stringify(dailyQuestsRef.current) : '[]'
       };
 
-      console.log('💾 Отправка в БД:', { 
-        balance: payload.balance, 
-        ownedCount: payload.owned_currencies?.length || 0,
-        maxBalance: payload.max_balance 
-      });
+      console.log('💾 Отправка в БД:', { balance: payload.balance, ownedCount: payload.owned_currencies?.length || 0 });
 
       const { data, error } = await supabase
         .from('users')
@@ -217,6 +216,46 @@ function App() {
       console.log('✅ БД подтвердила:', data?.balance, data?.owned_currencies?.length);
     } catch (err) {
       console.error('❌ Ошибка сохранения:', err);
+    }
+  };
+
+  // 🔔 ПРОВЕРКА ПОДПИСКИ
+  const checkSubscription = async () => {
+    try {
+      // Сначала проверяем локально (чтобы не грузить сеть если уже подписан)
+      const localFlag = localStorage.getItem(`subscribed_${userIdNum}`);
+      if (localFlag === 'true') {
+        setIsSubscribed(true);
+        return;
+      }
+
+      // Проверяем в БД
+      const { data, error } = await supabase.from('users').select('is_subscribed').eq('id', userIdNum).single();
+      
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = Not Found
+
+      if (data?.is_subscribed) {
+        setIsSubscribed(true);
+        localStorage.setItem(`subscribed_${userIdNum}`, 'true');
+      } else {
+        setShowSubscribeModal(true);
+      }
+    } catch (err) {
+      console.error('Subscription check error:', err);
+      // В случае ошибки показываем модалку для перестраховки
+      setShowSubscribeModal(true);
+    }
+  };
+
+  const handleSubscribeConfirm = async () => {
+    try {
+      await supabase.from('users').update({ is_subscribed: true }).eq('id', userIdNum);
+      localStorage.setItem(`subscribed_${userIdNum}`, 'true');
+      setIsSubscribed(true);
+      setShowSubscribeModal(false);
+    } catch (err) {
+      console.error('Save subscription error:', err);
+      alert('Ошибка сохранения статуса. Попробуйте еще раз.');
     }
   };
 
@@ -237,9 +276,7 @@ function App() {
       
       const sorted = (data || []).map((u: any) => {
         let owned = [];
-        try {
-          owned = typeof u.owned_currencies === 'string' ? JSON.parse(u.owned_currencies) : u.owned_currencies || [];
-        } catch (e) { owned = []; }
+        try { owned = typeof u.owned_currencies === 'string' ? JSON.parse(u.owned_currencies) : u.owned_currencies || []; } catch (e) { owned = []; }
         
         return {
           id: u.id, nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
@@ -303,42 +340,23 @@ function App() {
           throw error;
         }
 
-        console.log('📥 СЫРЫЕ ДАННЫЕ ИЗ БД:', data);
-        console.log('📥 owned_currencies тип:', typeof data.owned_currencies);
-        console.log('📥 owned_currencies значение:', data.owned_currencies);
-
         if (data) {
-          setBalance(data.balance || 100);
-          setRubBalance(data.rub_balance || 0);
-          setMaxBalance(data.max_balance || 100);
+          setBalance(data.balance || 100); setRubBalance(data.rub_balance || 0); setMaxBalance(data.max_balance || 100);
           
           let owned = [];
-          if (data.owned_currencies) {
-            if (Array.isArray(data.owned_currencies)) {
-              owned = data.owned_currencies;
-              console.log('✅ Загружен массив:', owned);
-            } else if (typeof data.owned_currencies === 'string') {
-              try {
-                owned = JSON.parse(data.owned_currencies);
-                console.log('✅ Распаршена строка:', owned);
-              } catch (e) {
-                console.error('❌ Ошибка парсинга JSON:', e, data.owned_currencies);
-                owned = [];
-              }
-            } else {
-              console.warn('⚠️ Неизвестный тип:', typeof data.owned_currencies);
-              owned = [];
+          try {
+            if (data.owned_currencies) {
+              if (Array.isArray(data.owned_currencies)) owned = data.owned_currencies;
+              else if (typeof data.owned_currencies === 'string') { const p = JSON.parse(data.owned_currencies); owned = Array.isArray(p) ? p : []; }
+              else owned = [];
             }
-          }
-          
+          } catch (e) { owned = []; }
           setOwnedCurrencies(owned);
-          console.log('📦 Итоговые валюты:', owned);
           
           let mults = {};
           try {
-            const rawM = data.price_multipliers;
-            if (rawM) {
-              mults = typeof rawM === 'string' ? JSON.parse(rawM) : rawM;
+            if (data.price_multipliers) {
+              mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers;
               if (typeof mults !== 'object' || Array.isArray(mults)) mults = {};
             }
           } catch (e) { mults = {}; }
@@ -357,7 +375,7 @@ function App() {
           }
           if (data.daily_quests) {
             try { const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests; setDailyQuests(Array.isArray(quests) ? quests : []); } 
-            catch(e) { console.error('Quest parse error:', e); setDailyQuests([]); }
+            catch(e) { setDailyQuests([]); }
           }
           if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
 
@@ -375,12 +393,16 @@ function App() {
             }
           }
         }
-      } catch (err) { console.error('💀 Critical load error:', err); } finally { setIsLoading(false); }
+      } catch (err) { console.error('💀 Critical load error:', err); } 
+      finally { 
+        setIsLoading(false);
+        // 🔔 Проверяем подписку после загрузки данных
+        if (isAuthenticated) checkSubscription();
+      }
     }
     loadProgress();
   }, [userIdNum]);
 
-  // 🔥 Надёжное сохранение: при сворачивании/закрытии вкладки
   useEffect(() => {
     const handleSave = () => saveProgress();
     window.addEventListener('beforeunload', handleSave);
@@ -522,30 +544,13 @@ function App() {
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none' }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
-  // 🔥 ИСПРАВЛЕННЫЙ EXCHANGE
   const handleExchange = async (usdChange: number, rubChange: number) => {
     const newUsd = balance + usdChange;
     const newRub = rubBalance + rubChange;
-    
     if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
-
-    // 1. Обновляем локальный стейт СРАЗУ
-    setBalance(newUsd);
-    setRubBalance(newRub);
-
-    // 2. Сохраняем в БД
-    try {
-      await supabase.from('users').update({ 
-        balance: newUsd, 
-        rub_balance: newRub 
-      }).eq('id', userIdNum);
-      console.log('✅ Обмен сохранен');
-    } catch (e) {
-      console.error('Exchange save error:', e);
-      // Откат при ошибке
-      setBalance(balance);
-      setRubBalance(rubBalance);
-    }
+    setBalance(newUsd); setRubBalance(newRub);
+    try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); console.log('✅ Обмен сохранен'); } 
+    catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); }
   };
 
   const handlePurchase = (type: string, currency: string, days: number) => {
@@ -690,38 +695,31 @@ function App() {
 
       {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
       
-      {/* 🔥 ИСПРАВЛЕННЫЙ ВЫЗОВ TRANSFER MODAL */}
-      <TransferModal 
-        isOpen={showTransfer} 
-        onClose={() => setShowTransfer(false)} 
-        currentUserId={userIdNum} 
-        usdBalance={balance} 
-        rubBalance={rubBalance} 
-        onTransferSuccess={(newUsd, newRub) => {
-          setBalance(newUsd);
-          setRubBalance(newRub);
-          saveProgress();
-        }} 
-      />
-      
+      <TransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} currentUserId={userIdNum} usdBalance={balance} rubBalance={rubBalance} onTransferSuccess={(newUsd, newRub) => { setBalance(newUsd); setRubBalance(newRub); saveProgress(); }} />
       <ExchangeModal isOpen={showExchange} onClose={() => setShowExchange(false)} usdBalance={balance} rubBalance={rubBalance} onExchange={handleExchange} />
-      <ClanTreasuryModal 
-  isOpen={showTreasury} 
-  onClose={() => setShowTreasury(false)} 
-  clan={myClan} 
-  myRole={myClanRole} 
-  userId={userIdNum} 
-  playerUsd={balance} 
-  playerRub={rubBalance} 
-  onPlayerUpdate={(newUsd, newRub) => {
-    setBalance(newUsd);
-    setRubBalance(newRub);
-    saveProgress(); // Мгновенно сохраняем новый баланс в БД
-  }} 
-  onClanUpdate={fetchClanData} // Обновляем данные клана после транзакции
-/>
+      <ClanTreasuryModal isOpen={showTreasury} onClose={() => setShowTreasury(false)} clan={myClan} myRole={myClanRole} userId={userIdNum} playerUsd={balance} playerRub={rubBalance} onPlayerUpdate={(newUsd, newRub) => { setBalance(newUsd); setRubBalance(newRub); saveProgress(); }} onClanUpdate={fetchClanData} />
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
+
+      {/* 🔔 МОДАЛКА ОБЯЗАТЕЛЬНОЙ ПОДПИСКИ */}
+      {showSubscribeModal && (
+        <div style={styles.overlay} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.subscribeIcon}>📢</div>
+            <h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3>
+            <p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p>
+            <p style={styles.subscribeChannel}>@cryptonexusbotgame</p>
+            
+            <button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>
+              Подписаться на канал
+            </button>
+            
+            <button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>
+              ✓ Я подписался
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -835,62 +833,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   btnPrimary: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
   btnSecondary: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnSmall: { width: 36, height: 36, borderRadius: 10, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  clanTopActions: { 
-    display: 'flex', 
-    justifyContent: 'center', 
-    gap: 16, 
-    marginBottom: 20 
-  },
-  clanInfoBlock: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: 14, 
-    marginBottom: 8, 
-    width: '100%' 
-  },
-  clanAvatar: { 
-    width: 52, 
-    height: 52, 
-    borderRadius: 14, 
-    background: '#262626', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    fontSize: 26, 
-    flexShrink: 0,
-    border: '1px solid rgba(156,163,175,0.1)'
-  },
-  clanDetails: { 
-    flex: 1, 
-    minWidth: 0, 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: 2 
-  },
-  clanName: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#e5e5e5', 
-    margin: 0, 
-    lineHeight: 1.2,
-    wordBreak: 'break-word',
-    width: '100%' 
-  },
-  clanIncome: { 
-    fontSize: 13, 
-    color: '#22c55e', 
-    margin: 0, 
-    fontWeight: '500',
-    whiteSpace: 'nowrap' 
-  },
-  clanDescription: { 
-    fontSize: 13, 
-    color: '#a3a3a3', 
-    margin: '0 0 16px 0', 
-    lineHeight: 1.5, 
-    fontStyle: 'normal',
-    padding: '0 2px'
-  },
+  clanTopActions: { display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 },
+  clanInfoBlock: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8, width: '100%' },
+  clanAvatar: { width: 52, height: 52, borderRadius: 14, background: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0, border: '1px solid rgba(156,163,175,0.1)' },
+  clanDetails: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  clanName: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', margin: 0, lineHeight: 1.2, wordBreak: 'break-word', width: '100%' },
+  clanIncome: { fontSize: 13, color: '#22c55e', margin: 0, fontWeight: '500', whiteSpace: 'nowrap' },
+  clanDescription: { fontSize: 13, color: '#a3a3a3', margin: '0 0 16px 0', lineHeight: 1.5, fontStyle: 'normal', padding: '0 2px' },
   iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
   badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #141414' },
   memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
@@ -921,7 +870,16 @@ const styles: { [key: string]: React.CSSProperties } = {
   btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' },
   tabBtn: { flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'transparent', color:'#737373', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', fontSize:14 },
-  tabActive: { background:'#3b82f6', color:'white', boxShadow:'0 2px 8px rgba(59, 130, 246, 0.4)' }
+  tabActive: { background:'#3b82f6', color:'white', boxShadow:'0 2px 8px rgba(59, 130, 246, 0.4)' },
+  
+  // 🔔 Стили модалки подписки
+  subscribeModal: { background: '#141414', border: '2px solid #3b82f6', borderRadius: 24, padding: 28, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(59, 130, 246, 0.3)' },
+  subscribeIcon: { fontSize: 48, marginBottom: 16 },
+  subscribeTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 12, margin: '0 0 12px 0' },
+  subscribeText: { fontSize: 14, color: '#a3a3a3', marginBottom: 16, lineHeight: 1.5 },
+  subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
+  subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
+  subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' }
 };
 
 export default App;
