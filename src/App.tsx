@@ -538,7 +538,21 @@ const fetchFriendsData = async () => {
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-      <BankModal isOpen={showBank} onClose={() => setShowBank(false)} userId={userIdNum} balance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} cryptoHoldings={cryptoHoldings} cryptoRates={cryptoRates} onBalanceUpdate={(usd, rub) => { setBalance(usd); setRubBalance(rub); saveProgress(); }} onBankUpdate={(usd, rub) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} onCryptoUpdate={(holdings) => { setCryptoHoldings(holdings); saveProgress(); }} />
+      <BankModal 
+  isOpen={showBank} 
+  onClose={() => setShowBank(false)} 
+  userId={userIdNum} 
+  userNickname={currentNickname}  // 👈 Добавь это!
+  balance={balance} 
+  rubBalance={rubBalance} 
+  bankUsd={bankUsd} 
+  bankRub={bankRub} 
+  cryptoHoldings={cryptoHoldings} 
+  cryptoRates={cryptoRates} 
+  onBalanceUpdate={(usd, rub) => { setBalance(usd); setRubBalance(rub); saveProgress(); }} 
+  onBankUpdate={(usd, rub) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} 
+  onCryptoUpdate={(holdings) => { setCryptoHoldings(holdings); saveProgress(); }} 
+/>
       <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 

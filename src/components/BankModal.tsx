@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, CreditCard, MoreVertical, ChevronRight, User, Shield, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ArrowLeft, ArrowUpRight, ArrowDownLeft, Repeat, Wallet, CreditCard, MoreVertical, User, Shield, Clock, TrendingUp } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface BankModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: number;
+  userNickname: string;
   balance: number;
   rubBalance: number;
   bankUsd: number;
@@ -17,37 +19,119 @@ interface BankModalProps {
 }
 
 export const BankModal: React.FC<BankModalProps> = ({
-  isOpen, onClose, balance, rubBalance, bankUsd, bankRub,
+  isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub,
   onBalanceUpdate, onBankUpdate
 }) => {
   if (!isOpen) return null;
 
   const [screen, setScreen] = useState<'main' | 'operations' | 'transfer' | 'account' | 'exchange'>('main');
-  const [cardSide, setCardSide] = useState<'rub' | 'usd'>('rub');
+  const [transferCurrency, setTransferCurrency] = useState<'usd' | 'rub'>('usd');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferTarget, setTransferTarget] = useState('');
   const [exchangeAmount, setExchangeAmount] = useState('');
+  const [accountCurrency, setAccountCurrency] = useState<'usd' | 'rub'>('usd');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [monthlySpend, setMonthlySpend] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // Моковые траты (в проде подключим к таблице transactions)
-  const monthlySpend = 2064;
-  const operations = [
-    { id: 1, title: 'Перевод другу', date: '12 апр, 14:30', amount: -500, currency: '₽' },
-    { id: 2, title: 'Обмен валюты', date: '11 апр, 09:15', amount: -1200, currency: '₽' },
-    { id: 3, title: 'Пополнение Б/С', date: '10 апр, 18:45', amount: 3500, currency: '₽' },
-    { id: 4, title: 'Оплата бизнес-света', date: '09 апр, 12:00', amount: -50, currency: '$' },
-  ];
+  // Загрузка транзакций при открытии
+  useEffect(() => {
+    if (isOpen && screen === 'operations') {
+      loadTransactions();
+    }
+  }, [isOpen, screen]);
+
+  const loadTransactions = async () => {
+    try {
+      const { data } = await supabase
+        .from('transactions')
+        .select('*')
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (data) {
+        setTransactions(data);
+        // Считаем траты за месяц (только исходящие)
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthTxs = data.filter(t => 
+          t.sender_id === userId && 
+          new Date(t.created_at) > monthAgo
+        );
+        const total = monthTxs.reduce((sum, t) => sum + t.amount, 0);
+        setMonthlySpend(total);
+      }
+    } catch (err) {
+      console.error('Load transactions error:', err);
+    }
+  };
 
   const fmt = (n: number, curr: string) => 
     `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${curr}`;
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     const amt = parseFloat(transferAmount);
     if (!amt || amt <= 0) return alert('Введите сумму');
-    if (amt > rubBalance) return alert('Недостаточно средств');
-    onBalanceUpdate(balance, rubBalance - amt);
-    onBankUpdate(bankUsd, bankRub + amt); // В реальном банке деньги уходят на счет получателя
-    alert(`✅ Переведено ${amt}₽`);
-    setTransferAmount(''); setTransferTarget(''); setScreen('main');
+    if (!transferTarget.trim()) return alert('Введите никнейм получателя');
+
+    setLoading(true);
+    try {
+      // Ищем получателя по никнейму
+      const { data: targetUser } = await supabase
+        .from('users')
+        .select('id, nickname, balance, rub_balance')
+        .ilike('nickname', transferTarget.trim())
+        .neq('id', userId)
+        .single();
+
+      if (!targetUser) {
+        alert('Пользователь не найден!');
+        setLoading(false);
+        return;
+      }
+
+      const currentBalance = transferCurrency === 'usd' ? balance : rubBalance;
+      const colName = transferCurrency === 'usd' ? 'balance' : 'rub_balance';
+      const currency = transferCurrency === 'usd' ? 'USD' : 'RUB';
+
+      if (amt > currentBalance) {
+        alert(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)} ${transferCurrency === 'usd' ? '$' : '₽'}`);
+        setLoading(false);
+        return;
+      }
+
+      // Снимаем у отправителя
+      await supabase.from('users').update({ [colName]: currentBalance - amt }).eq('id', userId);
+      
+      // Начисляем получателю
+      const targetCurrent = targetUser[colName] || 0;
+      await supabase.from('users').update({ [colName]: targetCurrent + amt }).eq('id', targetUser.id);
+      
+      // Логируем транзакцию
+      await supabase.from('transactions').insert({
+        sender_id: userId,
+        receiver_id: targetUser.id,
+        amount: amt,
+        currency: currency
+      });
+
+      // Обновляем локально
+      if (transferCurrency === 'usd') {
+        onBalanceUpdate(balance - amt, rubBalance);
+      } else {
+        onBalanceUpdate(balance, rubBalance - amt);
+      }
+
+      alert(`✅ Переведено ${amt}${transferCurrency === 'usd' ? '$' : '₽'} игроку ${targetUser.nickname}!`);
+      setTransferAmount('');
+      setTransferTarget('');
+      setScreen('main');
+    } catch (err: any) {
+      alert('Ошибка перевода: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExchange = () => {
@@ -58,17 +142,54 @@ export const BankModal: React.FC<BankModalProps> = ({
     const usdGot = amt / usdRate;
     onBalanceUpdate(balance + usdGot, rubBalance - amt);
     alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
-    setExchangeAmount(''); setScreen('main');
+    setExchangeAmount('');
+    setScreen('main');
   };
 
-  // 🎨 СТИЛИ (Т-Банк Dark Mode)
+  const handleWithdraw = () => {
+    const amt = parseFloat(prompt('Сколько снять?') || '0');
+    if (!amt || amt <= 0) return;
+    const col = accountCurrency === 'usd' ? 'bankUsd' : 'bankRub';
+    const current = accountCurrency === 'usd' ? bankUsd : bankRub;
+    if (amt > current) return alert('Недостаточно средств на счете');
+    
+    onBankUpdate(
+      accountCurrency === 'usd' ? bankUsd - amt : bankUsd,
+      accountCurrency === 'rub' ? bankRub - amt : bankRub
+    );
+    onBalanceUpdate(
+      accountCurrency === 'usd' ? balance + amt : balance,
+      accountCurrency === 'rub' ? rubBalance + amt : rubBalance
+    );
+    alert(`✅ Снято ${amt}${accountCurrency === 'usd' ? '$' : '₽'}`);
+  };
+
+  const handleDeposit = () => {
+    const amt = parseFloat(prompt('Сколько пополнить?') || '0');
+    if (!amt || amt <= 0) return;
+    const col = accountCurrency === 'usd' ? 'balance' : 'rubBalance';
+    const current = accountCurrency === 'usd' ? balance : rubBalance;
+    if (amt > current) return alert('Недостаточно средств на кошельке');
+    
+    onBalanceUpdate(
+      accountCurrency === 'usd' ? balance - amt : balance,
+      accountCurrency === 'rub' ? rubBalance - amt : rubBalance
+    );
+    onBankUpdate(
+      accountCurrency === 'usd' ? bankUsd + amt : bankUsd,
+      accountCurrency === 'rub' ? bankRub + amt : bankRub
+    );
+    alert(`✅ Пополнено ${amt}${accountCurrency === 'usd' ? '$' : '₽'}`);
+  };
+
+  // 🎨 СТИЛИ
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
     header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
     backBtn: { background: 'none', border: 'none', padding: 8, cursor: 'pointer' },
     userSection: { display: 'flex', alignItems: 'center', gap: 12 },
-    avatar: { width: 40, height: 40, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: '#fff' },
+    avatar: { width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #007AFF, #5856D6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: '#fff' },
     nickname: { fontSize: 20, fontWeight: '800', color: '#fff' },
     topGrid: { display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 20 },
     actionBlock: { background: '#1C1C1E', borderRadius: 22, padding: 16, textAlign: 'left', border: 'none', color: '#fff', cursor: 'pointer' },
@@ -95,15 +216,22 @@ export const BankModal: React.FC<BankModalProps> = ({
     opDate: { fontSize: 13, color: '#8E8E93' },
     opAmount: { fontSize: 16, fontWeight: '600' },
     input: { width: '100%', padding: '16px', borderRadius: 14, background: '#1C1C1E', border: '1px solid #2C2C2E', color: '#fff', fontSize: 16, marginBottom: 12, outline: 'none', boxSizing: 'border-box' },
-    primaryBtn: { width: '100%', padding: '16px', borderRadius: 14, background: '#007AFF', color: '#fff', fontWeight: '700', fontSize: 16, border: 'none', cursor: 'pointer', marginBottom: 12 },
+    primaryBtn: { width: '100%', padding: '16px', borderRadius: 14, background: '#FFD60A', color: '#000', fontWeight: '700', fontSize: 16, border: 'none', cursor: 'pointer', marginBottom: 12 },
     secondaryBtn: { width: '100%', padding: '16px', borderRadius: 14, background: '#2C2C2E', color: '#fff', fontWeight: '600', fontSize: 16, border: 'none', cursor: 'pointer' },
     accountCard: { background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 16 },
     accRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #2C2C2E' },
     accLabel: { color: '#8E8E93', fontSize: 14 },
-    accValue: { color: '#fff', fontSize: 16, fontWeight: '600' }
+    accValue: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    currencySwitcher: { display: 'flex', background: '#2C2C2E', borderRadius: 12, padding: 4, marginBottom: 16 },
+    switchBtn: { flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'transparent', color: '#8E8E93', fontWeight: '600', cursor: 'pointer' },
+    switchBtnActive: { background: '#007AFF', color: '#fff' },
+    transferCard: { background: '#1C1C1E', borderRadius: 22, padding: 20, marginBottom: 20, position: 'relative', overflow: 'hidden' },
+    dots: { position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 },
+    dot: { width: 6, height: 6, borderRadius: '50%', background: '#666' },
+    dotActive: { background: '#FFD60A' }
   };
 
-  // 📱 ЭКРАНЫ
+  // 📱 ЭКРАН ОПЕРАЦИЙ
   if (screen === 'operations') {
     return (
       <div style={s.overlay} onClick={onClose}>
@@ -114,24 +242,44 @@ export const BankModal: React.FC<BankModalProps> = ({
             <div style={{width: 24}} />
           </div>
           <div style={s.list}>
-            {operations.map(op => (
-              <div key={op.id} style={s.opItem}>
-                <div style={s.opInfo}>
-                  <span style={s.opTitle}>{op.title}</span>
-                  <span style={s.opDate}>{op.date}</span>
-                </div>
-                <span style={{...s.opAmount, color: op.amount > 0 ? '#34C759' : '#FF453A'}}>
-                  {op.amount > 0 ? '+' : ''}{fmt(op.amount, op.currency)}
-                </span>
-              </div>
-            ))}
+            {transactions.length === 0 ? (
+              <div style={{textAlign: 'center', color: '#8E8E93', padding: 40}}>Нет операций</div>
+            ) : (
+              transactions.map((tx: any) => {
+                const isOut = tx.sender_id === userId;
+                const amount = isOut ? -tx.amount : tx.amount;
+                const color = isOut ? '#FF453A' : '#34C759';
+                const title = isOut 
+                  ? (tx.receiver_id ? `Перевод: ${tx.currency}` : `Оплата: ${tx.currency}`)
+                  : `Получено: ${tx.currency}`;
+                const date = new Date(tx.created_at).toLocaleString('ru-RU', { 
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                });
+                
+                return (
+                  <div key={tx.id} style={s.opItem}>
+                    <div style={s.opInfo}>
+                      <span style={s.opTitle}>{title}</span>
+                      <span style={s.opDate}>{date}</span>
+                    </div>
+                    <span style={{...s.opAmount, color}}>
+                      {amount > 0 ? '+' : ''}{fmt(amount, tx.currency)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // 📱 ЭКРАН ПЕРЕВОДА
   if (screen === 'transfer') {
+    const currentBalance = transferCurrency === 'usd' ? balance : rubBalance;
+    const currency = transferCurrency === 'usd' ? '$' : '₽';
+    
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
@@ -140,36 +288,114 @@ export const BankModal: React.FC<BankModalProps> = ({
             <span style={s.nickname}>Перевод</span>
             <div style={{width: 24}} />
           </div>
-          <input style={s.input} placeholder="ID или ник получателя" value={transferTarget} onChange={e => setTransferTarget(e.target.value)} />
-          <input style={s.input} placeholder="Сумма (₽)" type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} />
-          <button style={s.primaryBtn} onClick={handleTransfer}>Перевести</button>
+
+          {/* Карточка баланса (свайп) */}
+          <div style={s.transferCard}>
+            <div style={s.cardTop}>
+              <div style={s.currencyIcon}>{currency}</div>
+              <div style={{flex: 1}}>
+                <div style={s.cardBalance}>{fmt(currentBalance, currency)}</div>
+                <div style={s.cardLabel}>Доступно</div>
+              </div>
+              <div style={s.dots}>
+                <div style={{...s.dot, ...(transferCurrency === 'usd' ? s.dotActive : {})}} />
+                <div style={{...s.dot, ...(transferCurrency === 'rub' ? s.dotActive : {})}} />
+              </div>
+            </div>
+          </div>
+
+          {/* Переключатель валют */}
+          <div style={s.currencySwitcher}>
+            <button 
+              style={{...s.switchBtn, ...(transferCurrency === 'usd' ? s.switchBtnActive : {})}}
+              onClick={() => setTransferCurrency('usd')}
+            >
+              Доллары
+            </button>
+            <button 
+              style={{...s.switchBtn, ...(transferCurrency === 'rub' ? s.switchBtnActive : {})}}
+              onClick={() => setTransferCurrency('rub')}
+            >
+              Рубли
+            </button>
+          </div>
+
+          <input 
+            style={s.input} 
+            placeholder="Никнейм получателя" 
+            value={transferTarget} 
+            onChange={e => setTransferTarget(e.target.value)} 
+          />
+          <input 
+            style={s.input} 
+            placeholder={`Сумма (${currency})`} 
+            type="number" 
+            value={transferAmount} 
+            onChange={e => setTransferAmount(e.target.value)} 
+          />
+          <button style={s.primaryBtn} onClick={handleTransfer} disabled={loading}>
+            {loading ? '⏳ Отправка...' : 'Перевести'}
+          </button>
           <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Отмена</button>
         </div>
       </div>
     );
   }
 
+  // 📱 ЭКРАН БАНКОВСКОГО СЧЕТА
   if (screen === 'account') {
+    const currentBank = accountCurrency === 'usd' ? bankUsd : bankRub;
+    const currency = accountCurrency === 'usd' ? '$' : '₽';
+    
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
           <div style={s.header}>
             <button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
-            <span style={s.nickname}>Мой Б/С</span>
+            <span style={s.nickname}>Банковский счет</span>
             <div style={{width: 24}} />
           </div>
-          <div style={s.accountCard}>
-            <div style={s.accRow}><span style={s.accLabel}>Счет RUB</span><span style={s.accValue}>{fmt(bankRub, '₽')}</span></div>
-            <div style={s.accRow}><span style={s.accLabel}>Счет USD</span><span style={s.accValue}>{fmt(bankUsd, '$')}</span></div>
-            <div style={s.accRow}><span style={s.accLabel}>Кошелек RUB</span><span style={s.accValue}>{fmt(rubBalance, '₽')}</span></div>
-            <div style={{...s.accRow, borderBottom: 'none'}}><span style={s.accLabel}>Кошелек USD</span><span style={s.accValue}>{fmt(balance, '$')}</span></div>
+
+          {/* Переключатель валют */}
+          <div style={s.currencySwitcher}>
+            <button 
+              style={{...s.switchBtn, ...(accountCurrency === 'usd' ? s.switchBtnActive : {})}}
+              onClick={() => setAccountCurrency('usd')}
+            >
+              USD
+            </button>
+            <button 
+              style={{...s.switchBtn, ...(accountCurrency === 'rub' ? s.switchBtnActive : {})}}
+              onClick={() => setAccountCurrency('rub')}
+            >
+              RUB
+            </button>
           </div>
-          <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Назад</button>
+
+          <div style={s.accountCard}>
+            <div style={{...s.accRow, borderBottom: 'none'}}>
+              <span style={s.accLabel}>Счет {currency}</span>
+              <span style={{...s.accValue, fontSize: 24, fontWeight: '800'}}>{fmt(currentBank, currency)}</span>
+            </div>
+          </div>
+
+          <button style={s.primaryBtn} onClick={handleWithdraw}>
+            <ArrowDownLeft size={20} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/>
+            Снять
+          </button>
+          <button style={s.secondaryBtn} onClick={handleDeposit}>
+            <ArrowUpRight size={20} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/>
+            Пополнить
+          </button>
+          <button style={{...s.secondaryBtn, marginTop: 12}} onClick={() => setScreen('main')}>
+            Назад
+          </button>
         </div>
       </div>
     );
   }
 
+  // 📱 ЭКРАН ОБМЕНА
   if (screen === 'exchange') {
     return (
       <div style={s.overlay} onClick={onClose}>
@@ -199,8 +425,8 @@ export const BankModal: React.FC<BankModalProps> = ({
         <div style={s.header}>
           <button onClick={onClose} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button>
           <div style={s.userSection}>
-            <div style={s.avatar}>Р</div>
-            <span style={s.nickname}>Роман</span>
+            <div style={s.avatar}>{userNickname?.[0]?.toUpperCase() || 'U'}</div>
+            <span style={s.nickname}>{userNickname}</span>
           </div>
           <div style={{width: 24}} />
         </div>
@@ -209,7 +435,7 @@ export const BankModal: React.FC<BankModalProps> = ({
         <div style={s.topGrid}>
           <button style={s.actionBlock} onClick={() => setScreen('operations')}>
             <span style={s.blockTitle}>Все операции</span>
-            <span style={s.blockSub}>Трат за месяц: {monthlySpend} ₽</span>
+            <span style={s.blockSub}>Трат за месяц: {fmt(monthlySpend, '₽')}</span>
             <div style={s.progressBar}><div style={s.progressFill} /></div>
           </button>
           <div style={s.infoBlock}>
@@ -235,13 +461,11 @@ export const BankModal: React.FC<BankModalProps> = ({
         </div>
 
         {/* Карточка-кошелек (перелистывается) */}
-        <div style={s.cardWrapper} onClick={() => setCardSide(cardSide === 'rub' ? 'usd' : 'rub')}>
+        <div style={s.cardWrapper} onClick={() => {}}>
           <div style={s.cardContent}>
             <div style={s.cardTop}>
-              <div style={s.currencyIcon}>{cardSide === 'rub' ? '₽' : '$'}</div>
-              <span style={s.cardBalance}>
-                {cardSide === 'rub' ? fmt(rubBalance, '₽') : fmt(balance, '$')}
-              </span>
+              <div style={s.currencyIcon}>₽</div>
+              <span style={s.cardBalance}>{fmt(rubBalance, '₽')}</span>
               <MoreVertical size={20} color="#666" style={{marginLeft: 'auto'}} />
             </div>
             <span style={s.cardLabel}>Black WSP</span>
