@@ -399,6 +399,12 @@ export const BankModal: React.FC<BankModalProps> = ({
     const outputCurrency = isBuy ? '$' : '₽';
     const rateText = isBuy ? `1 $ = ${EXCHANGE_RATE} ₽` : `1 $ = ${EXCHANGE_RATE} ₽`;
     
+    // Вычисляем получаемую сумму
+    const exchangeInput = parseFloat(exchangeAmount) || 0;
+    const receivedAmount = isBuy 
+      ? exchangeInput / EXCHANGE_RATE  // RUB -> USD
+      : exchangeInput * EXCHANGE_RATE; // USD -> RUB
+
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
@@ -442,9 +448,42 @@ export const BankModal: React.FC<BankModalProps> = ({
             value={exchangeAmount} 
             onChange={e => setExchangeAmount(e.target.value)} 
           />
+
+          {/* Блок "Вы получите" */}
+          {exchangeInput > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(52, 199, 89, 0.15), rgba(0, 0, 0, 0))',
+              border: '1px solid #34C759',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 20,
+              textAlign: 'center'
+            }}>
+              <span style={{color: '#8E8E93', fontSize: 13, display: 'block', marginBottom: 4}}>
+                Вы получите
+              </span>
+              <span style={{
+                fontSize: 32, 
+                fontWeight: '800', 
+                color: '#34C759',
+                display: 'block'
+              }}>
+                {fmt(receivedAmount, outputCurrency)}
+              </span>
+            </div>
+          )}
           
-          <button style={s.primaryBtn} onClick={handleExchange}>
-            Обменять {inputCurrency} на {outputCurrency}
+          <button 
+            style={{
+              ...s.primaryBtn, 
+              opacity: exchangeInput > 0 && exchangeInput <= currentBalance ? 1 : 0.5 
+            }} 
+            onClick={handleExchange}
+            disabled={exchangeInput <= 0 || exchangeInput > currentBalance}
+          >
+            {exchangeInput > currentBalance 
+              ? 'Недостаточно средств' 
+              : `Обменять ${inputCurrency} на ${outputCurrency}`}
           </button>
           <button style={s.secondaryBtn} onClick={() => setScreen('main')}>Отмена</button>
         </div>
