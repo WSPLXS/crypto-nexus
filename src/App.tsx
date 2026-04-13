@@ -131,6 +131,13 @@ function App() {
   useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
   useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
 
+  // 🔥 Фикс: Убираем глобальный буст, если он не от квеста/VIP
+  useEffect(() => {
+    if (boostMultiplier > 1 && !boostExpiresAt) {
+      setBoostMultiplier(1);
+    }
+  }, [boostMultiplier, boostExpiresAt]);
+
   const touchStart = useRef<number | null>(null);
   const touchEnd = useRef<number | null>(null);
 
@@ -515,10 +522,30 @@ function App() {
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none' }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 
+  // 🔥 ИСПРАВЛЕННЫЙ EXCHANGE
   const handleExchange = async (usdChange: number, rubChange: number) => {
-    const newUsd = balance + usdChange; const newRub = rubBalance + rubChange;
-    setBalance(newUsd); setRubBalance(newRub);
-    try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); }
+    const newUsd = balance + usdChange;
+    const newRub = rubBalance + rubChange;
+    
+    if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
+
+    // 1. Обновляем локальный стейт СРАЗУ
+    setBalance(newUsd);
+    setRubBalance(newRub);
+
+    // 2. Сохраняем в БД
+    try {
+      await supabase.from('users').update({ 
+        balance: newUsd, 
+        rub_balance: newRub 
+      }).eq('id', userIdNum);
+      console.log('✅ Обмен сохранен');
+    } catch (e) {
+      console.error('Exchange save error:', e);
+      // Откат при ошибке
+      setBalance(balance);
+      setRubBalance(rubBalance);
+    }
   };
 
   const handlePurchase = (type: string, currency: string, days: number) => {
@@ -647,7 +674,20 @@ function App() {
 
       {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
       
-      <TransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} currentUserId={userIdNum} usdBalance={balance} rubBalance={rubBalance} onRefreshBalance={saveProgress} />
+      {/* 🔥 ИСПРАВЛЕННЫЙ ВЫЗОВ TRANSFER MODAL */}
+      <TransferModal 
+        isOpen={showTransfer} 
+        onClose={() => setShowTransfer(false)} 
+        currentUserId={userIdNum} 
+        usdBalance={balance} 
+        rubBalance={rubBalance} 
+        onTransferSuccess={(newUsd, newRub) => {
+          setBalance(newUsd);
+          setRubBalance(newRub);
+          saveProgress();
+        }} 
+      />
+      
       <ExchangeModal isOpen={showExchange} onClose={() => setShowExchange(false)} usdBalance={balance} rubBalance={rubBalance} onExchange={handleExchange} />
       <ClanTreasuryModal isOpen={showTreasury} onClose={() => setShowTreasury(false)} clan={myClan} myRole={myClanRole} onRefreshClan={fetchClanData} />
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
