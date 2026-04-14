@@ -242,7 +242,7 @@ function App() {
     try { await supabase.from('users').update({ is_subscribed: true }).eq('id', userIdNum); localStorage.setItem(`subscribed_${userIdNum}`, 'true'); setIsSubscribed(true); setShowSubscribeModal(false); } catch { alert('Ошибка сохранения статуса.'); }
   };
 
-  const calculateNetWorth = (userData: any) => {
+const calculateNetWorth = (userData: any) => {
   if (!userData) return 0;
   let total = (userData.balance || 0) + (userData.rub_balance || 0);
 
@@ -269,6 +269,7 @@ function App() {
   }
   return total;
 };
+
   const fetchLeaderboard = async () => {
     try { 
   const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status'); 
@@ -292,13 +293,13 @@ function App() {
       const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single(); 
       if (clan) { 
         const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
-        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
-          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', m.user_id).single(); 
-          return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
-        })); 
-        setMyClan({ ...clan, setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
-        setClanMembers(enrichedMembers); 
-        setMyClanRole(member.role); 
+const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
+  const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status, balance, rub_balance, owned_businesses, price_multipliers').eq('id', m.user_id).single(); 
+  return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
+})); 
+setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
+setClanMembers(enrichedMembers); 
+setMyClanRole(member.role);
       } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); } 
     } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
   };
@@ -310,7 +311,7 @@ function App() {
     const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id); 
     const friendsData = await Promise.all(friendIds.map(async (id: number) => { 
       const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single(); 
-      return { ...u, incomePerMin: calculateIncome(u) }; 
+      return { ...u, incomePerMin: calculateNetWorth(u) }; 
     })); 
     setFriends(friendsData);
   };
@@ -582,7 +583,7 @@ function App() {
       else { const { error } = await supabase.from('clan_members').insert({ clan_id: clanId, user_id: userIdNum, role: 1 }); if (error) throw error; alert('Вы успешно вступили в клан!'); setShowFindClan(false); fetchClanData(); }
     } catch (err) { console.error('Join clan error:', err); alert('Ошибка при вступлении в клан'); }
   };
-  const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, vip_status').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
+  const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, vip_status').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateNetWorth(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
   const openProfile = (user: any) => {
   setSelectedUser({
@@ -762,7 +763,7 @@ function App() {
         {showClan && (<div style={styles.overlay} onClick={() => setShowClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>{renderClanMenu()}</div></div>)}
         {showFriends && (<div style={styles.overlay} onClick={() => setShowFriends(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Друзья</h2><button onClick={() => setShowFriendSearch(true)} style={styles.btnSecondary}><Search size={16} /> Поиск друзей</button><div style={styles.list}>{friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (<div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
         {showFriendSearch && (<div style={styles.overlay} onClick={() => setShowFriendSearch(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriendSearch(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск друзей</h2><input placeholder="Введите никнейм..." value={friendSearchQuery} onChange={(e) => { setFriendSearchQuery(e.target.value); searchFriends(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{friendSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите имя для поиска</p> : friendSearchResults.map(f => (<div key={f.id} style={styles.listItem}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div><button onClick={() => handleAddFriend(f.id)} style={styles.btnSmall}><UserPlus size={16} /></button></div>))}</div></div></div>)}
-        {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Сообщения</h2><MessageTabs currentUserId={userIdNum} handleFriendResponse={handleFriendResponse} calculateIncome={calculateIncome} renderVipBadge={renderVipBadge} /></div></div>)}
+        {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Сообщения</h2><MessageTabs currentUserId={userIdNum} handleFriendResponse={handleFriendResponse} calculateNetWorth={calculateNetWorth} renderVipBadge={renderVipBadge} /></div></div>)}
         {showCreateClan && (<div style={styles.overlay} onClick={() => setShowCreateClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Создать клан</h3><input id="clanName" placeholder="Название (до 25)" maxLength={25} style={styles.input} /><textarea id="clanDesc" placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="requireApproval" /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="minLevel" min={1} max={30} defaultValue={1} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="maxMembers" min={5} max={1000} defaultValue={50} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowCreateClan(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('clanName') as HTMLInputElement).value; const description = (document.getElementById('clanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('requireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('minLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('maxMembers') as HTMLInputElement).value); handleCreateClan({ name, emoji: '🏰', description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Создать</button></div></div></div>)}
         {showClanSettings && myClan && (<div style={styles.overlay} onClick={() => setShowClanSettings(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Настройки клана</h3><label style={styles.label}>Название клана:<input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={{...styles.input, marginTop: 8}} /></label><textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('editClanName') as HTMLInputElement).value; const description = (document.getElementById('editClanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('editRequireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('editMinLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('editMaxMembers') as HTMLInputElement).value); handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Сохранить</button></div><div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}><button onClick={() => { if (confirm('⚠️ ВНИМАНИЕ! Удалить клан навсегда? Все участники будут исключены.')) handleDeleteClan(); }} style={styles.btnDanger}><Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/> Удалить клан</button></div></div></div>)}
         {showRankManager && (<div style={styles.overlay} onClick={() => setShowRankManager(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Управление рангами</h3><div style={styles.memberList}>{clanMembers.filter(m => m.role < 4).map(m => (<div key={m.user_id} style={styles.memberItem}><input type="checkbox" checked={selectedForRank.includes(m.user_id)} onChange={(e) => { if (e.target.checked) setSelectedForRank([...selectedForRank, m.user_id]); else setSelectedForRank(selectedForRank.filter(id => id !== m.user_id)); }} style={{width: 20, height: 20, marginRight: 12}} /><div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div><div style={{flex:1}}><div style={styles.memberName}>{m.nickname} {renderVipBadge(m.vip_status)}</div><div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div></div></div>))}</div><div style={{marginTop: 16}}><label style={styles.label}>Новый ранг: <select value={newRank} onChange={(e) => setNewRank(parseInt(e.target.value))} style={{marginLeft: 8, padding: '4px 8px', background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4}}><option value={1}>1 - Участник</option><option value={2}>2 - Фармила</option><option value={3}>3 - Заместитель</option></select></label></div><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => { setShowRankManager(false); setSelectedForRank([]); }} style={styles.btnSecondary}>Отменить</button><button onClick={handleRankUpdate} style={styles.btnPrimary}>Сохранить</button></div></div></div>)}
@@ -1121,7 +1122,7 @@ function App() {
   );
 }
 
-const MessageTabs = ({ currentUserId, handleFriendResponse, calculateIncome, renderVipBadge }: any) => {
+const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, renderVipBadge }: any) => {
   const [tab, setTab] = useState<'requests' | 'transfers'>('requests');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1151,7 +1152,7 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateIncome, ren
                 <div style={styles.listAvatar}>{item.senderData?.nickname?.[0] || '?'}</div>
                 <div style={{flex:1}}>
                   <div style={styles.listName}>{item.senderData?.nickname || 'Игрок'} {renderVipBadge(item.senderData?.vip_status)}</div>
-                  <div style={{...styles.listSub, color:'#22c55e'}}>+${calculateIncome(item.senderData || {}).toFixed(0)}/мин</div>
+                  <div style={{...styles.listSub, color:'#22c55e'}}>+${calculateNetWorth(item.senderData || {}).toFixed(0)}/мин</div>
                 </div>
                 <div style={{display:'flex', gap:8}}>
                   <button onClick={() => handleFriendResponse(item.id, true)} style={styles.btnYes}><Check size={16} /></button>
@@ -1304,5 +1305,5 @@ const styles: { [key: string]: React.CSSProperties } = {
   netWorthLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8 },
   netWorthValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' }
 };
-
+}
 export default App;
