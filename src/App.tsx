@@ -373,7 +373,32 @@ function App() {
   }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => { localStorage.setItem('cryptoNexus_nickname', nickname); if (refId && refId !== userIdNum) setReferrerId(refId); setIsAuthenticated(true); setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500); };
-  const handleBuy = (currencyId: string, amount: number) => { const base = currencies.find(c => c.id === currencyId); if (!base) return; const mult = priceMultipliers[currencyId] || 1; const price = base.price * mult * amount; if (balance >= price) { setBalance(p => p - price); setTotalSpent(p => p + price); setOwnedCurrencies(prev => { const ex = prev.find(c => c.currencyId === currencyId); return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; }); setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); setTimeout(() => saveProgress(), 50); } };
+  const handleBuy = (currencyId: string, amount: number) => { 
+  const base = currencies.find(c => c.id === currencyId); 
+  if (!base) return; 
+  
+  // 🔥 ПРОВЕРКА НА МАКСИМУМ 50 ШТУК
+  const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
+  const currentAmount = currentOwned?.amount || 0;
+  if (currentAmount + amount > 50) {
+    alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`);
+    return;
+  }
+  
+  const mult = priceMultipliers[currencyId] || 1; 
+  const price = base.price * mult * amount; 
+  if (balance >= price) { 
+    setBalance(p => p - price); 
+    setTotalSpent(p => p + price); 
+    setOwnedCurrencies(prev => { 
+      const ex = prev.find(c => c.currencyId === currencyId); 
+      return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; 
+    }); 
+    setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); 
+    if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
+    setTimeout(() => saveProgress(), 50); 
+  } 
+};
   
   const handleCreateClan = async (clanData: any) => {
     if (myClan) { alert('Вы уже находитесь в клане!'); setShowCreateClan(false); return; }
@@ -497,7 +522,6 @@ function App() {
               <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
             </div>
             <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /><div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div></div>
-            <div style={styles.bottomBar}><div style={styles.bottomSection}></div><button onClick={() => setShowCurrencySelector(true)} style={styles.currencyBtn}><span style={styles.currencyName}>{currencies.find(c => c.id === selectedCurrencyId)?.shortName || 'USD'}</span><span style={styles.arrow}>▼</span></button><div style={styles.bottomSection}></div></div>
           </div>
 
           <div style={styles.screen}>
