@@ -242,10 +242,49 @@ function App() {
     try { await supabase.from('users').update({ is_subscribed: true }).eq('id', userIdNum); localStorage.setItem(`subscribed_${userIdNum}`, 'true'); setIsSubscribed(true); setShowSubscribeModal(false); } catch { alert('Ошибка сохранения статуса.'); }
   };
 
-  const calculateIncome = (userData: any) => { if (!userData?.owned_currencies || !Array.isArray(userData.owned_currencies)) return 0; const tier = getLevelInfo(userData.max_balance || 0).tier; const mult = getGlobalMultiplier(tier); return userData.owned_currencies.reduce((t: number, o: any) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0) * 60; };
+  const calculateNetWorth = (userData: any) => {
+  if (!userData) return 0;
+  let total = (userData.balance || 0) + (userData.rub_balance || 0);
+
+  // Криптовалюта
+  if (userData.owned_currencies) {
+    let owned = [];
+    try { owned = typeof userData.owned_currencies === 'string' ? JSON.parse(userData.owned_currencies) : userData.owned_currencies; } catch { owned = []; }
+    const mults = userData.price_multipliers ? (typeof userData.price_multipliers === 'string' ? JSON.parse(userData.price_multipliers) : userData.price_multipliers) : {};
+    owned.forEach((o: any) => {
+      const c = currencies.find(cur => cur.id === o.currencyId);
+      const price = c ? c.price * (mults[o.currencyId] || 1) : 0;
+      total += price * o.amount;
+    });
+  }
+
+  // Бизнесы (оценка в 50% от цены)
+  if (userData.owned_businesses) {
+    let businesses = [];
+    try { businesses = typeof userData.owned_businesses === 'string' ? JSON.parse(userData.owned_businesses) : userData.owned_businesses; } catch { businesses = []; }
+    businesses.forEach((b: any) => {
+      const conf = BUSINESSES.find(biz => biz.id === b.id);
+      if (conf) total += conf.price * 0.5;
+    });
+  }
+  return total;
+};
   const fetchLeaderboard = async () => {
-    try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, first_login, created_at, vip_status'); if (error) throw error; const sorted = (data || []).map((u: any) => { let owned = []; try { owned = typeof u.owned_currencies === 'string' ? JSON.parse(u.owned_currencies) : u.owned_currencies || []; } catch { owned = []; } return { id: u.id, nickname: u.nickname || `Player${String(u.id).slice(-4)}`, incomePerMin: calculateIncome({ ...u, owned_currencies: owned }), avatarUrl: u.custom_avatar_url, first_login: u.first_login, created_at: u.created_at, max_balance: u.max_balance, vip_status: u.vip_status }; }).sort((a, b) => b.incomePerMin - a.incomePerMin).slice(0, 10); setLeaderboard(sorted); } catch (err) { console.error('Leaderboard error:', err); }
-  };
+    try { 
+  const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status'); 
+  if (error) throw error; 
+  const sorted = (data || []).map((u: any) => { 
+    return { 
+      id: u.id, 
+      nickname: u.nickname || `Player${String(u.id).slice(-4)}`, 
+      netWorth: calculateNetWorth(u), 
+      avatarUrl: u.custom_avatar_url, 
+      vip_status: u.vip_status 
+    }; 
+  }).sort((a, b) => b.netWorth - a.netWorth).slice(0, 10); 
+  setLeaderboard(sorted); 
+} catch (err) { console.error('Leaderboard error:', err); }
+
   const fetchClanData = async () => {
     if (!isAuthenticated) return; 
     const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
@@ -255,9 +294,9 @@ function App() {
         const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
         const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
           const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', m.user_id).single(); 
-          return { ...m, ...u, incomePerMin: calculateIncome(u) }; 
+          return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
         })); 
-        setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.incomePerMin, 0) }); 
+        setMyClan({ ...clan, setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
         setClanMembers(enrichedMembers); 
         setMyClanRole(member.role); 
       } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); } 
@@ -545,7 +584,16 @@ function App() {
   };
   const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, vip_status').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateIncome(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
-  const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none' }); setShowProfile(true); };
+  const openProfile = (user: any) => {
+  setSelectedUser({
+    ...user,
+    avatarUrl: user.custom_avatar_url,
+    level: getLevelInfo(user.max_balance || 0).level,
+    vip_status: user.vip_status || 'none',
+    netWorth: user.netWorth || totalNetWorth
+  });
+  setShowProfile(true);
+};
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
   const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
@@ -580,7 +628,7 @@ function App() {
                   <div style={styles.memberName}>{m.nickname} {renderVipBadge(m.vip_status)}</div>
                   <div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div>
                 </div>
-                <div style={styles.memberIncome}>+${m.incomePerMin.toFixed(0)}/м</div>
+                <div style={styles.memberIncome}>Состояние: {m.netWorth?.toLocaleString()} ₽</div>
               </div>
             ))}
           </div>
@@ -710,7 +758,7 @@ function App() {
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
         <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
-        {showLeaderboard && (<div style={styles.overlay} onClick={() => setShowLeaderboard(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowLeaderboard(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🏆 Топ игроков</h2><div style={styles.list}>{leaderboard.map((player, index) => (<div key={player.id} style={styles.leaderboardItem} onClick={() => openProfile(player)}><span style={{...styles.rank, ...(index < 3 ? styles.topRank : {})}}>{index + 1}</span><div style={styles.listAvatar}>{player.avatarUrl ? <img src={player.avatarUrl} style={styles.memberImg} /> : player.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{player.nickname} {renderVipBadge(player.vip_status)}</div><div style={styles.listSub}>+${player.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
+        {showLeaderboard && (<div style={styles.overlay} onClick={() => setShowLeaderboard(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowLeaderboard(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🏆 Топ игроков</h2><div style={styles.list}>{leaderboard.map((player, index) => (<div key={player.id} style={styles.leaderboardItem} onClick={() => openProfile(player)}><span style={{...styles.rank, ...(index < 3 ? styles.topRank : {})}}>{index + 1}</span><div style={styles.listAvatar}>{player.avatarUrl ? <img src={player.avatarUrl} style={styles.memberImg} /> : player.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{player.nickname} {renderVipBadge(player.vip_status)}</div><div style={styles.listSub}>Состояние: {player.netWorth?.toLocaleString(undefined, {maximumFractionDigits: 0})} ₽</div></div></div>))}</div></div></div>)}
         {showClan && (<div style={styles.overlay} onClick={() => setShowClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>{renderClanMenu()}</div></div>)}
         {showFriends && (<div style={styles.overlay} onClick={() => setShowFriends(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Друзья</h2><button onClick={() => setShowFriendSearch(true)} style={styles.btnSecondary}><Search size={16} /> Поиск друзей</button><div style={styles.list}>{friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (<div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
         {showFriendSearch && (<div style={styles.overlay} onClick={() => setShowFriendSearch(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriendSearch(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск друзей</h2><input placeholder="Введите никнейм..." value={friendSearchQuery} onChange={(e) => { setFriendSearchQuery(e.target.value); searchFriends(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{friendSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите имя для поиска</p> : friendSearchResults.map(f => (<div key={f.id} style={styles.listItem}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div><button onClick={() => handleAddFriend(f.id)} style={styles.btnSmall}><UserPlus size={16} /></button></div>))}</div></div></div>)}
