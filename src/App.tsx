@@ -656,66 +656,52 @@ function App() {
           <div style={styles.screen}>
             <div style={styles.secondaryHeader}><h2 style={{margin: 0, fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: '-0.5px'}}>Меню</h2><span style={{color: '#737373', fontSize: 13, marginTop: 4}}>Управление активами</span></div>
             <div style={styles.grid20}>
-              <button style={styles.card} onClick={() => setShowQuests(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
-                <span style={styles.cardTitle}>Квесты</span>
-                <span style={styles.cardSub}>Ежедневные задания</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowBank(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
-                <span style={styles.cardTitle}>Банк</span>
-                <span style={styles.cardSub}>Счета и переводы</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowBusiness(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
-                <span style={styles.cardTitle}>Бизнес</span>
-                <span style={styles.cardSub}>Пассивный доход</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowCasino(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
-                <span style={styles.cardTitle}>Казино</span>
-                <span style={styles.cardSub}>Фишки и игры</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowDonate(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
-                <span style={styles.cardTitle}>Донат</span>
-                <span style={styles.cardSub}>VIP и бусты</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowCryptoWallet(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}>
-                  <Wallet size={26} />
-                </div>
-                <span style={styles.cardTitle}>Крипто Кошелек</span>
-                <span style={styles.cardSub}>Твои активы</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowSideHustles(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}>
-                  <Briefcase size={26} />
-                </div>
-                <span style={styles.cardTitle}>Подработки</span>
-                <span style={styles.cardSub}>Доп. заработок</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowShopMenu(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}>
-                  <ShoppingBag size={26} />
-                </div>
-                <span style={styles.cardTitle}>Магазин</span>
-                <span style={styles.cardSub}>Товары и услуги</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowAssetsModal(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}>
-                  <Wallet size={26} />
-                </div>
-                <span style={styles.cardTitle}>Моё состояние</span>
-                <span style={styles.cardSub}>Все активы</span>
-              </button>
-              <button style={styles.card} onClick={() => setShowShopMenu(true)}>
-                <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}>
-                  <ShoppingBag size={26} />
-                </div>
-                <span style={styles.cardTitle}>Магазин</span>
-                <span style={styles.cardSub}>Товары и услуги</span>
-              </button>
+  <button style={styles.card} onClick={() => setShowQuests(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
+    <span style={styles.cardTitle}>Квесты</span>
+    <span style={styles.cardSub}>Ежедневные задания</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowBank(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
+    <span style={styles.cardTitle}>Банк</span>
+    <span style={styles.cardSub}>Счета и переводы</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowBusiness(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
+    <span style={styles.cardTitle}>Бизнес</span>
+    <span style={styles.cardSub}>Пассивный доход</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowCasino(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
+    <span style={styles.cardTitle}>Казино</span>
+    <span style={styles.cardSub}>Фишки и игры</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowDonate(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
+    <span style={styles.cardTitle}>Донат</span>
+    <span style={styles.cardSub}>VIP и бусты</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowCryptoWallet(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}><Wallet size={26} /></div>
+    <span style={styles.cardTitle}>Крипто Кошелек</span>
+    <span style={styles.cardSub}>Твои активы</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowSideHustles(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}><Briefcase size={26} /></div>
+    <span style={styles.cardTitle}>Подработки</span>
+    <span style={styles.cardSub}>Доп. заработок</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowShopMenu(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}><ShoppingBag size={26} /></div>
+    <span style={styles.cardTitle}>Магазин</span>
+    <span style={styles.cardSub}>Товары и услуги</span>
+  </button>
+  <button style={styles.card} onClick={() => setShowAssetsModal(true)}>
+    <div style={{...styles.cardIcon, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981'}}><TrendingUp size={26} /></div>
+    <span style={styles.cardTitle}>Моё состояние</span>
+    <span style={styles.cardSub}>Все активы</span>
+  </button>
+
             </div> 
           </div>
         </div>
