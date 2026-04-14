@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield, Menu } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
 import { Settings } from './components/Settings';
-import { Shop } from './components/Shop';
-import { CurrencySelector } from './components/CurrencySelector';
 import { Search as SearchComponent } from './components/Search';
 import { Referral } from './components/Referral';
 import { ProfileModal } from './components/ProfileModal';
@@ -46,7 +44,7 @@ function App() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
   const [balance, setBalance] = useState(0);
-  const [rubBalance, setRubBalance] = useState(1000); // 🔥 Старт 1000₽
+  const [rubBalance, setRubBalance] = useState(1000);
   const [maxBalance, setMaxBalance] = useState(100);
   const [ownedCurrencies, setOwnedCurrencies] = useState<OwnedCurrency[]>([]);
   const [selectedCurrencyId, setSelectedCurrencyId] = useState('btc');
@@ -68,7 +66,6 @@ function App() {
   const [totalBusinessIncome, setTotalBusinessIncome] = useState(0);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [showShop, setShowShop] = useState(false);
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
@@ -305,7 +302,6 @@ function App() {
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, ownedBusinesses, businessMaintenance]);
 
-  // 🔥 Менеджер и Стейкинг
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -373,32 +369,32 @@ function App() {
   }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => { localStorage.setItem('cryptoNexus_nickname', nickname); if (refId && refId !== userIdNum) setReferrerId(refId); setIsAuthenticated(true); setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500); };
+  
   const handleBuy = (currencyId: string, amount: number) => { 
-  const base = currencies.find(c => c.id === currencyId); 
-  if (!base) return; 
-  
-  // 🔥 ПРОВЕРКА НА МАКСИМУМ 50 ШТУК
-  const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
-  const currentAmount = currentOwned?.amount || 0;
-  if (currentAmount + amount > 50) {
-    alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`);
-    return;
-  }
-  
-  const mult = priceMultipliers[currencyId] || 1; 
-  const price = base.price * mult * amount; 
-  if (balance >= price) { 
-    setBalance(p => p - price); 
-    setTotalSpent(p => p + price); 
-    setOwnedCurrencies(prev => { 
-      const ex = prev.find(c => c.currencyId === currencyId); 
-      return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; 
-    }); 
-    setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); 
-    if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
-    setTimeout(() => saveProgress(), 50); 
-  } 
-};
+    const base = currencies.find(c => c.id === currencyId); 
+    if (!base) return; 
+    
+    const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
+    const currentAmount = currentOwned?.amount || 0;
+    if (currentAmount + amount > 50) {
+      alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`);
+      return;
+    }
+    
+    const mult = priceMultipliers[currencyId] || 1; 
+    const price = base.price * mult * amount; 
+    if (balance >= price) { 
+      setBalance(p => p - price); 
+      setTotalSpent(p => p + price); 
+      setOwnedCurrencies(prev => { 
+        const ex = prev.find(c => c.currencyId === currencyId); 
+        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; 
+      }); 
+      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); 
+      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
+      setTimeout(() => saveProgress(), 50); 
+    } 
+  };
   
   const handleCreateClan = async (clanData: any) => {
     if (myClan) { alert('Вы уже находитесь в клане!'); setShowCreateClan(false); return; }
@@ -522,44 +518,49 @@ function App() {
               <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
             </div>
             <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /><div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div></div>
+            
+            {/* 🔥 НОВАЯ НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МЕНЮ */}
+            <div style={styles.newBottomBar}>
+              <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}>
+                <Menu size={18} />
+                <span>Открыть меню</span>
+              </button>
+            </div>
           </div>
 
           <div style={styles.screen}>
             <div style={styles.secondaryHeader}><h2 style={{margin: 0, fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: '-0.5px'}}>Меню</h2><span style={{color: '#737373', fontSize: 13, marginTop: 4}}>Управление активами</span></div>
             <div style={styles.grid20}>
-  <button style={styles.card} onClick={() => setShowQuests(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
-    <span style={styles.cardTitle}>Квесты</span>
-    <span style={styles.cardSub}>Ежедневные задания</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowBank(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
-    <span style={styles.cardTitle}>Банк</span>
-    <span style={styles.cardSub}>Счета и переводы</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowBusiness(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
-    <span style={styles.cardTitle}>Бизнес</span>
-    <span style={styles.cardSub}>Пассивный доход</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowCasino(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
-    <span style={styles.cardTitle}>Казино</span>
-    <span style={styles.cardSub}>Фишки и игры</span>
-  </button>
-  {/* 🔥 НОВЫЕ КНОПКИ */}
-  <button style={styles.card} onClick={() => setShowDonate(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
-    <span style={styles.cardTitle}>Донат</span>
-    <span style={styles.cardSub}>VIP и бусты</span>
-  </button>
-</div> 
+              <button style={styles.card} onClick={() => setShowQuests(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
+                <span style={styles.cardTitle}>Квесты</span>
+                <span style={styles.cardSub}>Ежедневные задания</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowBank(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
+                <span style={styles.cardTitle}>Банк</span>
+                <span style={styles.cardSub}>Счета и переводы</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowBusiness(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
+                <span style={styles.cardTitle}>Бизнес</span>
+                <span style={styles.cardSub}>Пассивный доход</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowCasino(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
+                <span style={styles.cardTitle}>Казино</span>
+                <span style={styles.cardSub}>Фишки и игры</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowDonate(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
+                <span style={styles.cardTitle}>Донат</span>
+                <span style={styles.cardSub}>VIP и бусты</span>
+              </button>
+            </div> 
           </div>
         </div>
 
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
-        <Shop isOpen={showShop} onClose={() => setShowShop(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
-        <CurrencySelector isOpen={showCurrencySelector} onClose={() => setShowCurrencySelector(false)} ownedCurrencies={ownedCurrencies} selectedCurrency={selectedCurrencyId} onSelect={setSelectedCurrencyId} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
         <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
@@ -583,17 +584,17 @@ function App() {
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
       <BankModal
-  isOpen={showBank}
-  onClose={() => setShowBank(false)}
-  userId={userIdNum}
-  userNickname={currentNickname}
-  balance={balance}
-  rubBalance={rubBalance}
-  bankUsd={bankUsd}           // 🔥 Добавь
-  bankRub={bankRub}           // 🔥 Добавь
-  onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
-  onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}  // 🔥 Добавь
-/>
+        isOpen={showBank}
+        onClose={() => setShowBank(false)}
+        userId={userIdNum}
+        userNickname={currentNickname}
+        balance={balance}
+        rubBalance={rubBalance}
+        bankUsd={bankUsd}
+        bankRub={bankRub}
+        onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
+        onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}
+      />
       <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (balance >= 500) { setBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно $500'); }} />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
@@ -684,11 +685,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   leftBtn: { position: 'relative', width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
   center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginTop: 16 },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-panel)', padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
-  bottomSection: { flex: 1 },
-  currencyBtn: { background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--text-primary)' },
-  currencyName: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)' },
-  arrow: { fontSize: 10, color: 'var(--text-secondary)' },
+  newBottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(12, 12, 12, 0.85)', backdropFilter: 'blur(12px)', padding: '14px 16px', borderTop: '1px solid rgba(156,163,175,0.15)', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  menuOpenBtn: { background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 14, padding: '12px 24px', color: '#fff', fontWeight: '600', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(0,0,0,0.4)' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
   modal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 24, maxWidth: '95%', width: 380, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' },
   closeBtn: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
