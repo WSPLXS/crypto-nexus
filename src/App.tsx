@@ -524,16 +524,6 @@ function App() {
     <span style={styles.cardSub}>Фишки и игры</span>
   </button>
   {/* 🔥 НОВЫЕ КНОПКИ */}
-  <button style={styles.card} onClick={() => {/* Открой торговлю */}}>
-    <div style={{...styles.cardIcon, background: 'rgba(52, 199, 89, 0.15)', color: '#22c55e'}}><TrendingUp size={26} /></div>
-    <span style={styles.cardTitle}>Торговля</span>
-    <span style={styles.cardSub}>Криптобиржа</span>
-  </button>
-  <button style={styles.card} onClick={() => {/* Открой стейкинг */}}>
-    <div style={{...styles.cardIcon, background: 'rgba(255, 214, 10, 0.15)', color: '#FFD60A'}}><Shield size={26} /></div>
-    <span style={styles.cardTitle}>Стейкинг</span>
-    <span style={styles.cardSub}>3.5% в день</span>
-  </button>
   <button style={styles.card} onClick={() => setShowDonate(true)}>
     <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
     <span style={styles.cardTitle}>Донат</span>
