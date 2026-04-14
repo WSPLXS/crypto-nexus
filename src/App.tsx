@@ -88,6 +88,7 @@ function App() {
   const [showTreasury, setShowTreasury] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
+  const [showCryptoWallet, setShowCryptoWallet] = useState(false);
   
   const [showBank, setShowBank] = useState(false);
   const [showBusiness, setShowBusiness] = useState(false);
@@ -519,7 +520,6 @@ function App() {
             </div>
             <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /><div style={styles.incomeDisplay}>+${(totalIncome * 60).toFixed(2)}/мин</div></div>
             
-            {/* 🔥 НОВАЯ НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МЕНЮ */}
             <div style={styles.newBottomBar}>
               <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}>
                 <Menu size={18} />
@@ -555,6 +555,13 @@ function App() {
                 <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
                 <span style={styles.cardTitle}>Донат</span>
                 <span style={styles.cardSub}>VIP и бусты</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowCryptoWallet(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}>
+                  <Wallet size={26} />
+                </div>
+                <span style={styles.cardTitle}>Крипто Кошелек</span>
+                <span style={styles.cardSub}>Твои активы</span>
               </button>
             </div> 
           </div>
@@ -597,6 +604,60 @@ function App() {
       />
       <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (balance >= 500) { setBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно $500'); }} />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
+
+      {showCryptoWallet && (
+        <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
+            
+            <div style={styles.walletTotal}>
+              <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
+              <div style={styles.walletTotalValue}>
+                ${ownedCurrencies.reduce((total, item) => {
+                  const currency = currencies.find(c => c.id === item.currencyId);
+                  const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
+                  return total + (currentPrice * item.amount);
+                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div style={styles.walletList}>
+              {ownedCurrencies.length === 0 ? (
+                <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>
+                  У вас пока нет криптовалют. Купите их в разделе "Торговля"
+                </p>
+              ) : (
+                ownedCurrencies.map((item, index) => {
+                  const currency = currencies.find(c => c.id === item.currencyId);
+                  const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
+                  const totalValue = currentPrice * item.amount;
+                  
+                  return (
+                    <div key={index} style={styles.walletItem}>
+                      <div style={styles.walletItemLeft}>
+                        <div style={styles.walletItemIcon}>
+                          {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div>
+                          <div style={styles.walletItemName}>{currency?.name || item.currencyId}</div>
+                          <div style={styles.walletItemAmount}>{item.amount} шт.</div>
+                        </div>
+                      </div>
+                      <div style={styles.walletItemRight}>
+                        <div style={styles.walletItemPrice}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div style={styles.walletItemTotal}>${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
@@ -738,7 +799,19 @@ const styles: { [key: string]: React.CSSProperties } = {
   subscribeText: { fontSize: 14, color: '#a3a3a3', marginBottom: 16, lineHeight: 1.5 },
   subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
   subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
-  subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' }
+  subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' },
+  walletTotal: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 20, border: '1px solid rgba(139, 92, 246, 0.3)' },
+  walletTotalLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  walletTotalValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' },
+  walletList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 },
+  walletItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(38, 38, 38, 0.6)', borderRadius: 12, border: '1px solid rgba(156, 163, 175, 0.1)' },
+  walletItemLeft: { display: 'flex', alignItems: 'center', gap: 12 },
+  walletItemIcon: { width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: 'white' },
+  walletItemName: { fontSize: 15, fontWeight: '600', color: '#e5e5e5' },
+  walletItemAmount: { fontSize: 12, color: '#737373', marginTop: 2 },
+  walletItemRight: { textAlign: 'right' },
+  walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
+  walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' }
 };
 
 export default App;
