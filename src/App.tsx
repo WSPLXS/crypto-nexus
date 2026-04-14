@@ -70,6 +70,7 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showBank, setShowBank] = useState(false);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   
   const [showClan, setShowClan] = useState(false);
@@ -89,16 +90,16 @@ function App() {
   const [showQuests, setShowQuests] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
   const [showCryptoWallet, setShowCryptoWallet] = useState(false);
+  const [showBusiness, setShowBusiness] = useState(false);
+  const [showCasino, setShowCasino] = useState(false);
+
+  // 🔥 Новые состояния для подработок
   const [showSideHustles, setShowSideHustles] = useState(false);
   const [activeHustle, setActiveHustle] = useState<any>(null);
   const [hustleClicks, setHustleClicks] = useState(0);
   const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
   const [hustleCooldowns, setHustleCooldowns] = useState<Record<string, number>>({});
-  
-  const [showBank, setShowBank] = useState(false);
-  const [showBusiness, setShowBusiness] = useState(false);
-  const [showCasino, setShowCasino] = useState(false);
-  
+
   const [questStartTreasury, setQuestStartTreasury] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -191,7 +192,8 @@ function App() {
         crypto_holdings: cryptoHoldings, casino_chips: casinoChips, 
         owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, 
         manager_hired: managerHired, staked_amount: stakedAmount,
-        job_cooldowns: jobCooldowns 
+        job_cooldowns: jobCooldowns,
+        hustle_cooldowns: hustleCooldowns // 🔥 Сохраняем кулдауны подработок
       };
       await supabase.from('users').upsert(payload, { onConflict: 'id' }).single();
     } catch (err) { console.error('❌ Ошибка сохранения:', err); }
@@ -276,6 +278,7 @@ function App() {
           setManagerHired(data.manager_hired || false);
           setStakedAmount(data.staked_amount || 0);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
+          setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {}); // 🔥 Загрузка кулдаунов
 
           if (data.last_login && owned.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
@@ -287,6 +290,7 @@ function App() {
     loadProgress();
   }, [userIdNum]);
 
+  // 🔥 Бизнес доход (Теперь в рублях)
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -302,7 +306,8 @@ function App() {
       });
       if (income > 0) {
         setTotalBusinessIncome(prev => prev + income);
-        setBankRub(prev => prev + income); // 🔥 Теперь капает в рубли
+        setBankRub(prev => prev + income);
+        setRubBalance(prev => prev + income); // 🔥 Рубли капают сразу на баланс для удобства
       }
     }, 60000);
     return () => clearInterval(interval);
@@ -342,7 +347,7 @@ function App() {
     }
   }, [isAuthenticated, isLoading, myClan]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!boostExpiresAt) return;
     const interval = setInterval(() => {
       const left = Math.max(0, Math.floor((boostExpiresAt - Date.now()) / 1000));
@@ -374,6 +379,31 @@ function App() {
     if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) { setDailyQuests(updated); supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum); }
   }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
 
+  // 🔥 Таймер для мини-игры подработки
+  useEffect(() => {
+    if (hustleTimeLeft > 0 && activeHustle) {
+      const timer = setInterval(() => {
+        setHustleTimeLeft(prev => {
+          if (prev <= 1) {
+            // Время вышло - начисляем зарплату
+            const earned = activeHustle.salary;
+            setRubBalance(p => p + earned);
+            setHustleCooldowns(prev => ({
+              ...prev,
+              [activeHustle.id]: Date.now() + 60000 // Кулдаун 1 минута
+            }));
+            setActiveHustle(null);
+            saveProgress();
+            alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [hustleTimeLeft, activeHustle]);
+
   const handleAuthComplete = (nickname: string, refId?: number | null) => { localStorage.setItem('cryptoNexus_nickname', nickname); if (refId && refId !== userIdNum) setReferrerId(refId); setIsAuthenticated(true); setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500); };
   
   const handleBuy = (currencyId: string, amount: number) => { 
@@ -400,6 +430,44 @@ function App() {
       if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
       setTimeout(() => saveProgress(), 50); 
     } 
+  };
+
+  // 🔥 Функция продажи бизнеса
+  const handleSellBusiness = (bizId: string) => {
+    const bizConfig = BUSINESSES.find(b => b.id === bizId);
+    if (!bizConfig) return;
+    
+    const refundPrice = Math.floor(bizConfig.price * 0.5);
+    const bizIndex = ownedBusinesses.findIndex(b => b.id === bizId);
+    if (bizIndex > -1) {
+      const newBusinesses = [...ownedBusinesses];
+      newBusinesses.splice(bizIndex, 1);
+      setOwnedBusinesses(newBusinesses);
+      setRubBalance(p => p + refundPrice);
+      saveProgress();
+      alert(`Бизнес "${bizConfig.name}" продан за ${refundPrice.toLocaleString()} ₽`);
+    }
+  };
+
+  // 🔥 Логика подработок
+  const startSideHustle = (hustle: any) => {
+    const now = Date.now();
+    const cooldown = hustleCooldowns[hustle.id] || 0;
+    if (cooldown > now) {
+      const remaining = Math.ceil((cooldown - now) / 1000);
+      alert(`Подождите ${remaining} сек.`);
+      return;
+    }
+    setActiveHustle(hustle);
+    setHustleClicks(0);
+    setHustleTimeLeft(hustle.duration);
+    setShowSideHustles(false);
+  };
+
+  const handleHustleClick = () => {
+    if (hustleTimeLeft > 0) {
+      setHustleClicks(prev => prev + 1);
+    }
   };
   
   const handleCreateClan = async (clanData: any) => {
@@ -441,49 +509,6 @@ function App() {
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
   const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
-  const startSideHustle = (hustle: any) => {
-  const now = Date.now();
-  const cooldown = hustleCooldowns[hustle.id] || 0;
-  if (cooldown > now) {
-    const remaining = Math.ceil((cooldown - now) / 1000);
-    alert(`Подождите ${remaining} сек.`);
-    return;
-  }
-  setActiveHustle(hustle);
-  setHustleClicks(0);
-  setHustleTimeLeft(hustle.duration);
-  setShowSideHustles(false);
-};
-
-const handleHustleClick = () => {
-  if (hustleTimeLeft > 0) {
-    setHustleClicks(prev => prev + 1);
-  }
-};
-
-useEffect(() => {
-  if (hustleTimeLeft > 0 && activeHustle) {
-    const timer = setInterval(() => {
-      setHustleTimeLeft(prev => {
-        if (prev <= 1) {
-          // Завершение подработки
-          const earned = activeHustle.salary;
-          setRubBalance(p => p + earned);
-          setHustleCooldowns(prev => ({
-            ...prev,
-            [activeHustle.id]: Date.now() + 60000 // 1 минута кулдаун
-          }));
-          setActiveHustle(null);
-          saveProgress();
-          alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }
-}, [hustleTimeLeft, activeHustle]);
 
   const renderClanMenu = () => {
     if (myClan && !showClanHub) {
@@ -612,12 +637,12 @@ useEffect(() => {
                 <span style={styles.cardSub}>Твои активы</span>
               </button>
               <button style={styles.card} onClick={() => setShowSideHustles(true)}>
-  <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}>
-    <Briefcase size={26} />
-  </div>
-  <span style={styles.cardTitle}>Подработки</span>
-  <span style={styles.cardSub}>Доп. заработок</span>
-</button>
+                <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}>
+                  <Briefcase size={26} />
+                </div>
+                <span style={styles.cardTitle}>Подработки</span>
+                <span style={styles.cardSub}>Доп. заработок</span>
+              </button>
             </div> 
           </div>
         </div>
@@ -658,20 +683,21 @@ useEffect(() => {
         onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}
       />
       <BusinessCenterModal 
-  isOpen={showBusiness} 
-  onClose={() => setShowBusiness(false)} 
-  userId={userIdNum} 
-  rubBalance={rubBalance}
-  ownedBusinesses={ownedBusinesses} 
-  businessMaintenance={businessMaintenance} 
-  totalIncome={totalBusinessIncome} 
-  managerHired={managerHired} 
-  onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} 
-  onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} 
-  onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }}
-/>
+        isOpen={showBusiness} 
+        onClose={() => setShowBusiness(false)} 
+        rubBalance={rubBalance}
+        ownedBusinesses={ownedBusinesses} 
+        businessMaintenance={businessMaintenance} 
+        totalIncome={totalBusinessIncome} 
+        managerHired={managerHired} 
+        onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} 
+        onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} 
+        onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }} 
+        onSell={handleSellBusiness} // 🔥 Передаем функцию продажи
+      />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
+      {/* 🔥 КРИПТО КОШЕЛЕК */}
       {showCryptoWallet && (
         <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -726,88 +752,89 @@ useEffect(() => {
         </div>
       )}
 
-{/* Подработки - список */}
-{showSideHustles && (
-  <div style={styles.overlay} onClick={() => setShowSideHustles(false)}>
-    <div style={styles.modal} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}>
-        <X size={24} color="#9ca3af" />
-      </button>
-      <h2 style={styles.modalTitle}>💼 Подработки</h2>
-      <div style={styles.hustleList}>
-        {[
-          { id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' },
-          { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' },
-          { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }
-        ].map(hustle => {
-          const cooldown = hustleCooldowns[hustle.id] || 0;
-          const canWork = cooldown <= Date.now();
-          const waitTime = Math.ceil((cooldown - Date.now()) / 1000);
-          
-          return (
-            <div key={hustle.id} style={styles.hustleCard}>
-              <div style={styles.hustleHeader}>
-                <span style={{fontSize: 32}}>{hustle.icon}</span>
-                <div style={{flex: 1, marginLeft: 12}}>
-                  <h3 style={styles.hustleName}>{hustle.name}</h3>
-                  <p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p>
-                </div>
-              </div>
-              <div style={styles.hustleInfo}>
-                <span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span>
-                <span style={styles.hustleDetail}>🖱 Быстро нажимай!</span>
-              </div>
-              <button
-                onClick={() => startSideHustle(hustle)}
-                disabled={!canWork}
-                style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}
-              >
-                {canWork ? 'Начать' : `Подождите ${waitTime} сек`}
+      {/* 🔥 ПОДРАБОТКИ (СПИСОК) */}
+      {showSideHustles && (
+        <div style={styles.overlay} onClick={() => setShowSideHustles(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <h2 style={styles.modalTitle}>💼 Подработки</h2>
+            <div style={styles.hustleList}>
+              {[
+                { id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' },
+                { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' },
+                { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }
+              ].map(hustle => {
+                const cooldown = hustleCooldowns[hustle.id] || 0;
+                const canWork = cooldown <= Date.now();
+                const waitTime = Math.ceil((cooldown - Date.now()) / 1000);
+                
+                return (
+                  <div key={hustle.id} style={styles.hustleCard}>
+                    <div style={styles.hustleHeader}>
+                      <span style={{fontSize: 32}}>{hustle.icon}</span>
+                      <div style={{flex: 1, marginLeft: 12}}>
+                        <h3 style={styles.hustleName}>{hustle.name}</h3>
+                        <p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p>
+                      </div>
+                    </div>
+                    <div style={styles.hustleInfo}>
+                      <span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span>
+                      <span style={styles.hustleDetail}>🖱 Быстро нажимай!</span>
+                    </div>
+                    <button
+                      onClick={() => startSideHustle(hustle)}
+                      disabled={!canWork}
+                      style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}
+                    >
+                      {canWork ? 'Начать' : `Подождите ${waitTime} сек`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 ПОДРАБОТКИ (МИНИ-ИГРА) */}
+      {activeHustle && hustleTimeLeft > 0 && (
+        <div style={styles.overlay} onClick={() => {}}>
+          <div style={styles.hustleGameModal}>
+            <div style={styles.hustleGameHeader}>
+              <h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2>
+              <button onClick={() => setActiveHustle(null)} style={styles.closeBtn}>
+                <X size={20} color="#9ca3af" />
               </button>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  </div>
-)}
+            
+            <div style={styles.hustleTimer}>
+              <div style={styles.hustleTimerBar}>
+                <div style={{
+                  ...styles.hustleTimerProgress,
+                  width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`
+                }} />
+              </div>
+              <span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span>
+            </div>
 
-{/* Мини-игра подработки */}
-{activeHustle && hustleTimeLeft > 0 && (
-  <div style={styles.overlay} onClick={() => {}}>
-    <div style={styles.hustleGameModal}>
-      <div style={styles.hustleGameHeader}>
-        <h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2>
-        <button onClick={() => setActiveHustle(null)} style={styles.closeBtn}>
-          <X size={20} color="#9ca3af" />
-        </button>
-      </div>
-      
-      <div style={styles.hustleTimer}>
-        <div style={styles.hustleTimerBar}>
-          <div style={{
-            ...styles.hustleTimerProgress,
-            width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`
-          }} />
+            <div 
+              style={styles.hustleClicker} 
+              onClick={handleHustleClick}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <div style={styles.hustleCoin}>💰</div>
+              <div style={styles.hustleClicks}>{hustleClicks} кликов</div>
+            </div>
+
+            <p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p>
+          </div>
         </div>
-        <span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span>
-      </div>
+      )}
 
-      <div 
-  style={styles.hustleClicker} 
-  onClick={handleHustleClick}
-  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
->
-        <div style={styles.hustleCoin}>💰</div>
-        <div style={styles.hustleClicks}>{hustleClicks} кликов</div>
-      </div>
-
-      <p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p>
-    </div>
-  </div>
-)}
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
   );
@@ -949,6 +976,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
   subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
   subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' },
+  // Крипто Кошелек стили
   walletTotal: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 20, border: '1px solid rgba(139, 92, 246, 0.3)' },
   walletTotalLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' },
   walletTotalValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' },
@@ -961,6 +989,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   walletItemRight: { textAlign: 'right' },
   walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
   walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' },
+  // Подработки стили
   hustleList: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
   hustleCard: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 16 },
   hustleHeader: { display: 'flex', alignItems: 'center', marginBottom: 12 },
@@ -979,7 +1008,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   hustleClicker: { cursor: 'pointer', userSelect: 'none', padding: '40px 20px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: 16, marginBottom: 16, transition: 'transform 0.1s' },
   hustleCoin: { fontSize: 80, marginBottom: 12 },
   hustleClicks: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 },
+  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 }
 };
 
 export default App;

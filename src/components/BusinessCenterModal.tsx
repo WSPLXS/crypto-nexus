@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Zap, Clock, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, TrendingUp, Zap, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { BUSINESSES } from '../data/economy';
 
 interface BusinessCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userId: number;
   rubBalance: number;
   ownedBusinesses: any[];
   businessMaintenance: Record<string, { electricity: number; repair: number }>;
@@ -14,6 +13,7 @@ interface BusinessCenterModalProps {
   onBuy: (biz: any) => void;
   onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
   onHireManager: () => void;
+  onSell: (bizId: string) => void;
 }
 
 export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
@@ -27,12 +27,12 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
   onBuy,
   onPayMaintenance,
   onHireManager,
+  onSell,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'owned'>('all');
 
   if (!isOpen) return null;
 
-  const availableBusinesses = BUSINESSES;
   const myBusinesses = ownedBusinesses;
 
   const getMaintenanceStatus = (bizId: string) => {
@@ -75,7 +75,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
 
         {activeTab === 'all' && (
           <div style={styles.businessList}>
-            {availableBusinesses.map(biz => {
+            {BUSINESSES.map(biz => {
               const isOwned = myBusinesses.some(b => b.id === biz.id);
               const canAfford = rubBalance >= biz.price;
 
@@ -134,6 +134,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
               myBusinesses.map((biz, index) => {
                 const conf = BUSINESSES.find(b => b.id === biz.id);
                 const maint = getMaintenanceStatus(biz.id);
+                const sellPrice = Math.floor((conf?.price || 0) * 0.5);
 
                 return (
                   <div key={index} style={styles.myBusinessCard}>
@@ -179,6 +180,18 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                         )}
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Продать "${conf?.name}" за ${sellPrice.toLocaleString()} ₽ (50% от цены)?`)) {
+                          onSell(biz.id);
+                        }
+                      }}
+                      style={styles.sellBtn}
+                    >
+                      <Trash2 size={14} style={{ marginRight: 6 }} />
+                      Продать бизнес за {sellPrice.toLocaleString()} ₽
+                    </button>
                   </div>
                 );
               })
@@ -193,7 +206,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
               Менеджер будет автоматически оплачивать обслуживание бизнесов
             </p>
             <button onClick={onHireManager} style={styles.hireManagerBtn}>
-              Нанять за 15000 ₽
+              Нанять за 15 000 ₽
             </button>
           </div>
         )}
@@ -431,6 +444,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 11,
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  sellBtn: {
+    width: '100%',
+    padding: '8px',
+    borderRadius: 8,
+    border: '1px solid rgba(239, 68, 68, 0.5)',
+    background: 'rgba(239, 68, 68, 0.1)',
+    color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 12,
+    cursor: 'pointer',
+    marginTop: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     textAlign: 'center' as const,
