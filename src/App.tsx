@@ -653,7 +653,6 @@ setMyClanRole(member.role);
 
   if (isLoading) return <div style={{color:'white', textAlign:'center', marginTop:'50vh'}}>Загрузка...</div>;
   if (!isAuthenticated) return <Auth onComplete={handleAuthComplete} />;
-
   return (
     <>
       <div style={styles.container} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -1174,7 +1173,7 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
       )}
     </div>
   );
-  }
+}
 }
 const styles: { [key: string]: React.CSSProperties } = {
   container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
@@ -1305,4 +1304,5 @@ const styles: { [key: string]: React.CSSProperties } = {
   netWorthLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8 },
   netWorthValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' }
 };
+
 export default App;
