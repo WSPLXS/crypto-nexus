@@ -89,6 +89,11 @@ function App() {
   const [showQuests, setShowQuests] = useState(false);
   const [showDonate, setShowDonate] = useState(false);
   const [showCryptoWallet, setShowCryptoWallet] = useState(false);
+  const [showSideHustles, setShowSideHustles] = useState(false);
+  const [activeHustle, setActiveHustle] = useState<any>(null);
+  const [hustleClicks, setHustleClicks] = useState(0);
+  const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
+  const [hustleCooldowns, setHustleCooldowns] = useState<Record<string, number>>({});
   
   const [showBank, setShowBank] = useState(false);
   const [showBusiness, setShowBusiness] = useState(false);
@@ -436,6 +441,49 @@ function App() {
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
   const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
+  const startSideHustle = (hustle: any) => {
+  const now = Date.now();
+  const cooldown = hustleCooldowns[hustle.id] || 0;
+  if (cooldown > now) {
+    const remaining = Math.ceil((cooldown - now) / 1000);
+    alert(`Подождите ${remaining} сек.`);
+    return;
+  }
+  setActiveHustle(hustle);
+  setHustleClicks(0);
+  setHustleTimeLeft(hustle.duration);
+  setShowSideHustles(false);
+};
+
+const handleHustleClick = () => {
+  if (hustleTimeLeft > 0) {
+    setHustleClicks(prev => prev + 1);
+  }
+};
+
+useEffect(() => {
+  if (hustleTimeLeft > 0 && activeHustle) {
+    const timer = setInterval(() => {
+      setHustleTimeLeft(prev => {
+        if (prev <= 1) {
+          // Завершение подработки
+          const earned = activeHustle.salary;
+          setRubBalance(p => p + earned);
+          setHustleCooldowns(prev => ({
+            ...prev,
+            [activeHustle.id]: Date.now() + 60000 // 1 минута кулдаун
+          }));
+          setActiveHustle(null);
+          saveProgress();
+          alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }
+}, [hustleTimeLeft, activeHustle]);
 
   const renderClanMenu = () => {
     if (myClan && !showClanHub) {
@@ -563,6 +611,13 @@ function App() {
                 <span style={styles.cardTitle}>Крипто Кошелек</span>
                 <span style={styles.cardSub}>Твои активы</span>
               </button>
+              <button style={styles.card} onClick={() => setShowSideHustles(true)}>
+  <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}>
+    <Briefcase size={26} />
+  </div>
+  <span style={styles.cardTitle}>Подработки</span>
+  <span style={styles.cardSub}>Доп. заработок</span>
+</button>
             </div> 
           </div>
         </div>
@@ -671,6 +726,88 @@ function App() {
         </div>
       )}
 
+{/* Подработки - список */}
+{showSideHustles && (
+  <div style={styles.overlay} onClick={() => setShowSideHustles(false)}>
+    <div style={styles.modal} onClick={e => e.stopPropagation()}>
+      <button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}>
+        <X size={24} color="#9ca3af" />
+      </button>
+      <h2 style={styles.modalTitle}>💼 Подработки</h2>
+      <div style={styles.hustleList}>
+        {[
+          { id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' },
+          { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' },
+          { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }
+        ].map(hustle => {
+          const cooldown = hustleCooldowns[hustle.id] || 0;
+          const canWork = cooldown <= Date.now();
+          const waitTime = Math.ceil((cooldown - Date.now()) / 1000);
+          
+          return (
+            <div key={hustle.id} style={styles.hustleCard}>
+              <div style={styles.hustleHeader}>
+                <span style={{fontSize: 32}}>{hustle.icon}</span>
+                <div style={{flex: 1, marginLeft: 12}}>
+                  <h3 style={styles.hustleName}>{hustle.name}</h3>
+                  <p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p>
+                </div>
+              </div>
+              <div style={styles.hustleInfo}>
+                <span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span>
+                <span style={styles.hustleDetail}>🖱 Быстро нажимай!</span>
+              </div>
+              <button
+                onClick={() => startSideHustle(hustle)}
+                disabled={!canWork}
+                style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}
+              >
+                {canWork ? 'Начать' : `Подождите ${waitTime} сек`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Мини-игра подработки */}
+{activeHustle && hustleTimeLeft > 0 && (
+  <div style={styles.overlay} onClick={() => {}}>
+    <div style={styles.hustleGameModal}>
+      <div style={styles.hustleGameHeader}>
+        <h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2>
+        <button onClick={() => setActiveHustle(null)} style={styles.closeBtn}>
+          <X size={20} color="#9ca3af" />
+        </button>
+      </div>
+      
+      <div style={styles.hustleTimer}>
+        <div style={styles.hustleTimerBar}>
+          <div style={{
+            ...styles.hustleTimerProgress,
+            width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`
+          }} />
+        </div>
+        <span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span>
+      </div>
+
+      <div 
+  style={styles.hustleClicker} 
+  onClick={handleHustleClick}
+  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+>
+        <div style={styles.hustleCoin}>💰</div>
+        <div style={styles.hustleClicks}>{hustleClicks} кликов</div>
+      </div>
+
+      <p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p>
+    </div>
+  </div>
+)}
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
   );
@@ -823,7 +960,26 @@ const styles: { [key: string]: React.CSSProperties } = {
   walletItemAmount: { fontSize: 12, color: '#737373', marginTop: 2 },
   walletItemRight: { textAlign: 'right' },
   walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
-  walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' }
+  walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' },
+  hustleList: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
+  hustleCard: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 16 },
+  hustleHeader: { display: 'flex', alignItems: 'center', marginBottom: 12 },
+  hustleName: { fontSize: 16, fontWeight: 'bold', color: '#fff', margin: 0 },
+  hustleSalary: { fontSize: 14, color: '#22c55e', margin: '4px 0 0 0', fontWeight: '600' },
+  hustleInfo: { display: 'flex', gap: 16, marginBottom: 12, fontSize: 12 },
+  hustleDetail: { color: '#a3a3a3' },
+  hustleBtn: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
+  hustleBtnDisabled: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'rgba(156, 163, 175, 0.2)', color: '#737373', fontWeight: 'bold', cursor: 'not-allowed' },
+  hustleGameModal: { background: '#141414', border: '2px solid #fbbf24', borderRadius: 24, padding: 24, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(251, 191, 36, 0.3)' },
+  hustleGameHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  hustleTimer: { marginBottom: 24 },
+  hustleTimerBar: { width: '100%', height: 8, background: 'rgba(251, 191, 36, 0.2)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+  hustleTimerProgress: { height: '100%', background: 'linear-gradient(90deg, #fbbf24, #f59e0b)', transition: 'width 1s linear' },
+  hustleTimeText: { fontSize: 18, fontWeight: 'bold', color: '#fbbf24' },
+  hustleClicker: { cursor: 'pointer', userSelect: 'none', padding: '40px 20px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: 16, marginBottom: 16, transition: 'transform 0.1s' },
+  hustleCoin: { fontSize: 80, marginBottom: 12 },
+  hustleClicks: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 },
 };
 
 export default App;
