@@ -576,12 +576,24 @@ function App() {
                 <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
                 <div style={styles.userInfo}>
                   <span style={styles.nickname}>{currentNickname}{renderVipBadge(vipStatus)}<span style={styles.levelBadge}>Lvl {level}</span></span>
-                  <div style={styles.balances}>
-                    <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span>
-                    {boostMultiplier > 1 && <span style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{boostMultiplier}</span>}
-                  </div>
+<div style={styles.balances}>
+  {/* Рубли теперь основные (зеленые и крупные) */}
+  <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
+    ₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+  </span>
+  {/* Доллары теперь второстепенные (серые и маленькие) */}
+  <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+    ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+  </span>
+  <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+    x{globalMultiplier.toFixed(1)}
+  </span>
+  {boostMultiplier > 1 && (
+    <span style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+      x{boostMultiplier}
+    </span>
+  )}
+</div>
                 </div>
               </div>
               <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onSearchClick={() => setShowSearch(true)} /></div>
