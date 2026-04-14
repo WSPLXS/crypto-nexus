@@ -489,7 +489,7 @@ function App() {
                   </div>
                 </div>
               </div>
-              <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onShopClick={() => setShowShop(true)} onSearchClick={() => setShowSearch(true)} /></div>
+              <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onSearchClick={() => setShowSearch(true)} /></div>
             </div>
             <div style={styles.leftButtons}>
               <button onClick={() => setShowMessages(true)} style={styles.leftBtn}><MessageCircle size={20} color="var(--text-primary)" />{(messages.length + (myClanRole === 4 ? clanApplications.length : 0)) > 0 && <span style={styles.badge}>{messages.length + (myClanRole === 4 ? clanApplications.length : 0)}</span>}</button>

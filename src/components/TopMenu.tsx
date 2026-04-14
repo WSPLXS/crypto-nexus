@@ -5,7 +5,6 @@ interface TopMenuProps {
   onSettingsClick: () => void;
   onClanClick: () => void;
   onFriendsClick: () => void;
-  onShopClick: () => void;
   onSearchClick: () => void;
 }
 
@@ -13,14 +12,10 @@ export const TopMenu: React.FC<TopMenuProps> = ({
   onSettingsClick,
   onClanClick,
   onFriendsClick,
-  onShopClick,
   onSearchClick
 }) => {
   return (
     <div style={styles.container}>
-      <button onClick={onShopClick} style={styles.button}>
-        <ShoppingCart size={20} color="var(--text-primary)" />
-      </button>
       <button onClick={onClanClick} style={styles.button}>
         <Shield size={20} color="var(--text-primary)" />
       </button>
