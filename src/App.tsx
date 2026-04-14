@@ -1174,7 +1174,6 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
     </div>
   );
 }
-}
 const styles: { [key: string]: React.CSSProperties } = {
   container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
   sliderWrapper: { display: 'flex', width: '200vw', height: '100%', transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)' },
