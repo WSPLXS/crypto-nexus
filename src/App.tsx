@@ -613,7 +613,7 @@ function App() {
   managerHired={managerHired} 
   onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} 
   onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} 
-  onHireManager={() => { if (rubBalance >= 500) { setRubBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно 500 ₽'); }} 
+  onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }}
 />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
