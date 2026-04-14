@@ -96,7 +96,10 @@ function App() {
   // 🔥 Новые состояния для подработок
   const [showSideHustles, setShowSideHustles] = useState(false);
   const [showShopMenu, setShowShopMenu] = useState(false);
+  const [showAssetsModal, setShowAssetsModal] = useState(false);
   const [activeShopTab, setActiveShopTab] = useState<'cars' | 'realestate' | 'accessories' | 'phones' | 'other'>('cars');
+  const [ownedItems, setOwnedItems] = useState<any[]>([]);
+  const [activeAssetsTab, setActiveAssetsTab] = useState<'cars' | 'realestate' | 'accessories' | 'phones' | 'other'>('cars');
   const [activeHustle, setActiveHustle] = useState<any>(null);
   const [hustleClicks, setHustleClicks] = useState(0);
   const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
@@ -166,6 +169,31 @@ function App() {
     }, 0);
     return base * boostMultiplier;
   }, [ownedCurrencies, globalMultiplier, boostMultiplier]);
+
+  const totalNetWorth = useMemo(() => {
+  // Деньги на счетах
+  let total = rubBalance + balance;
+  
+  // Стоимость крипто
+  ownedCurrencies.forEach(item => {
+    const currency = currencies.find(c => c.id === item.currencyId);
+    const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
+    total += currentPrice * item.amount;
+  });
+  
+  // Стоимость бизнесов (50% от цены покупки)
+  ownedBusinesses.forEach(biz => {
+    const conf = BUSINESSES.find(b => b.id === biz.id);
+    if (conf) total += conf.price * 0.5;
+  });
+  
+  // Стоимость имущества
+  ownedItems.forEach(item => {
+    total += item.price;
+  });
+  
+  return total;
+}, [rubBalance, balance, ownedCurrencies, ownedBusinesses, ownedItems, priceMultipliers]); 
 
   const renderVipBadge = (status: string) => {
     if (!status || status === 'none') return null;
@@ -450,6 +478,16 @@ function App() {
       alert(`Бизнес "${bizConfig.name}" продан за ${refundPrice.toLocaleString()} ₽`);
     }
   };
+  const handleBuyItem = (item: any) => {
+  if (rubBalance >= item.price) {
+    setRubBalance(p => p - item.price);
+    setOwnedItems(prev => [...prev, { ...item, ownedAt: Date.now() }]);
+    saveProgress();
+    alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
+  } else {
+    alert('Недостаточно рублей!');
+  }
+};
 
   // 🔥 Логика подработок
   const startSideHustle = (hustle: any) => {
@@ -656,6 +694,20 @@ function App() {
                 </div>
                 <span style={styles.cardTitle}>Подработки</span>
                 <span style={styles.cardSub}>Доп. заработок</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowShopMenu(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}>
+                  <ShoppingBag size={26} />
+                </div>
+                <span style={styles.cardTitle}>Магазин</span>
+                <span style={styles.cardSub}>Товары и услуги</span>
+              </button>
+              <button style={styles.card} onClick={() => setShowAssetsModal(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}>
+                  <Wallet size={26} />
+                </div>
+                <span style={styles.cardTitle}>Моё состояние</span>
+                <span style={styles.cardSub}>Все активы</span>
               </button>
               <button style={styles.card} onClick={() => setShowShopMenu(true)}>
                 <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}>
@@ -887,16 +939,16 @@ function App() {
         {activeShopTab === 'cars' && (
           <div style={styles.shopGrid}>
             {[
-              { id: 'car1', name: 'Лада Гранта', price: 500000, icon: '🚙' },
-              { id: 'car2', name: 'Toyota Camry', price: 2500000, icon: '🚘' },
-              { id: 'car3', name: 'BMW X5', price: 6000000, icon: '🚔' },
-              { id: 'car4', name: 'Mercedes G-Class', price: 12000000, icon: '🚕' }
+              { id: 'car1', name: 'Лада Гранта', price: 500000, category: 'cars', icon: '🚙' },
+              { id: 'car2', name: 'Toyota Camry', price: 2500000, category: 'cars', icon: '🚘' },
+              { id: 'car3', name: 'BMW X5', price: 6000000, category: 'cars', icon: '🚔' },
+              { id: 'car4', name: 'Mercedes G-Class', price: 12000000, category: 'cars', icon: '🚕' }
             ].map(item => (
               <div key={item.id} style={styles.shopItem}>
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
               </div>
             ))}
           </div>
@@ -905,16 +957,16 @@ function App() {
         {activeShopTab === 'realestate' && (
           <div style={styles.shopGrid}>
             {[
-              { id: 'house1', name: 'Студия', price: 3000000, icon: '🏢' },
-              { id: 'house2', name: '2-комнатная', price: 7500000, icon: '🏠' },
-              { id: 'house3', name: 'Коттедж', price: 15000000, icon: '🏡' },
-              { id: 'house4', name: 'Особняк', price: 50000000, icon: '🏰' }
+              { id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' },
+              { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' },
+              { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' },
+              { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }
             ].map(item => (
               <div key={item.id} style={styles.shopItem}>
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
               </div>
             ))}
           </div>
@@ -923,16 +975,16 @@ function App() {
         {activeShopTab === 'accessories' && (
           <div style={styles.shopGrid}>
             {[
-              { id: 'acc1', name: 'Золотые часы', price: 150000, icon: '⌚' },
-              { id: 'acc2', name: 'Цепь из золота', price: 300000, icon: '📿' },
-              { id: 'acc3', name: 'Брендовые очки', price: 50000, icon: '🕶️' },
-              { id: 'acc4', name: 'Кожаный портфель', price: 80000, icon: '👜' }
+              { id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' },
+              { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' },
+              { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' },
+              { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }
             ].map(item => (
               <div key={item.id} style={styles.shopItem}>
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
               </div>
             ))}
           </div>
@@ -941,16 +993,16 @@ function App() {
         {activeShopTab === 'phones' && (
           <div style={styles.shopGrid}>
             {[
-              { id: 'phone1', name: 'iPhone 14', price: 90000, icon: '📱' },
-              { id: 'phone2', name: 'Samsung S23', price: 85000, icon: '📲' },
-              { id: 'phone3', name: 'Google Pixel 8', price: 75000, icon: '📳' },
-              { id: 'phone4', name: 'OnePlus 11', price: 60000, icon: '📴' }
+              { id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' },
+              { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' },
+              { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' },
+              { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }
             ].map(item => (
               <div key={item.id} style={styles.shopItem}>
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
               </div>
             ))}
           </div>
@@ -959,16 +1011,16 @@ function App() {
         {activeShopTab === 'other' && (
           <div style={styles.shopGrid}>
             {[
-              { id: 'other1', name: 'Подарочная карта', price: 5000, icon: '🎁' },
-              { id: 'other2', name: 'Премиум-аккаунт', price: 50000, icon: '⭐' },
-              { id: 'other3', name: 'Буст дохода х2', price: 25000, icon: '🚀' },
-              { id: 'other4', name: 'Уникальный аватар', price: 10000, icon: '🖼️' }
+              { id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' },
+              { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' },
+              { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' },
+              { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }
             ].map(item => (
               <div key={item.id} style={styles.shopItem}>
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
               </div>
             ))}
           </div>
@@ -977,6 +1029,58 @@ function App() {
     </div>
   </div>
 )} 
+
+{/* 🔥 МОЁ СОСТОЯНИЕ */}
+{showAssetsModal && (
+  <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
+    <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
+      <button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}>
+        <X size={24} color="#9ca3af" />
+      </button>
+      <h2 style={styles.modalTitle}>💰 Моё состояние</h2>
+      
+      {/* Общая сумма */}
+      <div style={styles.netWorthPanel}>
+        <div style={styles.netWorthLabel}>Ваше общее состояние на:</div>
+        <div style={styles.netWorthValue}>{totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</div>
+      </div>
+
+      {/* Вкладки */}
+      <div style={styles.shopTabs}>
+        {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveAssetsTab(tab)}
+            style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}
+          >
+            {tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}
+          </button>
+        ))}
+      </div>
+
+      {/* Имущество */}
+      <div style={styles.shopContent}>
+        {ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? (
+          <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
+            У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
+          </p>
+        ) : (
+          <div style={styles.shopGrid}>
+            {ownedItems.filter(item => item.category === activeAssetsTab).map((item, idx) => (
+              <div key={idx} style={styles.shopItem}>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <div style={{fontSize: 11, color: '#737373'}}>
+                  Куплено: {new Date(item.ownedAt).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
@@ -1161,7 +1265,10 @@ const styles: { [key: string]: React.CSSProperties } = {
   shopItemIcon: { fontSize: 32, marginBottom: 8 },
   shopItemName: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 4 },
   shopItemPrice: { fontSize: 12, color: '#22c55e', fontWeight: 'bold', marginBottom: 8 },
-  shopBuyBtn: { width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', fontSize: 12, cursor: 'pointer' }
+  shopBuyBtn: { width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', fontSize: 12, cursor: 'pointer' },
+  netWorthPanel: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 16, border: '1px solid rgba(139, 92, 246, 0.3)', textAlign: 'center' },
+  netWorthLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8 },
+  netWorthValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' }
 };
 
 export default App;
