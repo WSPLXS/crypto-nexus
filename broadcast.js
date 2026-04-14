@@ -6,7 +6,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-const MESSAGE = `🚀 <b>Открытие CryptoNexus 2.0 переносится!</b>
+const MESSAGE = `🚀 <b>Все аккаунты были сброшены в связи с обновлением экономики!</b>
 
 Подпишись на наш канал <a href="https://t.me/cryptonexusbotgame">@cryptonexusbotgame</a> чтобы следить за новостями и обновлениями!
 

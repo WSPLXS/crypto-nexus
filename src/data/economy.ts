@@ -1,13 +1,13 @@
 // 📊 КОНФИГ БИЗНЕСОВ
 export const BUSINESSES = [
-  { id: 'home_prod', name: 'Домашнее производство', icon: '🧵', priceUsd: 500, incomePerHour: 15, desc: 'Пошив одежды' },
-  { id: 'game_machine', name: 'Игровой автомат', icon: '🎰', priceUsd: 1200, incomePerHour: 45, desc: 'Заработок на азарте' },
-  { id: 'vending', name: 'Вендинг', icon: '🥤', priceUsd: 800, incomePerHour: 25, desc: 'Еда и напитки' },
-  { id: 'kiosk', name: 'Ларёк', icon: '🏪', priceUsd: 2500, incomePerHour: 80, desc: 'Торговля' },
-  { id: 'shop', name: 'Магазин', icon: '🛒', priceUsd: 8000, incomePerHour: 250, desc: 'Продукты' },
-  { id: 'clothes_shop', name: 'Магазин одежды', icon: '👗', priceUsd: 15000, incomePerHour: 500, desc: 'Бренды' },
-  { id: 'hotel', name: 'Отель', icon: '🏨', priceUsd: 50000, incomePerHour: 1800, desc: 'Номера' },
-  { id: 'factory', name: 'Завод', icon: '🏭', priceUsd: 200000, incomePerHour: 8000, desc: 'Производство' }
+  { id: 'home_production', name: 'Домашнее производство', description: 'Пошив одежды', price: 45000, incomePerHour: 1200, currency: 'RUB' },
+  { id: 'slot_machine', name: 'Игровой автомат', description: 'Азартные игры', price: 96000, incomePerHour: 3900, currency: 'RUB' },
+  { id: 'vending', name: 'Вендинг', description: 'Торговые автоматы', price: 65000, incomePerHour: 2300, currency: 'RUB' },
+  { id: 'stall', name: 'Ларек', description: 'Уличная торговля', price: 190000, incomePerHour: 16000, currency: 'RUB' },
+  { id: 'shop', name: 'Магазин', description: 'Розничная торговля', price: 1200000, incomePerHour: 90000, currency: 'RUB' },
+  { id: 'clothing_store', name: 'Магазин одежды', description: 'Бутик', price: 4100000, incomePerHour: 317000, currency: 'RUB' },
+  { id: 'hotel', name: 'Отель', description: 'Гостиничный бизнес', price: 30000000, incomePerHour: 2300000, currency: 'RUB' },
+  { id: 'factory', name: 'Завод', description: 'Промышленное производство', price: 75000000, incomePerHour: 4600000, currency: 'RUB' }
 ];
 
 // 🎰 ИГРЫ КАЗИНО

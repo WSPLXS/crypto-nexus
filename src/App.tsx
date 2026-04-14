@@ -297,7 +297,7 @@ function App() {
       });
       if (income > 0) {
         setTotalBusinessIncome(prev => prev + income);
-        setBankUsd(prev => prev + income);
+        setBankRub(prev => prev + income); // 🔥 Теперь капает в рубли
       }
     }, 60000);
     return () => clearInterval(interval);
@@ -337,7 +337,7 @@ function App() {
     }
   }, [isAuthenticated, isLoading, myClan]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!boostExpiresAt) return;
     const interval = setInterval(() => {
       const left = Math.max(0, Math.floor((boostExpiresAt - Date.now()) / 1000));
@@ -602,7 +602,19 @@ function App() {
         onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
         onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}
       />
-      <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} userId={userIdNum} bankUsd={bankUsd} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (balance >= 500) { setBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно $500'); }} />
+      <BusinessCenterModal 
+  isOpen={showBusiness} 
+  onClose={() => setShowBusiness(false)} 
+  userId={userIdNum} 
+  rubBalance={rubBalance}
+  ownedBusinesses={ownedBusinesses} 
+  businessMaintenance={businessMaintenance} 
+  totalIncome={totalBusinessIncome} 
+  managerHired={managerHired} 
+  onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} 
+  onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} 
+  onHireManager={() => { if (rubBalance >= 500) { setRubBalance(p => p - 500); setManagerHired(true); saveProgress(); } else alert('Нужно 500 ₽'); }} 
+/>
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
       {showCryptoWallet && (
