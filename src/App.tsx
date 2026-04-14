@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield, Menu } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield, Menu, ShoppingBag } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -95,6 +95,8 @@ function App() {
 
   // 🔥 Новые состояния для подработок
   const [showSideHustles, setShowSideHustles] = useState(false);
+  const [showShopMenu, setShowShopMenu] = useState(false);
+  const [activeShopTab, setActiveShopTab] = useState<'cars' | 'realestate' | 'accessories' | 'phones' | 'other'>('cars');
   const [activeHustle, setActiveHustle] = useState<any>(null);
   const [hustleClicks, setHustleClicks] = useState(0);
   const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
@@ -655,6 +657,13 @@ function App() {
                 <span style={styles.cardTitle}>Подработки</span>
                 <span style={styles.cardSub}>Доп. заработок</span>
               </button>
+              <button style={styles.card} onClick={() => setShowShopMenu(true)}>
+                <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}>
+                  <ShoppingBag size={26} />
+                </div>
+                <span style={styles.cardTitle}>Магазин</span>
+                <span style={styles.cardSub}>Товары и услуги</span>
+              </button>
             </div> 
           </div>
         </div>
@@ -846,6 +855,128 @@ function App() {
           </div>
         </div>
       )}
+      {/* 🔥 МАГАЗИН */}
+{showShopMenu && (
+  <div style={styles.overlay} onClick={() => setShowShopMenu(false)}>
+    <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
+      <button onClick={() => setShowShopMenu(false)} style={styles.closeBtn}>
+        <X size={24} color="#9ca3af" />
+      </button>
+      <h2 style={styles.modalTitle}>🛒 Магазин</h2>
+      
+      {/* Вкладки */}
+      <div style={styles.shopTabs}>
+        {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveShopTab(tab)}
+            style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}
+          >
+            {tab === 'cars' && '🚗 '}
+            {tab === 'realestate' && '🏠 '}
+            {tab === 'accessories' && '💎 '}
+            {tab === 'phones' && '📱 '}
+            {tab === 'other' && '📦 '}
+            {tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}
+          </button>
+        ))}
+      </div>
+
+      {/* Контент вкладок */}
+      <div style={styles.shopContent}>
+        {activeShopTab === 'cars' && (
+          <div style={styles.shopGrid}>
+            {[
+              { id: 'car1', name: 'Лада Гранта', price: 500000, icon: '🚙' },
+              { id: 'car2', name: 'Toyota Camry', price: 2500000, icon: '🚘' },
+              { id: 'car3', name: 'BMW X5', price: 6000000, icon: '🚔' },
+              { id: 'car4', name: 'Mercedes G-Class', price: 12000000, icon: '🚕' }
+            ].map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {activeShopTab === 'realestate' && (
+          <div style={styles.shopGrid}>
+            {[
+              { id: 'house1', name: 'Студия', price: 3000000, icon: '🏢' },
+              { id: 'house2', name: '2-комнатная', price: 7500000, icon: '🏠' },
+              { id: 'house3', name: 'Коттедж', price: 15000000, icon: '🏡' },
+              { id: 'house4', name: 'Особняк', price: 50000000, icon: '🏰' }
+            ].map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {activeShopTab === 'accessories' && (
+          <div style={styles.shopGrid}>
+            {[
+              { id: 'acc1', name: 'Золотые часы', price: 150000, icon: '⌚' },
+              { id: 'acc2', name: 'Цепь из золота', price: 300000, icon: '📿' },
+              { id: 'acc3', name: 'Брендовые очки', price: 50000, icon: '🕶️' },
+              { id: 'acc4', name: 'Кожаный портфель', price: 80000, icon: '👜' }
+            ].map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {activeShopTab === 'phones' && (
+          <div style={styles.shopGrid}>
+            {[
+              { id: 'phone1', name: 'iPhone 14', price: 90000, icon: '📱' },
+              { id: 'phone2', name: 'Samsung S23', price: 85000, icon: '📲' },
+              { id: 'phone3', name: 'Google Pixel 8', price: 75000, icon: '📳' },
+              { id: 'phone4', name: 'OnePlus 11', price: 60000, icon: '📴' }
+            ].map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {activeShopTab === 'other' && (
+          <div style={styles.shopGrid}>
+            {[
+              { id: 'other1', name: 'Подарочная карта', price: 5000, icon: '🎁' },
+              { id: 'other2', name: 'Премиум-аккаунт', price: 50000, icon: '⭐' },
+              { id: 'other3', name: 'Буст дохода х2', price: 25000, icon: '🚀' },
+              { id: 'other4', name: 'Уникальный аватар', price: 10000, icon: '🖼️' }
+            ].map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => alert(`Покупка "${item.name}" за ${item.price.toLocaleString()} ₽ (в разработке)`)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)} 
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
@@ -1020,7 +1151,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   hustleClicker: { cursor: 'pointer', userSelect: 'none', padding: '40px 20px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: 16, marginBottom: 16, transition: 'transform 0.1s' },
   hustleCoin: { fontSize: 80, marginBottom: 12 },
   hustleClicks: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 }
+  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 },
+  shopTabs: { display: 'flex', gap: 4, marginBottom: 16, background: '#262626', padding: 4, borderRadius: 12, overflowX: 'auto' },
+  shopTab: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' },
+  shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
+  shopContent: { flex: 1, overflowY: 'auto' },
+  shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
+  shopItemIcon: { fontSize: 32, marginBottom: 8 },
+  shopItemName: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 4 },
+  shopItemPrice: { fontSize: 12, color: '#22c55e', fontWeight: 'bold', marginBottom: 8 },
+  shopBuyBtn: { width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', fontSize: 12, cursor: 'pointer' }
 };
 
 export default App;
