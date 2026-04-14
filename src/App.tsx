@@ -171,29 +171,19 @@ function App() {
   }, [ownedCurrencies, globalMultiplier, boostMultiplier]);
 
   const totalNetWorth = useMemo(() => {
-  // Деньги на счетах
-  let total = rubBalance + balance;
-  
-  // Стоимость крипто
-  ownedCurrencies.forEach(item => {
-    const currency = currencies.find(c => c.id === item.currencyId);
-    const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
-    total += currentPrice * item.amount;
-  });
-  
-  // Стоимость бизнесов (50% от цены покупки)
-  ownedBusinesses.forEach(biz => {
-    const conf = BUSINESSES.find(b => b.id === biz.id);
-    if (conf) total += conf.price * 0.5;
-  });
-  
-  // Стоимость имущества
-  ownedItems.forEach(item => {
-    total += item.price;
-  });
-  
-  return total;
-}, [rubBalance, balance, ownedCurrencies, ownedBusinesses, ownedItems, priceMultipliers]); 
+    let total = rubBalance + balance;
+    ownedCurrencies.forEach(item => {
+      const currency = currencies.find(c => c.id === item.currencyId);
+      const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
+      total += currentPrice * item.amount;
+    });
+    ownedBusinesses.forEach(biz => {
+      const conf = BUSINESSES.find(b => b.id === biz.id);
+      if (conf) total += conf.price * 0.5;
+    });
+    ownedItems.forEach(item => { total += item.price; });
+    return total;
+  }, [rubBalance, balance, ownedCurrencies, ownedBusinesses, ownedItems, priceMultipliers]); 
 
   const renderVipBadge = (status: string) => {
     if (!status || status === 'none') return null;
@@ -223,7 +213,7 @@ function App() {
         owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, 
         manager_hired: managerHired, staked_amount: stakedAmount,
         job_cooldowns: jobCooldowns,
-        hustle_cooldowns: hustleCooldowns // 🔥 Сохраняем кулдауны подработок
+        hustle_cooldowns: hustleCooldowns
       };
       await supabase.from('users').upsert(payload, { onConflict: 'id' }).single();
     } catch (err) { console.error('❌ Ошибка сохранения:', err); }
@@ -242,49 +232,47 @@ function App() {
     try { await supabase.from('users').update({ is_subscribed: true }).eq('id', userIdNum); localStorage.setItem(`subscribed_${userIdNum}`, 'true'); setIsSubscribed(true); setShowSubscribeModal(false); } catch { alert('Ошибка сохранения статуса.'); }
   };
 
-const calculateNetWorth = (userData: any) => {
-  if (!userData) return 0;
-  let total = (userData.balance || 0) + (userData.rub_balance || 0);
+  const calculateNetWorth = (userData: any) => {
+    if (!userData) return 0;
+    let total = (userData.balance || 0) + (userData.rub_balance || 0);
+    if (userData.owned_currencies) {
+      let owned = [];
+      try { owned = typeof userData.owned_currencies === 'string' ? JSON.parse(userData.owned_currencies) : userData.owned_currencies; } catch { owned = []; }
+      const mults = userData.price_multipliers ? (typeof userData.price_multipliers === 'string' ? JSON.parse(userData.price_multipliers) : userData.price_multipliers) : {};
+      owned.forEach((o: any) => {
+        const c = currencies.find(cur => cur.id === o.currencyId);
+        const price = c ? c.price * (mults[o.currencyId] || 1) : 0;
+        total += price * o.amount;
+      });
+    }
+    if (userData.owned_businesses) {
+      let businesses = [];
+      try { businesses = typeof userData.owned_businesses === 'string' ? JSON.parse(userData.owned_businesses) : userData.owned_businesses; } catch { businesses = []; }
+      businesses.forEach((b: any) => {
+        const conf = BUSINESSES.find(biz => biz.id === b.id);
+        if (conf) total += conf.price * 0.5;
+      });
+    }
+    return total;
+  };
 
-  // Криптовалюта
-  if (userData.owned_currencies) {
-    let owned = [];
-    try { owned = typeof userData.owned_currencies === 'string' ? JSON.parse(userData.owned_currencies) : userData.owned_currencies; } catch { owned = []; }
-    const mults = userData.price_multipliers ? (typeof userData.price_multipliers === 'string' ? JSON.parse(userData.price_multipliers) : userData.price_multipliers) : {};
-    owned.forEach((o: any) => {
-      const c = currencies.find(cur => cur.id === o.currencyId);
-      const price = c ? c.price * (mults[o.currencyId] || 1) : 0;
-      total += price * o.amount;
-    });
-  }
-
-  // Бизнесы (оценка в 50% от цены)
-  if (userData.owned_businesses) {
-    let businesses = [];
-    try { businesses = typeof userData.owned_businesses === 'string' ? JSON.parse(userData.owned_businesses) : userData.owned_businesses; } catch { businesses = []; }
-    businesses.forEach((b: any) => {
-      const conf = BUSINESSES.find(biz => biz.id === b.id);
-      if (conf) total += conf.price * 0.5;
-    });
-  }
-  return total;
-};
-
+  // 🔥 ИСПРАВЛЕНО: добавлена закрывающая };
   const fetchLeaderboard = async () => {
     try { 
-  const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status'); 
-  if (error) throw error; 
-  const sorted = (data || []).map((u: any) => { 
-    return { 
-      id: u.id, 
-      nickname: u.nickname || `Player${String(u.id).slice(-4)}`, 
-      netWorth: calculateNetWorth(u), 
-      avatarUrl: u.custom_avatar_url, 
-      vip_status: u.vip_status 
-    }; 
-  }).sort((a, b) => b.netWorth - a.netWorth).slice(0, 10); 
-  setLeaderboard(sorted); 
-} catch (err) { console.error('Leaderboard error:', err); }
+      const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status'); 
+      if (error) throw error; 
+      const sorted = (data || []).map((u: any) => { 
+        return { 
+          id: u.id, 
+          nickname: u.nickname || `Player${String(u.id).slice(-4)}`, 
+          netWorth: calculateNetWorth(u), 
+          avatarUrl: u.custom_avatar_url, 
+          vip_status: u.vip_status 
+        }; 
+      }).sort((a, b) => b.netWorth - a.netWorth).slice(0, 10); 
+      setLeaderboard(sorted); 
+    } catch (err) { console.error('Leaderboard error:', err); }
+  }; // ← 🔥 ДОБАВЛЕНО: }; закрывает функцию
 
   const fetchClanData = async () => {
     if (!isAuthenticated) return; 
@@ -293,16 +281,17 @@ const calculateNetWorth = (userData: any) => {
       const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single(); 
       if (clan) { 
         const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
-const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
-  const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status, balance, rub_balance, owned_businesses, price_multipliers').eq('id', m.user_id).single(); 
-  return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
-})); 
-setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
-setClanMembers(enrichedMembers); 
-setMyClanRole(member.role);
+        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
+          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status, balance, rub_balance, owned_businesses, price_multipliers').eq('id', m.user_id).single(); 
+          return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
+        })); 
+        setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
+        setClanMembers(enrichedMembers); 
+        setMyClanRole(member.role);
       } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); } 
     } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
   };
+
   const fetchFriendsData = async () => {
     if (!isAuthenticated) return; 
     const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending'); 
@@ -311,10 +300,11 @@ setMyClanRole(member.role);
     const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id); 
     const friendsData = await Promise.all(friendIds.map(async (id: number) => { 
       const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single(); 
-      return { ...u, incomePerMin: calculateNetWorth(u) }; 
+      return { ...u, netWorth: calculateNetWorth(u) }; 
     })); 
     setFriends(friendsData);
   };
+
   const loadSocial = async () => { await Promise.all([fetchClanData(), fetchFriendsData(), fetchLeaderboard()]); };
   useEffect(() => { if (isAuthenticated) loadSocial(); }, [isAuthenticated]);
   useEffect(() => { if (!isAuthenticated) return; saveNicknameToDB(); const i = setInterval(loadSocial, 15 * 60 * 1000); return () => clearInterval(i); }, [isAuthenticated]);
@@ -348,7 +338,7 @@ setMyClanRole(member.role);
           setManagerHired(data.manager_hired || false);
           setStakedAmount(data.staked_amount || 0);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
-          setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {}); // 🔥 Загрузка кулдаунов
+          setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {});
 
           if (data.last_login && owned.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
@@ -360,7 +350,6 @@ setMyClanRole(member.role);
     loadProgress();
   }, [userIdNum]);
 
-  // 🔥 Бизнес доход (Теперь в рублях)
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
@@ -377,7 +366,7 @@ setMyClanRole(member.role);
       if (income > 0) {
         setTotalBusinessIncome(prev => prev + income);
         setBankRub(prev => prev + income);
-        setRubBalance(prev => prev + income); // 🔥 Рубли капают сразу на баланс для удобства
+        setRubBalance(prev => prev + income);
       }
     }, 60000);
     return () => clearInterval(interval);
@@ -449,19 +438,14 @@ setMyClanRole(member.role);
     if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) { setDailyQuests(updated); supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum); }
   }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
 
-  // 🔥 Таймер для мини-игры подработки
   useEffect(() => {
     if (hustleTimeLeft > 0 && activeHustle) {
       const timer = setInterval(() => {
         setHustleTimeLeft(prev => {
           if (prev <= 1) {
-            // Время вышло - начисляем зарплату
             const earned = activeHustle.salary;
             setRubBalance(p => p + earned);
-            setHustleCooldowns(prev => ({
-              ...prev,
-              [activeHustle.id]: Date.now() + 60000 // Кулдаун 1 минута
-            }));
+            setHustleCooldowns(prev => ({ ...prev, [activeHustle.id]: Date.now() + 60000 }));
             setActiveHustle(null);
             saveProgress();
             alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
@@ -479,14 +463,9 @@ setMyClanRole(member.role);
   const handleBuy = (currencyId: string, amount: number) => { 
     const base = currencies.find(c => c.id === currencyId); 
     if (!base) return; 
-    
     const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
     const currentAmount = currentOwned?.amount || 0;
-    if (currentAmount + amount > 50) {
-      alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`);
-      return;
-    }
-    
+    if (currentAmount + amount > 50) { alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`); return; }
     const mult = priceMultipliers[currencyId] || 1; 
     const price = base.price * mult * amount; 
     if (balance >= price) { 
@@ -502,11 +481,9 @@ setMyClanRole(member.role);
     } 
   };
 
-  // 🔥 Функция продажи бизнеса
   const handleSellBusiness = (bizId: string) => {
     const bizConfig = BUSINESSES.find(b => b.id === bizId);
     if (!bizConfig) return;
-    
     const refundPrice = Math.floor(bizConfig.price * 0.5);
     const bizIndex = ownedBusinesses.findIndex(b => b.id === bizId);
     if (bizIndex > -1) {
@@ -518,37 +495,23 @@ setMyClanRole(member.role);
       alert(`Бизнес "${bizConfig.name}" продан за ${refundPrice.toLocaleString()} ₽`);
     }
   };
-  const handleBuyItem = (item: any) => {
-  if (rubBalance >= item.price) {
-    setRubBalance(p => p - item.price);
-    setOwnedItems(prev => [...prev, { ...item, ownedAt: Date.now() }]);
-    saveProgress();
-    alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
-  } else {
-    alert('Недостаточно рублей!');
-  }
-};
 
-  // 🔥 Логика подработок
+  const handleBuyItem = (item: any) => {
+    if (rubBalance >= item.price) {
+      setRubBalance(p => p - item.price);
+      setOwnedItems(prev => [...prev, { ...item, ownedAt: Date.now() }]);
+      saveProgress();
+      alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
+    } else { alert('Недостаточно рублей!'); }
+  };
+
   const startSideHustle = (hustle: any) => {
     const now = Date.now();
     const cooldown = hustleCooldowns[hustle.id] || 0;
-    if (cooldown > now) {
-      const remaining = Math.ceil((cooldown - now) / 1000);
-      alert(`Подождите ${remaining} сек.`);
-      return;
-    }
-    setActiveHustle(hustle);
-    setHustleClicks(0);
-    setHustleTimeLeft(hustle.duration);
-    setShowSideHustles(false);
+    if (cooldown > now) { alert(`Подождите ${Math.ceil((cooldown - now) / 1000)} сек.`); return; }
+    setActiveHustle(hustle); setHustleClicks(0); setHustleTimeLeft(hustle.duration); setShowSideHustles(false);
   };
-
-  const handleHustleClick = () => {
-    if (hustleTimeLeft > 0) {
-      setHustleClicks(prev => prev + 1);
-    }
-  };
+  const handleHustleClick = () => { if (hustleTimeLeft > 0) setHustleClicks(prev => prev + 1); };
   
   const handleCreateClan = async (clanData: any) => {
     if (myClan) { alert('Вы уже находитесь в клане!'); setShowCreateClan(false); return; }
@@ -583,18 +546,9 @@ setMyClanRole(member.role);
       else { const { error } = await supabase.from('clan_members').insert({ clan_id: clanId, user_id: userIdNum, role: 1 }); if (error) throw error; alert('Вы успешно вступили в клан!'); setShowFindClan(false); fetchClanData(); }
     } catch (err) { console.error('Join clan error:', err); alert('Ошибка при вступлении в клан'); }
   };
-  const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, vip_status').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, incomePerMin: calculateNetWorth(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
+  const searchFriends = async (query: string) => { if (!query.trim()) { setFriendSearchResults([]); return; } try { const { data, error } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, custom_avatar_url, vip_status').ilike('nickname', `%${query}%`).neq('id', userIdNum).limit(10); if (error) throw error; setFriendSearchResults((data || []).map((u: any) => ({ ...u, netWorth: calculateNetWorth(u) }))); } catch (err) { console.error('Friend search error:', err); setFriendSearchResults([]); } };
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
-  const openProfile = (user: any) => {
-  setSelectedUser({
-    ...user,
-    avatarUrl: user.custom_avatar_url,
-    level: getLevelInfo(user.max_balance || 0).level,
-    vip_status: user.vip_status || 'none',
-    netWorth: user.netWorth || totalNetWorth
-  });
-  setShowProfile(true);
-};
+  const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
   const handleExchange = async (usdChange: number, rubChange: number) => { const newUsd = balance + usdChange; const newRub = rubBalance + rubChange; if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!'); setBalance(newUsd); setRubBalance(newRub); try { await supabase.from('users').update({ balance: newUsd, rub_balance: newRub }).eq('id', userIdNum); } catch (e) { console.error('Exchange save error:', e); setBalance(balance); setRubBalance(rubBalance); } };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
@@ -607,17 +561,14 @@ setMyClanRole(member.role);
             <div style={styles.clanTopActions}>
               <button onClick={() => setShowClanSettings(true)} style={styles.iconBtn}><Pencil size={18} /></button>
               <button onClick={() => setShowRankManager(true)} style={styles.iconBtn}><Crown size={18} /></button>
-              <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}>
-                <MessageCircle size={18} />
-                {clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}
-              </button>
+              <button onClick={() => setShowMessages(true)} style={{...styles.iconBtn, position:'relative'}}><MessageCircle size={18} />{clanApplications.length > 0 && <span style={styles.badge}>{clanApplications.length}</span>}</button>
             </div>
           )}
           <div style={styles.clanInfoBlock}>
             <div style={styles.clanAvatar}>{myClan.emoji}</div>
             <div style={styles.clanDetails}>
               <h3 style={styles.clanName}>{myClan.name}</h3>
-              <p style={styles.clanIncome}>Общий доход: +${myClan.total_income.toFixed(2)}/мин</p>
+              <p style={styles.clanIncome}>Общее состояние: {myClan.total_income.toLocaleString()} ₽</p>
             </div>
           </div>
           {myClan.description && <p style={styles.clanDescription}>{myClan.description}</p>}
@@ -660,28 +611,16 @@ setMyClanRole(member.role);
           <div style={styles.screen}>
             <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
             <div style={styles.topBar}>
-              <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, incomePerMin: totalIncome, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance, vip_status: vipStatus })}>
+              <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, netWorth: totalNetWorth, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance, vip_status: vipStatus })}>
                 <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
                 <div style={styles.userInfo}>
                   <span style={styles.nickname}>{currentNickname}{renderVipBadge(vipStatus)}<span style={styles.levelBadge}>Lvl {level}</span></span>
-<div style={styles.balances}>
-  {/* Рубли теперь основные (зеленые и крупные) */}
-  <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>
-    ₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-  </span>
-  {/* Доллары теперь второстепенные (серые и маленькие) */}
-  <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
-    ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-  </span>
-  <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>
-    x{globalMultiplier.toFixed(1)}
-  </span>
-  {boostMultiplier > 1 && (
-    <span style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 8px', borderRadius: 6 }}>
-      x{boostMultiplier}
-    </span>
-  )}
-</div>
+                  <div style={styles.balances}>
+                    <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: 15 }}>₽{rubBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span style={{ fontSize: 12, color: '#a3a3a3', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span style={{ fontSize: 12, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{globalMultiplier.toFixed(1)}</span>
+                    {boostMultiplier > 1 && <span style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 8px', borderRadius: 6 }}>x{boostMultiplier}</span>}
+                  </div>
                 </div>
               </div>
               <div style={styles.rightMenuContainer}><TopMenu onSettingsClick={() => setShowSettings(true)} onClanClick={() => { setShowClan(true); setShowClanHub(false); }} onFriendsClick={() => setShowFriends(true)} onSearchClick={() => setShowSearch(true)} /></div>
@@ -692,64 +631,23 @@ setMyClanRole(member.role);
               <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
             </div>
             <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /></div>
-            
             <div style={styles.newBottomBar}>
-              <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}>
-                <Menu size={18} />
-                <span>Открыть меню</span>
-              </button>
+              <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}><Menu size={18} /><span>Открыть меню</span></button>
             </div>
           </div>
 
           <div style={styles.screen}>
             <div style={styles.secondaryHeader}><h2 style={{margin: 0, fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: '-0.5px'}}>Меню</h2><span style={{color: '#737373', fontSize: 13, marginTop: 4}}>Управление активами</span></div>
             <div style={styles.grid20}>
-  <button style={styles.card} onClick={() => setShowQuests(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div>
-    <span style={styles.cardTitle}>Квесты</span>
-    <span style={styles.cardSub}>Ежедневные задания</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowBank(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div>
-    <span style={styles.cardTitle}>Банк</span>
-    <span style={styles.cardSub}>Счета и переводы</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowBusiness(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div>
-    <span style={styles.cardTitle}>Бизнес</span>
-    <span style={styles.cardSub}>Пассивный доход</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowCasino(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div>
-    <span style={styles.cardTitle}>Казино</span>
-    <span style={styles.cardSub}>Фишки и игры</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowDonate(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div>
-    <span style={styles.cardTitle}>Донат</span>
-    <span style={styles.cardSub}>VIP и бусты</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowCryptoWallet(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}><Wallet size={26} /></div>
-    <span style={styles.cardTitle}>Крипто Кошелек</span>
-    <span style={styles.cardSub}>Твои активы</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowSideHustles(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}><Briefcase size={26} /></div>
-    <span style={styles.cardTitle}>Подработки</span>
-    <span style={styles.cardSub}>Доп. заработок</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowShopMenu(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}><ShoppingBag size={26} /></div>
-    <span style={styles.cardTitle}>Магазин</span>
-    <span style={styles.cardSub}>Товары и услуги</span>
-  </button>
-  <button style={styles.card} onClick={() => setShowAssetsModal(true)}>
-    <div style={{...styles.cardIcon, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981'}}><TrendingUp size={26} /></div>
-    <span style={styles.cardTitle}>Моё состояние</span>
-    <span style={styles.cardSub}>Все активы</span>
-  </button>
-
+              <button style={styles.card} onClick={() => setShowQuests(true)}><div style={{...styles.cardIcon, background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24'}}><ScrollText size={26} /></div><span style={styles.cardTitle}>Квесты</span><span style={styles.cardSub}>Ежедневные задания</span></button>
+              <button style={styles.card} onClick={() => setShowBank(true)}><div style={{...styles.cardIcon, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6'}}><Wallet size={26} /></div><span style={styles.cardTitle}>Банк</span><span style={styles.cardSub}>Счета и переводы</span></button>
+              <button style={styles.card} onClick={() => setShowBusiness(true)}><div style={{...styles.cardIcon, background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}><Building2 size={26} /></div><span style={styles.cardTitle}>Бизнес</span><span style={styles.cardSub}>Пассивный доход</span></button>
+              <button style={styles.card} onClick={() => setShowCasino(true)}><div style={{...styles.cardIcon, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7'}}><Gamepad2 size={26} /></div><span style={styles.cardTitle}>Казино</span><span style={styles.cardSub}>Фишки и игры</span></button>
+              <button style={styles.card} onClick={() => setShowDonate(true)}><div style={{...styles.cardIcon, background: 'rgba(234, 179, 8, 0.15)', color: '#eab308'}}><Gem size={26} /></div><span style={styles.cardTitle}>Донат</span><span style={styles.cardSub}>VIP и бусты</span></button>
+              <button style={styles.card} onClick={() => setShowCryptoWallet(true)}><div style={{...styles.cardIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6'}}><Wallet size={26} /></div><span style={styles.cardTitle}>Крипто Кошелек</span><span style={styles.cardSub}>Твои активы</span></button>
+              <button style={styles.card} onClick={() => setShowSideHustles(true)}><div style={{...styles.cardIcon, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'}}><Briefcase size={26} /></div><span style={styles.cardTitle}>Подработки</span><span style={styles.cardSub}>Доп. заработок</span></button>
+              <button style={styles.card} onClick={() => setShowShopMenu(true)}><div style={{...styles.cardIcon, background: 'rgba(249, 115, 22, 0.15)', color: '#f97316'}}><ShoppingBag size={26} /></div><span style={styles.cardTitle}>Магазин</span><span style={styles.cardSub}>Товары и услуги</span></button>
+              <button style={styles.card} onClick={() => setShowAssetsModal(true)}><div style={{...styles.cardIcon, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981'}}><TrendingUp size={26} /></div><span style={styles.cardTitle}>Моё состояние</span><span style={styles.cardSub}>Все активы</span></button>
             </div> 
           </div>
         </div>
@@ -760,8 +658,8 @@ setMyClanRole(member.role);
         <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={selectedUser} currentUserId={userIdNum} isFriend={friends.some(f => f.id === selectedUser?.id)} isInSameClan={!!myClan && clanMembers.some(m => m.user_id === selectedUser?.id)} myRole={myClanRole} onAddFriend={handleAddFriend} onRemoveFriend={handleRemoveFriend} onKick={handleKick} />
         {showLeaderboard && (<div style={styles.overlay} onClick={() => setShowLeaderboard(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowLeaderboard(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🏆 Топ игроков</h2><div style={styles.list}>{leaderboard.map((player, index) => (<div key={player.id} style={styles.leaderboardItem} onClick={() => openProfile(player)}><span style={{...styles.rank, ...(index < 3 ? styles.topRank : {})}}>{index + 1}</span><div style={styles.listAvatar}>{player.avatarUrl ? <img src={player.avatarUrl} style={styles.memberImg} /> : player.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{player.nickname} {renderVipBadge(player.vip_status)}</div><div style={styles.listSub}>Состояние: {player.netWorth?.toLocaleString(undefined, {maximumFractionDigits: 0})} ₽</div></div></div>))}</div></div></div>)}
         {showClan && (<div style={styles.overlay} onClick={() => setShowClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>{renderClanMenu()}</div></div>)}
-        {showFriends && (<div style={styles.overlay} onClick={() => setShowFriends(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Друзья</h2><button onClick={() => setShowFriendSearch(true)} style={styles.btnSecondary}><Search size={16} /> Поиск друзей</button><div style={styles.list}>{friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (<div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div></div>))}</div></div></div>)}
-        {showFriendSearch && (<div style={styles.overlay} onClick={() => setShowFriendSearch(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriendSearch(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск друзей</h2><input placeholder="Введите никнейм..." value={friendSearchQuery} onChange={(e) => { setFriendSearchQuery(e.target.value); searchFriends(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{friendSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите имя для поиска</p> : friendSearchResults.map(f => (<div key={f.id} style={styles.listItem}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>+${f.incomePerMin.toFixed(0)}/мин</div></div><button onClick={() => handleAddFriend(f.id)} style={styles.btnSmall}><UserPlus size={16} /></button></div>))}</div></div></div>)}
+        {showFriends && (<div style={styles.overlay} onClick={() => setShowFriends(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriends(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Друзья</h2><button onClick={() => setShowFriendSearch(true)} style={styles.btnSecondary}><Search size={16} /> Поиск друзей</button><div style={styles.list}>{friends.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Список друзей пуст</p> : friends.map(f => (<div key={f.id} style={styles.listItem} onClick={() => openProfile(f)}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>Состояние: {f.netWorth?.toLocaleString()} ₽</div></div></div>))}</div></div></div>)}
+        {showFriendSearch && (<div style={styles.overlay} onClick={() => setShowFriendSearch(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFriendSearch(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск друзей</h2><input placeholder="Введите никнейм..." value={friendSearchQuery} onChange={(e) => { setFriendSearchQuery(e.target.value); searchFriends(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{friendSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите имя для поиска</p> : friendSearchResults.map(f => (<div key={f.id} style={styles.listItem}><div style={styles.listAvatar}>{f.custom_avatar_url ? <img src={f.custom_avatar_url} style={styles.memberImg} /> : f.nickname[0]}</div><div style={{flex:1}}><div style={styles.listName}>{f.nickname} {renderVipBadge(f.vip_status)}</div><div style={styles.listSub}>Состояние: {f.netWorth?.toLocaleString()} ₽</div></div><button onClick={() => handleAddFriend(f.id)} style={styles.btnSmall}><UserPlus size={16} /></button></div>))}</div></div></div>)}
         {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Сообщения</h2><MessageTabs currentUserId={userIdNum} handleFriendResponse={handleFriendResponse} calculateNetWorth={calculateNetWorth} renderVipBadge={renderVipBadge} /></div></div>)}
         {showCreateClan && (<div style={styles.overlay} onClick={() => setShowCreateClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Создать клан</h3><input id="clanName" placeholder="Название (до 25)" maxLength={25} style={styles.input} /><textarea id="clanDesc" placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="requireApproval" /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="minLevel" min={1} max={30} defaultValue={1} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="maxMembers" min={5} max={1000} defaultValue={50} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowCreateClan(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('clanName') as HTMLInputElement).value; const description = (document.getElementById('clanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('requireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('minLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('maxMembers') as HTMLInputElement).value); handleCreateClan({ name, emoji: '🏰', description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Создать</button></div></div></div>)}
         {showClanSettings && myClan && (<div style={styles.overlay} onClick={() => setShowClanSettings(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Настройки клана</h3><label style={styles.label}>Название клана:<input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={{...styles.input, marginTop: 8}} /></label><textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('editClanName') as HTMLInputElement).value; const description = (document.getElementById('editClanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('editRequireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('editMinLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('editMaxMembers') as HTMLInputElement).value); handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Сохранить</button></div><div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}><button onClick={() => { if (confirm('⚠️ ВНИМАНИЕ! Удалить клан навсегда? Все участники будут исключены.')) handleDeleteClan(); }} style={styles.btnDanger}><Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/> Удалить клан</button></div></div></div>)}
@@ -777,344 +675,19 @@ setMyClanRole(member.role);
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-      <BankModal
-        isOpen={showBank}
-        onClose={() => setShowBank(false)}
-        userId={userIdNum}
-        userNickname={currentNickname}
-        balance={balance}
-        rubBalance={rubBalance}
-        bankUsd={bankUsd}
-        bankRub={bankRub}
-        onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }}
-        onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }}
-      />
-      <BusinessCenterModal 
-        isOpen={showBusiness} 
-        onClose={() => setShowBusiness(false)} 
-        rubBalance={rubBalance}
-        ownedBusinesses={ownedBusinesses} 
-        businessMaintenance={businessMaintenance} 
-        totalIncome={totalBusinessIncome} 
-        managerHired={managerHired} 
-        onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} 
-        onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} 
-        onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }} 
-        onSell={handleSellBusiness} // 🔥 Передаем функцию продажи
-      />
+      <BankModal isOpen={showBank} onClose={() => setShowBank(false)} userId={userIdNum} userNickname={currentNickname} balance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }} onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} />
+      <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} rubBalance={rubBalance} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }} onSell={handleSellBusiness} />
       <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
 
-      {/* 🔥 КРИПТО КОШЕЛЕК */}
-      {showCryptoWallet && (
-        <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
-              <X size={24} color="#9ca3af" />
-            </button>
-            <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
-            
-            <div style={styles.walletTotal}>
-              <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
-              <div style={styles.walletTotalValue}>
-                ${ownedCurrencies.reduce((total, item) => {
-                  const currency = currencies.find(c => c.id === item.currencyId);
-                  const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
-                  return total + (currentPrice * item.amount);
-                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
+      {showCryptoWallet && (<div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2><div style={styles.walletTotal}><div style={styles.walletTotalLabel}>Общая стоимость активов</div><div style={styles.walletTotalValue}>${ownedCurrencies.reduce((total, item) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; return total + (currentPrice * item.amount); }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div><div style={styles.walletList}>{ownedCurrencies.length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p> : ownedCurrencies.map((item, index) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; const totalValue = currentPrice * item.amount; return (<div key={index} style={styles.walletItem}><div style={styles.walletItemLeft}><div style={styles.walletItemIcon}>{currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}</div><div><div style={styles.walletItemName}>{currency?.name || item.currencyId}</div><div style={styles.walletItemAmount}>{item.amount} шт.</div></div></div><div style={styles.walletItemRight}><div style={styles.walletItemPrice}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.walletItemTotal}>${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div></div>); })}</div></div></div>)}
 
-            <div style={styles.walletList}>
-              {ownedCurrencies.length === 0 ? (
-                <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>
-                  У вас пока нет криптовалют. Купите их в разделе "Торговля"
-                </p>
-              ) : (
-                ownedCurrencies.map((item, index) => {
-                  const currency = currencies.find(c => c.id === item.currencyId);
-                  const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0;
-                  const totalValue = currentPrice * item.amount;
-                  
-                  return (
-                    <div key={index} style={styles.walletItem}>
-                      <div style={styles.walletItemLeft}>
-                        <div style={styles.walletItemIcon}>
-                          {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
-                        </div>
-                        <div>
-                          <div style={styles.walletItemName}>{currency?.name || item.currencyId}</div>
-                          <div style={styles.walletItemAmount}>{item.amount} шт.</div>
-                        </div>
-                      </div>
-                      <div style={styles.walletItemRight}>
-                        <div style={styles.walletItemPrice}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <div style={styles.walletItemTotal}>${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {showSideHustles && (<div style={styles.overlay} onClick={() => setShowSideHustles(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💼 Подработки</h2><div style={styles.hustleList}>{[{ id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' }, { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' }, { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }].map(hustle => { const cooldown = hustleCooldowns[hustle.id] || 0; const canWork = cooldown <= Date.now(); const waitTime = Math.ceil((cooldown - Date.now()) / 1000); return (<div key={hustle.id} style={styles.hustleCard}><div style={styles.hustleHeader}><span style={{fontSize: 32}}>{hustle.icon}</span><div style={{flex: 1, marginLeft: 12}}><h3 style={styles.hustleName}>{hustle.name}</h3><p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p></div></div><div style={styles.hustleInfo}><span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span><span style={styles.hustleDetail}>🖱 Быстро нажимай!</span></div><button onClick={() => startSideHustle(hustle)} disabled={!canWork} style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}>{canWork ? 'Начать' : `Подождите ${waitTime} сек`}</button></div>); })}</div></div></div>)}
 
-      {/* 🔥 ПОДРАБОТКИ (СПИСОК) */}
-      {showSideHustles && (
-        <div style={styles.overlay} onClick={() => setShowSideHustles(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}>
-              <X size={24} color="#9ca3af" />
-            </button>
-            <h2 style={styles.modalTitle}>💼 Подработки</h2>
-            <div style={styles.hustleList}>
-              {[
-                { id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' },
-                { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' },
-                { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }
-              ].map(hustle => {
-                const cooldown = hustleCooldowns[hustle.id] || 0;
-                const canWork = cooldown <= Date.now();
-                const waitTime = Math.ceil((cooldown - Date.now()) / 1000);
-                
-                return (
-                  <div key={hustle.id} style={styles.hustleCard}>
-                    <div style={styles.hustleHeader}>
-                      <span style={{fontSize: 32}}>{hustle.icon}</span>
-                      <div style={{flex: 1, marginLeft: 12}}>
-                        <h3 style={styles.hustleName}>{hustle.name}</h3>
-                        <p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p>
-                      </div>
-                    </div>
-                    <div style={styles.hustleInfo}>
-                      <span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span>
-                      <span style={styles.hustleDetail}>🖱 Быстро нажимай!</span>
-                    </div>
-                    <button
-                      onClick={() => startSideHustle(hustle)}
-                      disabled={!canWork}
-                      style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}
-                    >
-                      {canWork ? 'Начать' : `Подождите ${waitTime} сек`}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeHustle && hustleTimeLeft > 0 && (<div style={styles.overlay} onClick={() => {}}><div style={styles.hustleGameModal}><div style={styles.hustleGameHeader}><h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2><button onClick={() => setActiveHustle(null)} style={styles.closeBtn}><X size={20} color="#9ca3af" /></button></div><div style={styles.hustleTimer}><div style={styles.hustleTimerBar}><div style={{...styles.hustleTimerProgress, width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`}} /></div><span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span></div><div style={styles.hustleClicker} onClick={handleHustleClick} onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><div style={styles.hustleCoin}>💰</div><div style={styles.hustleClicks}>{hustleClicks} кликов</div></div><p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p></div></div>)}
 
-      {/* 🔥 ПОДРАБОТКИ (МИНИ-ИГРА) */}
-      {activeHustle && hustleTimeLeft > 0 && (
-        <div style={styles.overlay} onClick={() => {}}>
-          <div style={styles.hustleGameModal}>
-            <div style={styles.hustleGameHeader}>
-              <h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2>
-              <button onClick={() => setActiveHustle(null)} style={styles.closeBtn}>
-                <X size={20} color="#9ca3af" />
-              </button>
-            </div>
-            
-            <div style={styles.hustleTimer}>
-              <div style={styles.hustleTimerBar}>
-                <div style={{
-                  ...styles.hustleTimerProgress,
-                  width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`
-                }} />
-              </div>
-              <span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span>
-            </div>
+      {showShopMenu && (<div style={styles.overlay} onClick={() => setShowShopMenu(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowShopMenu(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🛒 Магазин</h2><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (<button key={tab} onClick={() => setActiveShopTab(tab)} style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}>{tab === 'cars' && '🚗 '}{tab === 'realestate' && '🏠 '}{tab === 'accessories' && '💎 '}{tab === 'phones' && '📱 '}{tab === 'other' && '📦 '}{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}</button>))}</div><div style={styles.shopContent}>{activeShopTab === 'cars' && (<div style={styles.shopGrid}>{[{ id: 'car1', name: 'Лада Гранта', price: 500000, category: 'cars', icon: '🚙' }, { id: 'car2', name: 'Toyota Camry', price: 2500000, category: 'cars', icon: '🚘' }, { id: 'car3', name: 'BMW X5', price: 6000000, category: 'cars', icon: '🚔' }, { id: 'car4', name: 'Mercedes G-Class', price: 12000000, category: 'cars', icon: '🚕' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'realestate' && (<div style={styles.shopGrid}>{[{ id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' }, { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' }, { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' }, { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'accessories' && (<div style={styles.shopGrid}>{[{ id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' }, { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' }, { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' }, { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}</div></div></div>)}
 
-            <div 
-              style={styles.hustleClicker} 
-              onClick={handleHustleClick}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <div style={styles.hustleCoin}>💰</div>
-              <div style={styles.hustleClicks}>{hustleClicks} кликов</div>
-            </div>
-
-            <p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p>
-          </div>
-        </div>
-      )}
-      {/* 🔥 МАГАЗИН */}
-{showShopMenu && (
-  <div style={styles.overlay} onClick={() => setShowShopMenu(false)}>
-    <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setShowShopMenu(false)} style={styles.closeBtn}>
-        <X size={24} color="#9ca3af" />
-      </button>
-      <h2 style={styles.modalTitle}>🛒 Магазин</h2>
-      
-      {/* Вкладки */}
-      <div style={styles.shopTabs}>
-        {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveShopTab(tab)}
-            style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}
-          >
-            {tab === 'cars' && '🚗 '}
-            {tab === 'realestate' && '🏠 '}
-            {tab === 'accessories' && '💎 '}
-            {tab === 'phones' && '📱 '}
-            {tab === 'other' && '📦 '}
-            {tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}
-          </button>
-        ))}
-      </div>
-
-      {/* Контент вкладок */}
-      <div style={styles.shopContent}>
-        {activeShopTab === 'cars' && (
-          <div style={styles.shopGrid}>
-            {[
-              { id: 'car1', name: 'Лада Гранта', price: 500000, category: 'cars', icon: '🚙' },
-              { id: 'car2', name: 'Toyota Camry', price: 2500000, category: 'cars', icon: '🚘' },
-              { id: 'car3', name: 'BMW X5', price: 6000000, category: 'cars', icon: '🚔' },
-              { id: 'car4', name: 'Mercedes G-Class', price: 12000000, category: 'cars', icon: '🚕' }
-            ].map(item => (
-              <div key={item.id} style={styles.shopItem}>
-                <div style={styles.shopItemIcon}>{item.icon}</div>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {activeShopTab === 'realestate' && (
-          <div style={styles.shopGrid}>
-            {[
-              { id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' },
-              { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' },
-              { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' },
-              { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }
-            ].map(item => (
-              <div key={item.id} style={styles.shopItem}>
-                <div style={styles.shopItemIcon}>{item.icon}</div>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {activeShopTab === 'accessories' && (
-          <div style={styles.shopGrid}>
-            {[
-              { id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' },
-              { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' },
-              { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' },
-              { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }
-            ].map(item => (
-              <div key={item.id} style={styles.shopItem}>
-                <div style={styles.shopItemIcon}>{item.icon}</div>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {activeShopTab === 'phones' && (
-          <div style={styles.shopGrid}>
-            {[
-              { id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' },
-              { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' },
-              { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' },
-              { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }
-            ].map(item => (
-              <div key={item.id} style={styles.shopItem}>
-                <div style={styles.shopItemIcon}>{item.icon}</div>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {activeShopTab === 'other' && (
-          <div style={styles.shopGrid}>
-            {[
-              { id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' },
-              { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' },
-              { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' },
-              { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }
-            ].map(item => (
-              <div key={item.id} style={styles.shopItem}>
-                <div style={styles.shopItemIcon}>{item.icon}</div>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)} 
-
-{/* 🔥 МОЁ СОСТОЯНИЕ */}
-{showAssetsModal && (
-  <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
-    <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}>
-        <X size={24} color="#9ca3af" />
-      </button>
-      <h2 style={styles.modalTitle}>💰 Моё состояние</h2>
-      
-      {/* Общая сумма */}
-      <div style={styles.netWorthPanel}>
-        <div style={styles.netWorthLabel}>Ваше общее состояние на:</div>
-        <div style={styles.netWorthValue}>{totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</div>
-      </div>
-
-      {/* Вкладки */}
-      <div style={styles.shopTabs}>
-        {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveAssetsTab(tab)}
-            style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}
-          >
-            {tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}
-          </button>
-        ))}
-      </div>
-
-      {/* Имущество */}
-      <div style={styles.shopContent}>
-        {ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? (
-          <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
-            У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
-          </p>
-        ) : (
-          <div style={styles.shopGrid}>
-            {ownedItems.filter(item => item.category === activeAssetsTab).map((item, idx) => (
-              <div key={idx} style={styles.shopItem}>
-                <div style={styles.shopItemName}>{item.name}</div>
-                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <div style={{fontSize: 11, color: '#737373'}}>
-                  Куплено: {new Date(item.ownedAt).toLocaleDateString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+      {showAssetsModal && (<div style={styles.overlay} onClick={() => setShowAssetsModal(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Моё состояние</h2><div style={styles.netWorthPanel}><div style={styles.netWorthLabel}>Ваше общее состояние на:</div><div style={styles.netWorthValue}>{totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</div></div><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (<button key={tab} onClick={() => setActiveAssetsTab(tab)} style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}>{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}</button>))}</div><div style={styles.shopContent}>{ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: 40}}>У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}</p> : <div style={styles.shopGrid}>{ownedItems.filter(item => item.category === activeAssetsTab).map((item, idx) => (<div key={idx} style={styles.shopItem}><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><div style={{fontSize: 11, color: '#737373'}}>Куплено: {new Date(item.ownedAt).toLocaleDateString()}</div></div>))}</div>}</div></div></div>)}
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
@@ -1151,7 +724,7 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
                 <div style={styles.listAvatar}>{item.senderData?.nickname?.[0] || '?'}</div>
                 <div style={{flex:1}}>
                   <div style={styles.listName}>{item.senderData?.nickname || 'Игрок'} {renderVipBadge(item.senderData?.vip_status)}</div>
-                  <div style={{...styles.listSub, color:'#22c55e'}}>+${calculateNetWorth(item.senderData || {}).toFixed(0)}/мин</div>
+                  <div style={{...styles.listSub, color:'#22c55e'}}>Состояние: {calculateNetWorth(item.senderData || {}).toFixed(0)} ₽</div>
                 </div>
                 <div style={{display:'flex', gap:8}}>
                   <button onClick={() => handleFriendResponse(item.id, true)} style={styles.btnYes}><Check size={16} /></button>
@@ -1173,7 +746,8 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
       )}
     </div>
   );
-}
+};
+
 const styles: { [key: string]: React.CSSProperties } = {
   container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
   sliderWrapper: { display: 'flex', width: '200vw', height: '100%', transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)' },
@@ -1256,7 +830,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
   subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
   subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' },
-  // Крипто Кошелек стили
   walletTotal: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 20, border: '1px solid rgba(139, 92, 246, 0.3)' },
   walletTotalLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' },
   walletTotalValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' },
@@ -1269,7 +842,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   walletItemRight: { textAlign: 'right' },
   walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
   walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' },
-  // Подработки стили
   hustleList: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
   hustleCard: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 16 },
   hustleHeader: { display: 'flex', alignItems: 'center', marginBottom: 12 },
