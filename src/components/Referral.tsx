@@ -85,8 +85,9 @@ export const Referral: React.FC<ReferralProps> = ({ isOpen, onClose, currentUser
           </button>
         </div>
 
+        {/* 🔥 ОБНОВЛЕННЫЙ ТЕКСТ */}
         <div style={styles.infoText}>
-          Приглашённый должен ввести ник и потратить <b>$50</b>, чтобы ты получил бонус <b>$1000</b> 💰
+          Приглашённый должен ввести ник и потратить <b>100 ₽</b>, чтобы ты получил бонус <b>5000 ₽</b> 💰
         </div>
 
         <div style={styles.listContainer}>
