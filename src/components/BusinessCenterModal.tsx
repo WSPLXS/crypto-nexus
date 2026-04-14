@@ -193,7 +193,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
               Менеджер будет автоматически оплачивать обслуживание бизнесов
             </p>
             <button onClick={onHireManager} style={styles.hireManagerBtn}>
-              Нанять за 500 ₽
+              Нанять за 15000 ₽
             </button>
           </div>
         )}
