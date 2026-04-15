@@ -14,6 +14,7 @@ interface BusinessCenterModalProps {
   onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
   onHireManager: () => void;
   onSell: (bizId: string) => void;
+  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
 }
 
 export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
@@ -28,6 +29,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
   onPayMaintenance,
   onHireManager,
   onSell,
+  onSaveProgress, // 🔥 ДОБАВИЛИ
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'owned'>('all');
 
@@ -107,7 +109,10 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                     </button>
                   ) : (
                     <button
-                      onClick={() => onBuy(biz)}
+                      onClick={() => {
+                        onBuy(biz);
+                        onSaveProgress?.(); // 🔥 Сохраняем после покупки
+                      }}
                       disabled={!canAfford}
                       style={canAfford ? styles.buyBtn : styles.buyBtnDisabled}
                     >
@@ -158,7 +163,10 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                         </span>
                         {maint.elecRemaining < 12 && (
                           <button
-                            onClick={() => onPayMaintenance(biz.id, 'electricity')}
+                            onClick={() => {
+                              onPayMaintenance(biz.id, 'electricity');
+                              onSaveProgress?.(); // 🔥 Сохраняем после оплаты
+                            }}
                             style={styles.maintenanceBtn}
                           >
                             Оплатить
@@ -172,7 +180,10 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                         </span>
                         {maint.repairRemaining < 3 && (
                           <button
-                            onClick={() => onPayMaintenance(biz.id, 'repair')}
+                            onClick={() => {
+                              onPayMaintenance(biz.id, 'repair');
+                              onSaveProgress?.(); // 🔥 Сохраняем после починки
+                            }}
                             style={styles.maintenanceBtn}
                           >
                             Починить
@@ -185,6 +196,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                       onClick={() => {
                         if (window.confirm(`Продать "${conf?.name}" за ${sellPrice.toLocaleString()} ₽ (50% от цены)?`)) {
                           onSell(biz.id);
+                          onSaveProgress?.(); // 🔥 Сохраняем после продажи
                         }
                       }}
                       style={styles.sellBtn}
@@ -205,7 +217,13 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
             <p style={styles.managerDesc}>
               Менеджер будет автоматически оплачивать обслуживание бизнесов
             </p>
-            <button onClick={onHireManager} style={styles.hireManagerBtn}>
+            <button 
+              onClick={() => {
+                onHireManager();
+                onSaveProgress?.(); // 🔥 Сохраняем после найма
+              }} 
+              style={styles.hireManagerBtn}
+            >
               Нанять за 15 000 ₽
             </button>
           </div>
