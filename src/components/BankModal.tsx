@@ -14,18 +14,17 @@ interface BankModalProps {
   bankRub: number;
   onBalanceUpdate: (usd: number, rub: number) => void;
   onBankUpdate: (usd: number, rub: number) => void;
+  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
 }
 
 export const BankModal: React.FC<BankModalProps> = ({
   isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub,
-  onBalanceUpdate, onBankUpdate
+  onBalanceUpdate, onBankUpdate, onSaveProgress // 🔥 Добавили проп
 }) => {
   if (!isOpen) return null;
 
-  // Экраны
   const [screen, setScreen] = useState<'main' | 'operations' | 'transfer' | 'account' | 'exchange' | 'trade' | 'staking'>('main');
   
-  // Состояния экранов
   const [cardSide, setCardSide] = useState<'rub' | 'usd'>('rub');
   const [transferCurrency, setTransferCurrency] = useState<'rub' | 'usd'>('rub');
   const [transferAmount, setTransferAmount] = useState('');
@@ -38,7 +37,6 @@ export const BankModal: React.FC<BankModalProps> = ({
   const [exchangeDirection, setExchangeDirection] = useState<'rub-to-usd' | 'usd-to-rub'>('rub-to-usd');
   const [exchangeAmount, setExchangeAmount] = useState('');
 
-  // Данные
   const [monthlySpend, setMonthlySpend] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [stakedAmount, setStakedAmount] = useState(0);
@@ -47,30 +45,25 @@ export const BankModal: React.FC<BankModalProps> = ({
   const [tradeAmount, setTradeAmount] = useState('');
   const [stakeInput, setStakeInput] = useState('');
 
-  // Загрузка транзакций
   useEffect(() => {
     if (isOpen && screen === 'operations') loadTransactions();
   }, [isOpen, screen]);
 
-  // Живые цены крипты
-    // 🔥 Загрузка курсов из базы Supabase (единые для всех)
   useEffect(() => {
     loadCryptoRates();
-    const interval = setInterval(loadCryptoRates, 30000); // Обновляем каждые 30 сек
+    const interval = setInterval(loadCryptoRates, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const loadCryptoRates = async () => {
     try {
-      const {  data } = await supabase.from('crypto_rates').select('*');
+      const { data } = await supabase.from('crypto_rates').select('*');
       if (data) {
         const prices: Record<string, number> = {};
         data.forEach(r => prices[r.currency] = r.rate_rub);
         setLivePrices(prices);
       }
-    } catch (err) {
-      console.error('Load rates error:', err);
-    }
+    } catch (err) { console.error('Load rates error:', err); }
   };
 
   const loadTransactions = async () => {
@@ -89,49 +82,49 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   // --- ПЕРЕВОД ---
   const handleTransfer = async () => {
-  const amt = parseFloat(transferAmount);
-  if (!amt || amt <= 0) return alert('Введите сумму');
-  if (!transferTarget.trim()) return alert('Введите ник получателя');
+    const amt = parseFloat(transferAmount);
+    if (!amt || amt <= 0) return alert('Введите сумму');
+    if (!transferTarget.trim()) return alert('Введите ник получателя');
 
-  const col = transferCurrency === 'rub' ? 'rub_balance' : 'balance';
-  const currentBal = transferCurrency === 'rub' ? rubBalance : balance;
-  if (amt > currentBal) return alert('Недостаточно средств!');
+    const col = transferCurrency === 'rub' ? 'rub_balance' : 'balance';
+    const currentBal = transferCurrency === 'rub' ? rubBalance : balance;
+    if (amt > currentBal) return alert('Недостаточно средств!');
 
-  try {
-    const { data: targetUser } = await supabase
-      .from('users')
-      .select('id, nickname, balance, rub_balance')
-      .ilike('nickname', transferTarget.trim())
-      .neq('id', userId)
-      .single();
+    try {
+      const { data: targetUser } = await supabase
+        .from('users')
+        .select('id, nickname, balance, rub_balance')
+        .ilike('nickname', transferTarget.trim())
+        .neq('id', userId)
+        .single();
 
-    if (!targetUser) return alert('Пользователь не найден');
+      if (!targetUser) return alert('Пользователь не найден');
+      const targetCurrentBal = (targetUser as any)[col] || 0;
+      
+      await supabase.from('users').update({ [col]: currentBal - amt }).eq('id', userId);
+      await supabase.from('users').update({ [col]: targetCurrentBal + amt }).eq('id', targetUser.id);
+      await supabase.from('transactions').insert({ 
+        sender_id: userId, 
+        receiver_id: targetUser.id, 
+        amount: amt, 
+        currency: transferCurrency === 'rub' ? 'RUB' : 'USD' 
+      });
 
-    // 🔥 Исправление: используем any для динамического доступа
-    const targetCurrentBal = (targetUser as any)[col] || 0;
-    
-    await supabase.from('users').update({ [col]: currentBal - amt }).eq('id', userId);
-    await supabase.from('users').update({ [col]: targetCurrentBal + amt }).eq('id', targetUser.id);
-    await supabase.from('transactions').insert({ 
-      sender_id: userId, 
-      receiver_id: targetUser.id, 
-      amount: amt, 
-      currency: transferCurrency === 'rub' ? 'RUB' : 'USD' 
-    });
-
-    onBalanceUpdate(
-      transferCurrency === 'usd' ? balance - amt : balance, 
-      transferCurrency === 'rub' ? rubBalance - amt : rubBalance
-    );
-    
-    alert(`✅ Переведено ${fmt(amt, transferCurrency === 'rub' ? '₽' : '$')} игроку ${targetUser.nickname}`);
-    setTransferAmount(''); 
-    setTransferTarget(''); 
-    setScreen('main');
-  } catch (err: any) { 
-    alert('Ошибка: ' + err.message); 
-  }
-};
+      onBalanceUpdate(
+        transferCurrency === 'usd' ? balance - amt : balance, 
+        transferCurrency === 'rub' ? rubBalance - amt : rubBalance
+      );
+      
+      onSaveProgress?.(); // 🔥 Сохраняем после перевода
+      
+      alert(`✅ Переведено ${fmt(amt, transferCurrency === 'rub' ? '₽' : '$')} игроку ${targetUser.nickname}`);
+      setTransferAmount(''); 
+      setTransferTarget(''); 
+      setScreen('main');
+    } catch (err: any) { 
+      alert('Ошибка: ' + err.message); 
+    }
+  };
 
   // --- СЧЕТ (Пополнение/Снятие) ---
   const handleAccountAction = (type: 'deposit' | 'withdraw') => {
@@ -143,6 +136,7 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > walletBal) return alert('Недостаточно средств на кошельке');
       onBalanceUpdate(accountCurrency === 'usd' ? balance - amt : balance, accountCurrency === 'rub' ? rubBalance - amt : rubBalance);
       onBankUpdate(accountCurrency === 'usd' ? bankUsd + amt : bankUsd, accountCurrency === 'rub' ? bankRub + amt : bankRub);
+      onSaveProgress?.(); // 🔥 Сохраняем
       alert(`✅ Пополнено ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
       setDepositAmount('');
     } else {
@@ -150,6 +144,7 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > bankBal) return alert('Недостаточно средств на счете');
       onBankUpdate(accountCurrency === 'usd' ? bankUsd - amt : bankUsd, accountCurrency === 'rub' ? bankRub - amt : bankRub);
       onBalanceUpdate(accountCurrency === 'usd' ? balance + amt : balance, accountCurrency === 'rub' ? rubBalance + amt : rubBalance);
+      onSaveProgress?.(); // 🔥 Сохраняем
       alert(`✅ Снято ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
       setWithdrawAmount('');
     }
@@ -164,42 +159,50 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > rubBalance) return alert('Недостаточно рублей');
       const usdGot = amt / 80;
       onBalanceUpdate(balance + usdGot, rubBalance - amt);
+      onSaveProgress?.(); // 🔥 Сохраняем
       alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
     } else {
       if (amt > balance) return alert('Недостаточно долларов');
       const rubGot = amt * 80;
       onBalanceUpdate(balance - amt, rubBalance + rubGot);
+      onSaveProgress?.(); // 🔥 Сохраняем
       alert(`✅ Обменяно ${amt}$ на ${rubGot}₽`);
     }
     setExchangeAmount('');
   };
 
-  // --- ТОРГОВЛЯ И СТЕЙКИНГ (как было) ---
+  // --- ТОРГОВЛЯ ---
   const handleTrade = (type: 'buy' | 'sell') => {
     const amt = parseFloat(tradeAmount);
     if (!amt || amt <= 0) return alert('Введите количество');
     const price = livePrices[selectedCrypto] || CRYPTO_LIST.find(c => c.id === selectedCrypto)?.basePrice || 0;
     const totalRub = amt * price;
+    
     if (type === 'buy') {
       if (totalRub > rubBalance) return alert('Недостаточно рублей');
       onBalanceUpdate(balance, rubBalance - totalRub);
     } else {
       onBalanceUpdate(balance, rubBalance + totalRub);
     }
+    onSaveProgress?.(); // 🔥 Сохраняем
     alert(`✅ ${type === 'buy' ? 'Куплено' : 'Продано'} ${amt} ${selectedCrypto.toUpperCase()}`);
     setTradeAmount('');
   };
+
+  // --- СТЕЙКИНГ ---
   const handleStake = () => {
     const amt = parseFloat(stakeInput);
     if (!amt || amt <= 0) return alert('Введите сумму');
     if (amt > balance) return alert('Недостаточно долларов');
+    
     onBalanceUpdate(balance - amt, rubBalance);
     setStakedAmount(prev => prev + amt);
+    onSaveProgress?.(); // 🔥 Сохраняем
     alert(`✅ В стейкинг отправлено $${amt}`);
     setStakeInput('');
   };
 
-  // СТИЛИ
+  // СТИЛИ (без изменений)
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },

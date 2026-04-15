@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft, AlertCircle } from 'lucide-react';
 
-const EXCHANGE_RATE = 90.0; // 1 USD = 90 RUB (можно менять)
+const EXCHANGE_RATE = 90.0; // 1 USD = 90 RUB
 
 interface ExchangeModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export const ExchangeModal: React.FC<ExchangeModalProps> = ({
     setStatus('idle');
     setMessage('');
 
-    if (amountNum <= 0) {
+    if (amountNum <= 0 || isNaN(amountNum)) {
       setStatus('error');
       setMessage('Введите корректную сумму');
       setLoading(false);
@@ -52,15 +52,18 @@ export const ExchangeModal: React.FC<ExchangeModalProps> = ({
     }
 
     try {
-      await new Promise(res => setTimeout(res, 600)); // Имитация загрузки
+      await new Promise(res => setTimeout(res, 600));
+      
       if (direction === 'usd_to_rub') {
         onExchange(-amountNum, receivedAmount);
       } else {
         onExchange(receivedAmount, -amountNum);
       }
+      
       setStatus('success');
       setMessage(`Обменяно ${amountNum} ${direction === 'usd_to_rub' ? '$' : '₽'} на ${receivedAmount.toFixed(2)} ${direction === 'usd_to_rub' ? '₽' : '$'}`);
       setAmount('');
+      
       setTimeout(() => {
         onClose();
         setTimeout(() => setStatus('idle'), 500);

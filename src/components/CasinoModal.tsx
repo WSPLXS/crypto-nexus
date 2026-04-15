@@ -7,20 +7,22 @@ interface CasinoModalProps {
   onClose: () => void;
   userId: number;
   usdBalance: number;
-  rubBalance: number; // 🔥 Добавили обратно
+  rubBalance: number;
   bankUsd: number;
   bankRub: number;
   chips: number;
   onChipExchange: (newChips: number, newBankUsd: number, newBankRub: number) => void;
+  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
 }
 
 export const CasinoModal: React.FC<CasinoModalProps> = ({
   isOpen,
   onClose,
   usdBalance,
-  rubBalance, // 🔥 Приняли
+  rubBalance,
   chips,
-  onChipExchange
+  onChipExchange,
+  onSaveProgress // 🔥 Добавили проп
 }) => {
   if (!isOpen) return null;
   const [tab, setTab] = useState<'exchange' | 'games'>('exchange');
@@ -34,18 +36,21 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
     if (direction === 'buy') {
       // Покупаем фишки за $
       if (usdBalance < num) return alert('Недостаточно долларов на балансе!');
-      onChipExchange(chips + num, usdBalance - num, rubBalance); // Снимаем с usdBalance
+      onChipExchange(chips + num, usdBalance - num, rubBalance);
+      onSaveProgress?.(); // 🔥 Сохраняем после покупки
     } else {
       // Продаем фишки обратно в $
       if (chips < num) return alert('Недостаточно фишек!');
-      onChipExchange(chips - num, usdBalance + num, rubBalance); // Добавляем к usdBalance
+      onChipExchange(chips - num, usdBalance + num, rubBalance);
+      onSaveProgress?.(); // 🔥 Сохраняем после продажи
     }
     setAmount('');
   };
 
   const playGame = (game: any) => {
     const bet = parseFloat(prompt(`Ставка для ${game.name} (мин ${game.minBet}):`) || '0');
-    if (bet < game.minBet || bet > chips * game.maxBetPercent) return alert('❌ Неверная ставка');
+    if (!bet || bet < game.minBet || bet > chips * game.maxBetPercent) return alert('❌ Неверная ставка');
+    
     setLoading(true);
     setTimeout(() => {
       const win = Math.random() > 0.48; // 48% шанс победы (House edge 4%)
@@ -56,6 +61,7 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
         onChipExchange(chips - bet, usdBalance, rubBalance);
         alert(`😔 Проигрыш. -${bet} фишек`);
       }
+      onSaveProgress?.(); // 🔥 Сохраняем после игры
       setLoading(false);
     }, 1000);
   };
@@ -81,7 +87,6 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
               <span style={{ fontSize: 32, fontWeight: '800', color: '#fff' }}>{chips}</span>
               <span style={{ color: '#737373', fontSize: 14 }}>Фишек</span>
             </div>
-            {/* 🔥 Показываем реальный баланс $ */}
             <div style={styles.balanceInfo}>Ваш баланс: ${usdBalance.toFixed(2)}</div>
 
             <input

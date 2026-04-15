@@ -202,18 +202,23 @@ function App() {
       const payload = { 
         id: userIdNum, nickname: currentNickname, 
         balance: balanceRef.current, rub_balance: rubBalanceRef.current, max_balance: maxBalanceRef.current, 
-        owned_currencies: ownedCurrenciesRef.current, price_multipliers: priceMultipliersRef.current, 
+        owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
+        price_multipliers: JSON.stringify(priceMultipliersRef.current), 
         selected_currency: selectedCurrencyRef.current, last_login: new Date().toISOString(), 
         total_spent: totalSpentRef.current, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven, 
         boost_multiplier: boostMultiplierRef.current, 
         boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
-        daily_quests: dailyQuestsRef.current.length > 0 ? JSON.stringify(dailyQuestsRef.current) : '[]',
+        daily_quests: JSON.stringify(dailyQuestsRef.current),
         bank_usd: bankUsd, bank_rub: bankRub, 
-        crypto_holdings: cryptoHoldings, casino_chips: casinoChips, 
-        owned_businesses: ownedBusinesses, business_maintenance: businessMaintenance, 
-        manager_hired: managerHired, staked_amount: stakedAmount,
-        job_cooldowns: jobCooldowns,
-        hustle_cooldowns: hustleCooldowns
+        staked_amount: stakedAmount,
+        casino_chips: casinoChips,
+        owned_items: JSON.stringify(ownedItems),
+        crypto_holdings: JSON.stringify(cryptoHoldings),
+        owned_businesses: JSON.stringify(ownedBusinesses), 
+        business_maintenance: JSON.stringify(businessMaintenance), 
+        manager_hired: managerHired,
+        job_cooldowns: JSON.stringify(jobCooldowns),
+        hustle_cooldowns: JSON.stringify(hustleCooldowns)
       };
       await supabase.from('users').upsert(payload, { onConflict: 'id' }).single();
     } catch (err) { console.error('❌ Ошибка сохранения:', err); }
@@ -315,34 +320,66 @@ function App() {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
         if (data) {
-          setBalance(data.balance || 0); setRubBalance(data.rub_balance || 1000); setMaxBalance(data.max_balance || 100);
-          let owned = []; try { if (data.owned_currencies) { if (Array.isArray(data.owned_currencies)) owned = data.owned_currencies; else if (typeof data.owned_currencies === 'string') { const p = JSON.parse(data.owned_currencies); owned = Array.isArray(p) ? p : []; } } } catch { owned = []; }
-          setOwnedCurrencies(owned);
-          let mults = {}; try { if (data.price_multipliers) { mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers; if (typeof mults !== 'object' || Array.isArray(mults)) mults = {}; } } catch { mults = {}; }
+          setBalance(data.balance || 0); 
+          setRubBalance(data.rub_balance || 1000); 
+          setMaxBalance(data.max_balance || 100);
+          
+          // Крипта
+          let owned = []; 
+          try { if (data.owned_currencies) owned = typeof data.owned_currencies === 'string' ? JSON.parse(data.owned_currencies) : data.owned_currencies; } catch { owned = []; }
+          setOwnedCurrencies(Array.isArray(owned) ? owned : []);
+          
+          // Мультипликаторы
+          let mults = {}; 
+          try { if (data.price_multipliers) mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers; } catch { mults = {}; }
           setPriceMultipliers(mults);
-          setSelectedCurrencyId(data.selected_currency || 'btc'); setTotalSpent(data.total_spent || 0);
-          setReferrerId(data.referrer_id || null); setReferralBonusGiven(data.referral_bonus_awarded || false);
+          
+          setSelectedCurrencyId(data.selected_currency || 'btc'); 
+          setTotalSpent(data.total_spent || 0);
+          setReferrerId(data.referrer_id || null); 
+          setReferralBonusGiven(data.referral_bonus_awarded || false);
+          
           if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
+          
           if (data.vip_status) setVipStatus(data.vip_status);
-          if (data.boost_expires_at) { const exp = new Date(data.boost_expires_at).getTime(); if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); } }
-          if (data.daily_quests) { try { const quests = typeof data.daily_quests === 'string' ? JSON.parse(data.daily_quests) : data.daily_quests; setDailyQuests(Array.isArray(quests) ? quests : []); } catch { setDailyQuests([]); } }
+          if (data.boost_expires_at) { 
+            const exp = new Date(data.boost_expires_at).getTime(); 
+            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); } 
+          }
+          
+          // Квесты
+          if (data.daily_quests) { try { setDailyQuests(JSON.parse(data.daily_quests)); } catch { setDailyQuests([]); } }
           if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
           
-          setBankUsd(data.bank_usd || 0); setBankRub(data.bank_rub || 0);
-          setCryptoHoldings(typeof data.crypto_holdings === 'string' ? JSON.parse(data.crypto_holdings || '{}') : data.crypto_holdings || {});
+          // 🔥 НОВЫЕ ПОЛЯ (БАНК, СТЕЙКИНГ, КАЗИНО, МАГАЗИН)
+          setBankUsd(data.bank_usd || 0); 
+          setBankRub(data.bank_rub || 0);
+          setStakedAmount(data.staked_amount || 0);
           setCasinoChips(data.casino_chips || 0);
-          setOwnedBusinesses(typeof data.owned_businesses === 'string' ? JSON.parse(data.owned_businesses || '[]') : data.owned_businesses || []);
+          setOwnedItems(typeof data.owned_items === 'string' ? JSON.parse(data.owned_items || '[]') : data.owned_items || []);
+          setCryptoHoldings(typeof data.crypto_holdings === 'string' ? JSON.parse(data.crypto_holdings || '{}') : data.crypto_holdings || {});
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
           setManagerHired(data.manager_hired || false);
-          setStakedAmount(data.staked_amount || 0);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
           setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {});
 
+          // Бизнесы
+          let businesses = [];
+          try { if (data.owned_businesses) businesses = typeof data.owned_businesses === 'string' ? JSON.parse(data.owned_businesses) : data.owned_businesses; } catch { businesses = []; }
+          setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
+
+          // Оффлайн доход
           if (data.last_login && owned.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-            if (diff > 60) { const tier = getLevelInfo(data.max_balance || 0).tier; const mult = getGlobalMultiplier(tier); const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0); const off = inc * diff * 0.2; if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); } }
+            if (diff > 60) { 
+              const tier = getLevelInfo(data.max_balance || 0).tier; 
+              const mult = getGlobalMultiplier(tier); 
+              const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0); 
+              const off = inc * diff * 0.2; 
+              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); } 
+            }
           }
         }
       } catch (err) { console.error('💀 Critical load error:', err); } finally { setIsLoading(false); if (isAuthenticated) checkSubscription(); }
@@ -480,6 +517,40 @@ function App() {
       setTimeout(() => saveProgress(), 50); 
     } 
   };
+
+  const handleSell = (currencyId: string, amount: number) => {
+  // 🔥 ПРОВЕРКА: есть ли у игрока эта крипта
+  const owned = ownedCurrencies.find(c => c.currencyId === currencyId);
+  if (!owned || owned.amount < amount) {
+    alert('У тебя нет этой криптовалюты в таком количестве!');
+    return;
+  }
+  
+  const currency = currencies.find(c => c.id === currencyId);
+  if (!currency) return;
+  
+  const price = currency.price * (priceMultipliers[currencyId] || 1) * amount;
+  
+  // Снимаем крипту
+  setOwnedCurrencies(prev => {
+    const ex = prev.find(c => c.currencyId === currencyId);
+    if (!ex) return prev;
+    if (ex.amount === amount) {
+      return prev.filter(c => c.currencyId !== currencyId);
+    }
+    return prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount - amount} : c);
+  });
+  
+  // Начисляем доллары
+  setBalance(p => p + price);
+  setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
+  
+  // Обновляем мультипликатор (опционально)
+  // setPriceMultipliers(prev => ({...prev, [currencyId]: Math.max(1, (prev[currencyId] || 1) * 0.95)}));
+  
+  setTimeout(() => saveProgress(), 50);
+  alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
+};
 
   const handleSellBusiness = (bizId: string) => {
     const bizConfig = BUSINESSES.find(b => b.id === bizId);
@@ -675,9 +746,36 @@ function App() {
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-      <BankModal isOpen={showBank} onClose={() => setShowBank(false)} userId={userIdNum} userNickname={currentNickname} balance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); saveProgress(); }} onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); saveProgress(); }} />
+      <BankModal 
+  isOpen={showBank} 
+  onClose={() => setShowBank(false)} 
+  userId={userIdNum} 
+  userNickname={currentNickname} 
+  balance={balance} 
+  rubBalance={rubBalance} 
+  bankUsd={bankUsd} 
+  bankRub={bankRub} 
+  onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
+  onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
+  onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
+/>
       <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} rubBalance={rubBalance} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }} onSell={handleSellBusiness} />
-      <CasinoModal isOpen={showCasino} onClose={() => setShowCasino(false)} userId={userIdNum} usdBalance={balance} rubBalance={rubBalance} bankUsd={bankUsd} bankRub={bankRub} chips={casinoChips} onChipExchange={(newChips, newBankUsd, newBankRub) => { setCasinoChips(newChips); setBankUsd(newBankUsd); setBankRub(newBankRub); saveProgress(); }} />
+      <CasinoModal 
+  isOpen={showCasino} 
+  onClose={() => setShowCasino(false)} 
+  userId={userIdNum} 
+  usdBalance={balance} 
+  rubBalance={rubBalance} 
+  bankUsd={bankUsd} 
+  bankRub={bankRub} 
+  chips={casinoChips} 
+  onChipExchange={(newChips, newBankUsd, newBankRub) => { 
+    setCasinoChips(newChips); 
+    setBankUsd(newBankUsd); 
+    setBankRub(newBankRub); 
+  }} 
+  onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
+/>
 
       {showCryptoWallet && (<div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2><div style={styles.walletTotal}><div style={styles.walletTotalLabel}>Общая стоимость активов</div><div style={styles.walletTotalValue}>${ownedCurrencies.reduce((total, item) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; return total + (currentPrice * item.amount); }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div><div style={styles.walletList}>{ownedCurrencies.length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p> : ownedCurrencies.map((item, index) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; const totalValue = currentPrice * item.amount; return (<div key={index} style={styles.walletItem}><div style={styles.walletItemLeft}><div style={styles.walletItemIcon}>{currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}</div><div><div style={styles.walletItemName}>{currency?.name || item.currencyId}</div><div style={styles.walletItemAmount}>{item.amount} шт.</div></div></div><div style={styles.walletItemRight}><div style={styles.walletItemPrice}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.walletItemTotal}>${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div></div>); })}</div></div></div>)}
 

@@ -8,11 +8,12 @@ interface TransferModalProps {
   currentUserId: number;
   usdBalance: number;
   rubBalance: number;
-  onTransferSuccess: (newUsd: number, newRub: number) => void; // 🔥 НОВЫЙ ПРОПС
+  onTransferSuccess: (newUsd: number, newRub: number) => void;
+  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
 }
 
 export const TransferModal: React.FC<TransferModalProps> = ({
-  isOpen, onClose, currentUserId, usdBalance, rubBalance, onTransferSuccess
+  isOpen, onClose, currentUserId, usdBalance, rubBalance, onTransferSuccess, onSaveProgress
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -34,11 +35,12 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
   const handleSend = async () => {
     if (!selectedUser) return alert('Выберите получателя из списка');
+    if (selectedUser.id === currentUserId) return alert('Нельзя перевести деньги самому себе!');
     
     const num = parseFloat(amount);
     const target = selectedUser.id;
 
-    if (!num || num <= 0) return alert('Введите сумму больше 0');
+    if (!num || num <= 0 || isNaN(num)) return alert('Введите корректную сумму больше 0');
     
     const currentBalance = currency === 'usd' ? usdBalance : rubBalance;
     const symbol = currency === 'usd' ? '$' : '₽';
@@ -58,22 +60,26 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         .from('users')
         .update({ [colName]: currentBalance - num })
         .eq('id', currentUserId);
+      
       if (senderError) throw senderError;
 
       // 2. Находим получателя и начисляем
       const { data: receiver, error: receiverError } = await supabase
         .from('users')
-        .select('id, balance, rub_balance')
+        .select(`id, ${colName}`)
         .eq('id', target)
         .single();
 
       if (receiverError || !receiver) throw new Error('Пользователь не найден!');
 
-      const receiverCurrent = receiver[colName] || 0;
+      // 🔥 ИСПРАВЛЕНИЕ: типизация для динамического доступа
+      const receiverCurrent = (receiver as Record<string, any>)?.[colName] || 0;
+      
       const { error: updateError } = await supabase
         .from('users')
         .update({ [colName]: receiverCurrent + num })
         .eq('id', target);
+      
       if (updateError) throw updateError;
 
       // 3. Логируем перевод
@@ -81,7 +87,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         sender_id: currentUserId,
         receiver_id: target,
         amount: num,
-        currency: dbCurrency
+        currency: dbCurrency,
+        status: 'completed'
       });
 
       alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname || target}!`);
@@ -90,6 +97,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       const newUsd = currency === 'usd' ? usdBalance - num : usdBalance;
       const newRub = currency === 'rub' ? rubBalance - num : rubBalance;
       onTransferSuccess(newUsd, newRub);
+      
+      onSaveProgress?.(); // 🔥 Сохраняем в базу
       
       onClose();
     } catch (err: any) {
@@ -214,6 +223,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 setSearchQuery('');
               }}
               style={styles.clearBtn}
+              disabled={loading}
             >
               <X size={16} />
             </button>
@@ -229,6 +239,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             value={amount}
             onChange={e => setAmount(e.target.value)}
             disabled={loading || !selectedUser}
+            min="0.01"
+            step="0.01"
           />
         </label>
 
