@@ -134,6 +134,11 @@ function App() {
   const selectedCurrencyRef = useRef(selectedCurrencyId); const totalSpentRef = useRef(totalSpent);
   const boostMultiplierRef = useRef(boostMultiplier); const boostExpiresAtRef = useRef(boostExpiresAt);
   const dailyQuestsRef = useRef(dailyQuests);
+  
+  // 🔥 НОВЫЕ REFS ДЛЯ БИЗНЕСОВ
+  const ownedBusinessesRef = useRef(ownedBusinesses);
+  const businessMaintenanceRef = useRef(businessMaintenance);
+  const managerHiredRef = useRef(managerHired);
 
   useEffect(() => { balanceRef.current = balance; }, [balance]);
   useEffect(() => { rubBalanceRef.current = rubBalance; }, [rubBalance]);
@@ -145,6 +150,11 @@ function App() {
   useEffect(() => { boostMultiplierRef.current = boostMultiplier; }, [boostMultiplier]);
   useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
   useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
+  
+  // 🔥 СИНХРОНИЗАЦИЯ REFS БИЗНЕСОВ
+  useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
+  useEffect(() => { businessMaintenanceRef.current = businessMaintenance; }, [businessMaintenance]);
+  useEffect(() => { managerHiredRef.current = managerHired; }, [managerHired]);
 
   useEffect(() => { if (boostMultiplier > 1 && !boostExpiresAt) setBoostMultiplier(1); }, [boostMultiplier, boostExpiresAt]);
 
@@ -198,62 +208,55 @@ function App() {
   };
 
 const saveProgress = async () => {
-  // 🔥 ДОБАВЬ ЭТИ СТРОКИ ДЛЯ ОТЛАДКИ
   console.log('🔍 SAVE PROGRESS CALLED');
-  console.log('📊 Current values:', {
-    balance: balanceRef.current,
-    rubBalance: rubBalanceRef.current,
-    userId: userIdNum
-  });
-
-    try {
-      const payload = { 
-        id: userIdNum, 
-        nickname: currentNickname, 
-        balance: balanceRef.current, 
-        rub_balance: rubBalanceRef.current, 
-        max_balance: maxBalanceRef.current, 
-        owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
-        price_multipliers: JSON.stringify(priceMultipliersRef.current), 
-        selected_currency: selectedCurrencyRef.current, 
-        last_login: new Date().toISOString(), 
-        total_spent: totalSpentRef.current, 
-        referrer_id: referrerId, 
-        referral_bonus_awarded: referralBonusGiven, 
-        boost_multiplier: boostMultiplierRef.current, 
-        boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
-        daily_quests: JSON.stringify(dailyQuestsRef.current),
-        
-        // ✅ Эти колонки мы создавали через SQL, оставляем их:
-        staked_amount: stakedAmount,
-        owned_items: JSON.stringify(ownedItems),
-        crypto_holdings: JSON.stringify(cryptoHoldings),
-        owned_businesses: JSON.stringify(ownedBusinesses), 
-        
-        // ❌ ЭТИ КОЛОНКИ УДАЛИ (или закомментируй), так как их нет в базе:
-        // bank_usd: bankUsd, 
-        // bank_rub: bankRub, 
-        // casino_chips: casinoChips,
-        // business_maintenance: JSON.stringify(businessMaintenance), 
-        // manager_hired: managerHired,
-        // job_cooldowns: JSON.stringify(jobCooldowns),
-        // hustle_cooldowns: JSON.stringify(hustleCooldowns)
-      };
-
-      const { data, error } = await supabase
-        .from('users')
-        .update(payload)
-        .eq('id', userIdNum);
+  try {
+    const payload = { 
+      id: userIdNum, 
+      nickname: currentNickname, 
+      balance: balanceRef.current, 
+      rub_balance: rubBalanceRef.current, 
+      max_balance: maxBalanceRef.current, 
+      owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
+      price_multipliers: JSON.stringify(priceMultipliersRef.current), 
+      selected_currency: selectedCurrencyRef.current, 
+      last_login: new Date().toISOString(), 
+      total_spent: totalSpentRef.current, 
+      referrer_id: referrerId, 
+      referral_bonus_awarded: referralBonusGiven, 
+      boost_multiplier: boostMultiplierRef.current, 
+      boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
+      daily_quests: JSON.stringify(dailyQuestsRef.current),
       
-      if (error) {
-        console.error('❌ Save error:', error);
-        throw error;
-      }
-      console.log('✅ Save success');
-    } catch (err) { 
-      console.error('❌ Ошибка сохранения:', err); 
+      // ✅ Добавляем обратно:
+      owned_businesses: JSON.stringify(ownedBusinessesRef.current),
+      business_maintenance: JSON.stringify(businessMaintenanceRef.current),
+      manager_hired: managerHiredRef.current,
+      
+      // И остальные:
+      staked_amount: stakedAmount,
+      owned_items: JSON.stringify(ownedItems),
+      crypto_holdings: JSON.stringify(cryptoHoldings),
+      bank_usd: bankUsd,
+      bank_rub: bankRub,
+      casino_chips: casinoChips,
+      job_cooldowns: JSON.stringify(jobCooldowns),
+      hustle_cooldowns: JSON.stringify(hustleCooldowns)
+    };
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(payload)
+      .eq('id', userIdNum);
+    
+    if (error) {
+      console.error('❌ Save error:', error);
+      throw error;
     }
-  };
+    console.log('✅ Save success');
+  } catch (err) { 
+    console.error('❌ Ошибка сохранения:', err); 
+  }
+};
 
   const checkSubscription = async () => {
     try {
@@ -397,10 +400,36 @@ const saveProgress = async () => {
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
           setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {});
 
-          // Бизнесы
-          let businesses = [];
-          try { if (data.owned_businesses) businesses = typeof data.owned_businesses === 'string' ? JSON.parse(data.owned_businesses) : data.owned_businesses; } catch { businesses = []; }
-          setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
+// 🔥 БИЗНЕСЫ - ПОЛНОЕ ИСПРАВЛЕНИЕ
+
+// 1. Загрузка бизнесов
+let businesses = [];
+try { 
+  if (data.owned_businesses) {
+    businesses = typeof data.owned_businesses === 'string' 
+      ? JSON.parse(data.owned_businesses) 
+      : data.owned_businesses; 
+  } 
+} catch { businesses = []; }
+setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
+// 🔥 КРИТИЧНО: Обновляем Ref!
+ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
+
+// 2. Загрузка maintenance (обслуживание)
+let maint = {};
+try { 
+  if (data.business_maintenance) {
+    maint = typeof data.business_maintenance === 'string' 
+      ? JSON.parse(data.business_maintenance) 
+      : data.business_maintenance; 
+  } 
+} catch { maint = {}; }
+setBusinessMaintenance(maint);
+// 🔥 КРИТИЧНО: Обновляем Ref!
+businessMaintenanceRef.current = maint;
+
+// 3. Загрузка менеджера
+setManagerHired(data.manager_hired || false);
 
           // Оффлайн доход
           if (data.last_login && owned.length > 0) {
@@ -419,27 +448,31 @@ const saveProgress = async () => {
     loadProgress();
   }, [userIdNum]);
 
-  useEffect(() => {
-    if (!isAuthenticated || isLoading) return;
-    const interval = setInterval(() => {
-      let income = 0;
-      const now = Date.now();
-      ownedBusinesses.forEach(biz => {
-        const conf = BUSINESSES.find(c => c.id === biz.id);
-        if (!conf) return;
-        const maint = businessMaintenance[biz.id] || { electricity: 0, repair: 0 };
-        const elecDiff = (now - maint.electricity) / 1000 / 3600;
-        const repDiff = (now - maint.repair) / 1000 / 3600 / 24;
-        if (elecDiff < 36 && repDiff < 7) income += conf.incomePerHour / 60;
-      });
-      if (income > 0) {
-        setTotalBusinessIncome(prev => prev + income);
-        setBankRub(prev => prev + income);
-        setRubBalance(prev => prev + income);
+useEffect(() => {
+  if (!isAuthenticated || isLoading) return;
+  const interval = setInterval(() => {
+    let income = 0;
+    const now = Date.now();
+    ownedBusinesses.forEach(biz => {
+      const conf = BUSINESSES.find(c => c.id === biz.id);
+      if (!conf) return;
+      const maint = businessMaintenance[biz.id] || { electricity: 0, repair: 0 };
+      const elecDiff = (now - maint.electricity) / 1000 / 3600;
+      const repDiff = (now - maint.repair) / 1000 / 3600 / 24;
+      
+      // 🔥 ИСПРАВЛЕНИЕ: бизнес работает сразу после оплаты (убрали проверку > 0)
+      if (elecDiff <= 36 && repDiff <= 7) {
+        income += conf.incomePerHour / 60;
       }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated, isLoading, ownedBusinesses, businessMaintenance]);
+    });
+    if (income > 0) {
+      setTotalBusinessIncome(prev => prev + income);
+      setBankRub(prev => prev + income);
+      setRubBalance(prev => prev + income);
+    }
+  }, 60000); // Каждую минуту
+  return () => clearInterval(interval);
+}, [isAuthenticated, isLoading, ownedBusinesses, businessMaintenance]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
@@ -811,7 +844,35 @@ const saveProgress = async () => {
   onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
   onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
 />
-      <BusinessCenterModal isOpen={showBusiness} onClose={() => setShowBusiness(false)} rubBalance={rubBalance} ownedBusinesses={ownedBusinesses} businessMaintenance={businessMaintenance} totalIncome={totalBusinessIncome} managerHired={managerHired} onBuy={(biz) => { setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); saveProgress(); }} onPayMaintenance={(bizId, type) => { const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; setBusinessMaintenance(newMaint); saveProgress(); }} onHireManager={() => { if (rubBalance >= 15000) { setRubBalance(p => p - 15000); setManagerHired(true); saveProgress(); } else alert('Нужно 15 000 ₽'); }} onSell={handleSellBusiness} onSaveProgress={saveProgress} />
+      <BusinessCenterModal 
+  isOpen={showBusiness} 
+  onClose={() => setShowBusiness(false)} 
+  rubBalance={rubBalance}
+  ownedBusinesses={ownedBusinesses} 
+  businessMaintenance={businessMaintenance} 
+  totalIncome={totalBusinessIncome} 
+  managerHired={managerHired} 
+  onBuy={(biz) => { 
+    setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); 
+    // 🔥 Обновляем Ref сразу!
+    ownedBusinessesRef.current = [...ownedBusinesses, {...biz, ownedAt: Date.now()}];
+  }} 
+  onPayMaintenance={(bizId, type) => { 
+    const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; 
+    setBusinessMaintenance(newMaint);
+    // 🔥 Обновляем Ref
+    businessMaintenanceRef.current = newMaint;
+  }} 
+  onHireManager={() => { 
+    if (rubBalance >= 15000) { 
+      setRubBalance(p => p - 15000);
+      rubBalanceRef.current = rubBalance - 15000; // 🔥 Обновляем Ref
+      setManagerHired(true); 
+    } else alert('Нужно 15 000 ₽'); 
+  }} 
+  onSell={handleSellBusiness}
+  onSaveProgress={saveProgress}
+/>
       <CasinoModal 
   isOpen={showCasino} 
   onClose={() => setShowCasino(false)} 
