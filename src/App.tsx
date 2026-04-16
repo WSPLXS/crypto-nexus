@@ -414,6 +414,7 @@ try {
 setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
 // 🔥 КРИТИЧНО: Обновляем Ref!
 ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
+console.log('💼 Loaded businesses:', businesses);
 
 // 2. Загрузка maintenance (обслуживание)
 let maint = {};
@@ -427,6 +428,7 @@ try {
 setBusinessMaintenance(maint);
 // 🔥 КРИТИЧНО: Обновляем Ref!
 businessMaintenanceRef.current = maint;
+console.log('🔧 Loaded maintenance:', maint);
 
 // 3. Загрузка менеджера
 setManagerHired(data.manager_hired || false);
@@ -913,11 +915,11 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
     setLoading(true);
     if (tab === 'requests') {
       supabase.from('friend_requests').select('*').eq('status', 'pending').eq('receiver_id', currentUserId).order('created_at', {ascending: false}).then(({data}) => {
-        if (data) { Promise.all(data.map(async (r: any) => { const { data: u } = await supabase.from('users').select('nickname, owned_currencies, max_balance, vip_status').eq('id', r.sender_id).single(); return { ...r, senderData: u }; })).then(setData); } else setData([]); setLoading(false);
+        if (data) { Promise.all(data.map(async (r: any) => { const {  u } = await supabase.from('users').select('nickname, owned_currencies, max_balance, vip_status').eq('id', r.sender_id).single(); return { ...r, senderData: u }; })).then(setData); } else setData([]); setLoading(false);
       });
     } else {
       supabase.from('transactions').select('*').or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`).order('created_at', {ascending: false}).limit(50).then(({data}) => {
-        if (data) { Promise.all(data.map(async (t: any) => { const otherId = t.sender_id === currentUserId ? t.receiver_id : t.sender_id; const { data: u } = await supabase.from('users').select('nickname').eq('id', otherId).single(); return { ...t, otherName: u?.nickname || 'Пользователь' }; })).then(setData); } else setData([]); setLoading(false);
+        if (data) { Promise.all(data.map(async (t: any) => { const otherId = t.sender_id === currentUserId ? t.receiver_id : t.sender_id; const {  u } = await supabase.from('users').select('nickname').eq('id', otherId).single(); return { ...t, otherName: u?.nickname || 'Пользователь' }; })).then(setData); } else setData([]); setLoading(false);
       });
     }
   }, [tab, currentUserId]);
