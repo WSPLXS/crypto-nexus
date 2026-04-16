@@ -452,29 +452,40 @@ setManagerHired(data.manager_hired || false);
 
 useEffect(() => {
   if (!isAuthenticated || isLoading) return;
+  
   const interval = setInterval(() => {
     let income = 0;
     const now = Date.now();
-    ownedBusinesses.forEach(biz => {
+    
+    // 🔥 Используем Ref для актуальных данных
+    const businesses = ownedBusinessesRef.current;
+    const maint = businessMaintenanceRef.current;
+    
+    businesses.forEach(biz => {
       const conf = BUSINESSES.find(c => c.id === biz.id);
       if (!conf) return;
-      const maint = businessMaintenance[biz.id] || { electricity: 0, repair: 0 };
-      const elecDiff = (now - maint.electricity) / 1000 / 3600;
-      const repDiff = (now - maint.repair) / 1000 / 3600 / 24;
       
-      // 🔥 ИСПРАВЛЕНИЕ: бизнес работает сразу после оплаты (убрали проверку > 0)
+      const bizMaint = maint[biz.id] || { electricity: 0, repair: 0 };
+      const elecDiff = (now - bizMaint.electricity) / 1000 / 3600;
+      const repDiff = (now - bizMaint.repair) / 1000 / 3600 / 24;
+      
+      // 🔥 Бизнес работает если электричество и ремонт оплачены
       if (elecDiff <= 36 && repDiff <= 7) {
-        income += conf.incomePerHour / 60;
+        income += conf.incomePerHour;
       }
     });
+    
     if (income > 0) {
-      setTotalBusinessIncome(prev => prev + income);
-      setBankRub(prev => prev + income);
-      setRubBalance(prev => prev + income);
+      // 🔥 Начисляем доход каждую минуту (1/60 от часового дохода)
+      const perMinute = income / 60;
+      setBankRub(prev => prev + perMinute);
+      setRubBalance(prev => prev + perMinute);
+      setTotalBusinessIncome(prev => prev + perMinute);
     }
   }, 60000); // Каждую минуту
+  
   return () => clearInterval(interval);
-}, [isAuthenticated, isLoading, ownedBusinesses, businessMaintenance]);
+}, [isAuthenticated, isLoading]); // 🔥 Убрали ownedBusinesses и businessMaintenance из зависимостей
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
@@ -852,7 +863,6 @@ useEffect(() => {
   rubBalance={rubBalance}
   ownedBusinesses={ownedBusinesses} 
   businessMaintenance={businessMaintenance} 
-  totalIncome={totalBusinessIncome} 
   managerHired={managerHired} 
   
   // 🔥 ИСПРАВЛЕННЫЙ onBuy:

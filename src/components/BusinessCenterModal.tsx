@@ -8,7 +8,6 @@ interface BusinessCenterModalProps {
   rubBalance: number;
   ownedBusinesses: any[];
   businessMaintenance: Record<string, { electricity: number; repair: number }>;
-  totalIncome: number;
   managerHired: boolean;
   onBuy: (biz: any) => void;
   onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
@@ -23,7 +22,6 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
   rubBalance,
   ownedBusinesses,
   businessMaintenance,
-  totalIncome,
   managerHired,
   onBuy,
   onPayMaintenance,
@@ -230,6 +228,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
           </div>
         )}
 
+        {/* 🔥 ФУТЕР С РАСЧЕТОМ ДОХОДА */}
         <div style={styles.footer}>
           <div style={styles.footerItem}>
             <span style={styles.footerLabel}>Всего бизнесов:</span>
@@ -238,7 +237,21 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
           <div style={styles.footerItem}>
             <span style={styles.footerLabel}>Доход в час:</span>
             <span style={{ ...styles.footerValue, color: '#22c55e' }}>
-              {totalIncome.toLocaleString()} ₽
+              {myBusinesses.reduce((total, biz) => {
+                const conf = BUSINESSES.find(b => b.id === biz.id);
+                if (!conf) return total;
+                
+                const maint = businessMaintenance[biz.id] || { electricity: 0, repair: 0 };
+                const now = Date.now();
+                const elecDiff = (now - maint.electricity) / 1000 / 3600;
+                const repDiff = (now - maint.repair) / 1000 / 3600 / 24;
+                
+                // 🔥 Считаем доход только от работающих бизнесов
+                if (elecDiff <= 36 && repDiff <= 7) {
+                  return total + conf.incomePerHour;
+                }
+                return total;
+              }, 0).toLocaleString()} ₽
             </span>
           </div>
         </div>
@@ -464,7 +477,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'pointer',
   },
-  // 🔥 НОВЫЙ СТИЛЬ для неактивной кнопки
   maintenanceBtnDisabled: {
     padding: '4px 12px',
     borderRadius: 6,
