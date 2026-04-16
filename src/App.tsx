@@ -227,20 +227,20 @@ const saveProgress = async () => {
       boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
       daily_quests: JSON.stringify(dailyQuestsRef.current),
       
-      // ✅ Добавляем обратно:
+      // ✅ Эти колонки точно есть:
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
       business_maintenance: JSON.stringify(businessMaintenanceRef.current),
       manager_hired: managerHiredRef.current,
       
-      // И остальные:
-      staked_amount: stakedAmount,
-      owned_items: JSON.stringify(ownedItems),
-      crypto_holdings: JSON.stringify(cryptoHoldings),
-      bank_usd: bankUsd,
-      bank_rub: bankRub,
-      casino_chips: casinoChips,
-      job_cooldowns: JSON.stringify(jobCooldowns),
-      hustle_cooldowns: JSON.stringify(hustleCooldowns)
+      // ❌ КОММЕНТИРУЕМ ПРОБЛЕМНЫЕ ПОЛЯ:
+      // staked_amount: stakedAmount,
+      // owned_items: JSON.stringify(ownedItems),
+      // crypto_holdings: JSON.stringify(cryptoHoldings),
+      // bank_usd: bankUsd,
+      // bank_rub: bankRub,
+      // casino_chips: casinoChips,
+      // job_cooldowns: JSON.stringify(jobCooldowns),
+      // hustle_cooldowns: JSON.stringify(hustleCooldowns)
     };
 
     const { data, error } = await supabase
