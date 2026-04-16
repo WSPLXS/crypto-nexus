@@ -197,32 +197,61 @@ function App() {
     try { const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single(); if (!data?.nickname || data.nickname !== currentNickname) await supabase.from('users').upsert({ id: userIdNum, nickname: currentNickname }, { onConflict: 'id' }); } catch {}
   };
 
-  const saveProgress = async () => {
-    try {
-      const payload = { 
-        id: userIdNum, nickname: currentNickname, 
-        balance: balanceRef.current, rub_balance: rubBalanceRef.current, max_balance: maxBalanceRef.current, 
-        owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
-        price_multipliers: JSON.stringify(priceMultipliersRef.current), 
-        selected_currency: selectedCurrencyRef.current, last_login: new Date().toISOString(), 
-        total_spent: totalSpentRef.current, referrer_id: referrerId, referral_bonus_awarded: referralBonusGiven, 
-        boost_multiplier: boostMultiplierRef.current, 
-        boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
-        daily_quests: JSON.stringify(dailyQuestsRef.current),
-        bank_usd: bankUsd, bank_rub: bankRub, 
-        staked_amount: stakedAmount,
-        casino_chips: casinoChips,
-        owned_items: JSON.stringify(ownedItems),
-        crypto_holdings: JSON.stringify(cryptoHoldings),
-        owned_businesses: JSON.stringify(ownedBusinesses), 
-        business_maintenance: JSON.stringify(businessMaintenance), 
-        manager_hired: managerHired,
-        job_cooldowns: JSON.stringify(jobCooldowns),
-        hustle_cooldowns: JSON.stringify(hustleCooldowns)
-      };
-      await supabase.from('users').upsert(payload, { onConflict: 'id' }).single();
-    } catch (err) { console.error('❌ Ошибка сохранения:', err); }
-  };
+const saveProgress = async () => {
+  // 🔥 ДОБАВЬ ЭТИ СТРОКИ ДЛЯ ОТЛАДКИ
+  console.log('🔍 SAVE PROGRESS CALLED');
+  console.log('📊 Current values:', {
+    balance: balanceRef.current,
+    rubBalance: rubBalanceRef.current,
+    userId: userIdNum
+  });
+
+  try {
+    const payload = { 
+      id: userIdNum, 
+      nickname: currentNickname, 
+      balance: balanceRef.current, 
+      rub_balance: rubBalanceRef.current, 
+      max_balance: maxBalanceRef.current, 
+      owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
+      price_multipliers: JSON.stringify(priceMultipliersRef.current), 
+      selected_currency: selectedCurrencyRef.current, 
+      last_login: new Date().toISOString(), 
+      total_spent: totalSpentRef.current, 
+      referrer_id: referrerId, 
+      referral_bonus_awarded: referralBonusGiven, 
+      boost_multiplier: boostMultiplierRef.current, 
+      boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
+      daily_quests: JSON.stringify(dailyQuestsRef.current),
+      bank_usd: bankUsd, 
+      bank_rub: bankRub, 
+      staked_amount: stakedAmount,
+      casino_chips: casinoChips,
+      owned_items: JSON.stringify(ownedItems),
+      crypto_holdings: JSON.stringify(cryptoHoldings),
+      owned_businesses: JSON.stringify(ownedBusinesses), 
+      business_maintenance: JSON.stringify(businessMaintenance), 
+      manager_hired: managerHired,
+      job_cooldowns: JSON.stringify(jobCooldowns),
+      hustle_cooldowns: JSON.stringify(hustleCooldowns)
+    };
+
+    // 🔥 ПРЯМОЙ UPDATE вместо upsert
+    const { data, error } = await supabase
+      .from('users')
+      .update(payload)
+      .eq('id', userIdNum);
+    
+    if (error) {
+      console.error('❌ Save error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Save success:', data);
+  } catch (err) { 
+    console.error('❌ Ошибка сохранения:', err); 
+  }
+};
 
   const checkSubscription = async () => {
     try {
@@ -316,6 +345,7 @@ function App() {
 
   useEffect(() => {
     async function loadProgress() {
+      console.log(' Loading progress for userId:', userIdNum);
       try {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
