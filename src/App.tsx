@@ -227,12 +227,12 @@ const saveProgress = async () => {
       boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
       daily_quests: JSON.stringify(dailyQuestsRef.current),
       
-      // ✅ Эти колонки точно есть:
+      // ✅ ТОЛЬКО ЭТИ ПОЛЯ (которые точно есть):
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
-      business_maintenance: JSON.stringify(businessMaintenanceRef.current),
-      manager_hired: managerHiredRef.current,
+      business_maintenance: JSON.stringify(businessMaintenanceRef.current)
       
-      // ❌ КОММЕНТИРУЕМ ПРОБЛЕМНЫЕ ПОЛЯ:
+      // ❌ ВСЕ ОСТАЛЬНЫЕ КОММЕНТИРУЕМ:
+      // manager_hired: managerHiredRef.current,
       // staked_amount: stakedAmount,
       // owned_items: JSON.stringify(ownedItems),
       // crypto_holdings: JSON.stringify(cryptoHoldings),
