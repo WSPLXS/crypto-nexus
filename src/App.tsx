@@ -206,52 +206,54 @@ const saveProgress = async () => {
     userId: userIdNum
   });
 
-  try {
-    const payload = { 
-      id: userIdNum, 
-      nickname: currentNickname, 
-      balance: balanceRef.current, 
-      rub_balance: rubBalanceRef.current, 
-      max_balance: maxBalanceRef.current, 
-      owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
-      price_multipliers: JSON.stringify(priceMultipliersRef.current), 
-      selected_currency: selectedCurrencyRef.current, 
-      last_login: new Date().toISOString(), 
-      total_spent: totalSpentRef.current, 
-      referrer_id: referrerId, 
-      referral_bonus_awarded: referralBonusGiven, 
-      boost_multiplier: boostMultiplierRef.current, 
-      boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
-      daily_quests: JSON.stringify(dailyQuestsRef.current),
-      bank_usd: bankUsd, 
-      bank_rub: bankRub, 
-      staked_amount: stakedAmount,
-      casino_chips: casinoChips,
-      owned_items: JSON.stringify(ownedItems),
-      crypto_holdings: JSON.stringify(cryptoHoldings),
-      owned_businesses: JSON.stringify(ownedBusinesses), 
-      business_maintenance: JSON.stringify(businessMaintenance), 
-      manager_hired: managerHired,
-      job_cooldowns: JSON.stringify(jobCooldowns),
-      hustle_cooldowns: JSON.stringify(hustleCooldowns)
-    };
+    try {
+      const payload = { 
+        id: userIdNum, 
+        nickname: currentNickname, 
+        balance: balanceRef.current, 
+        rub_balance: rubBalanceRef.current, 
+        max_balance: maxBalanceRef.current, 
+        owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
+        price_multipliers: JSON.stringify(priceMultipliersRef.current), 
+        selected_currency: selectedCurrencyRef.current, 
+        last_login: new Date().toISOString(), 
+        total_spent: totalSpentRef.current, 
+        referrer_id: referrerId, 
+        referral_bonus_awarded: referralBonusGiven, 
+        boost_multiplier: boostMultiplierRef.current, 
+        boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
+        daily_quests: JSON.stringify(dailyQuestsRef.current),
+        
+        // ✅ Эти колонки мы создавали через SQL, оставляем их:
+        staked_amount: stakedAmount,
+        owned_items: JSON.stringify(ownedItems),
+        crypto_holdings: JSON.stringify(cryptoHoldings),
+        owned_businesses: JSON.stringify(ownedBusinesses), 
+        
+        // ❌ ЭТИ КОЛОНКИ УДАЛИ (или закомментируй), так как их нет в базе:
+        // bank_usd: bankUsd, 
+        // bank_rub: bankRub, 
+        // casino_chips: casinoChips,
+        // business_maintenance: JSON.stringify(businessMaintenance), 
+        // manager_hired: managerHired,
+        // job_cooldowns: JSON.stringify(jobCooldowns),
+        // hustle_cooldowns: JSON.stringify(hustleCooldowns)
+      };
 
-    // 🔥 ПРЯМОЙ UPDATE вместо upsert
-    const { data, error } = await supabase
-      .from('users')
-      .update(payload)
-      .eq('id', userIdNum);
-    
-    if (error) {
-      console.error('❌ Save error:', error);
-      throw error;
+      const { data, error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', userIdNum);
+      
+      if (error) {
+        console.error('❌ Save error:', error);
+        throw error;
+      }
+      console.log('✅ Save success');
+    } catch (err) { 
+      console.error('❌ Ошибка сохранения:', err); 
     }
-    
-    console.log('✅ Save success:', data);
-  } catch (err) { 
-    console.error('❌ Ошибка сохранения:', err); 
-  }
-};
+  };
 
   const checkSubscription = async () => {
     try {
