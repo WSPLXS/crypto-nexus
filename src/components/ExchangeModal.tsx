@@ -18,7 +18,7 @@ export const ExchangeModal: React.FC<ExchangeModalProps> = ({
   usdBalance, 
   rubBalance, 
   onExchange,
-  onSaveProgress // 🔥 ДОБАВИЛИ: проп был в интерфейсе, но не в деструктуризации!
+
 }) => {
   const [direction, setDirection] = useState<'usd_to_rub' | 'rub_to_usd'>('usd_to_rub');
   const [amount, setAmount] = useState('');
@@ -66,7 +66,6 @@ export const ExchangeModal: React.FC<ExchangeModalProps> = ({
         onExchange(receivedAmount, -amountNum);
       }
       
-      onSaveProgress?.(); // 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: сохраняем в базу после обмена!
       
       setStatus('success');
       setMessage(`Обменяно ${amountNum} ${direction === 'usd_to_rub' ? '$' : '₽'} на ${receivedAmount.toFixed(2)} ${direction === 'usd_to_rub' ? '₽' : '$'}`);
