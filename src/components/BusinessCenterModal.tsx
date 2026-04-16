@@ -14,7 +14,7 @@ interface BusinessCenterModalProps {
   onPayMaintenance: (bizId: string, type: 'electricity' | 'repair') => void;
   onHireManager: () => void;
   onSell: (bizId: string) => void;
-  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
+  onSaveProgress?: () => void;
 }
 
 export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
@@ -29,7 +29,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
   onPayMaintenance,
   onHireManager,
   onSell,
-  onSaveProgress, // 🔥 ДОБАВИЛИ
+  onSaveProgress,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'owned'>('all');
 
@@ -111,7 +111,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                     <button
                       onClick={() => {
                         onBuy(biz);
-                        onSaveProgress?.(); // 🔥 Сохраняем после покупки
+                        onSaveProgress?.();
                       }}
                       disabled={!canAfford}
                       style={canAfford ? styles.buyBtn : styles.buyBtnDisabled}
@@ -155,40 +155,41 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                       </div>
                     </div>
 
+                    {/* 🔥 ИСПРАВЛЕННЫЙ БЛОК ОБСЛУЖИВАНИЯ */}
                     <div style={styles.maintenance}>
                       <div style={styles.maintenanceItem}>
                         <Clock size={14} color={maint.elecRemaining > 12 ? '#22c55e' : '#ef4444'} />
                         <span style={styles.maintenanceText}>
                           Электричество: {formatTime(maint.elecRemaining)}
                         </span>
-                        {maint.elecRemaining < 12 && (
-                          <button
-                            onClick={() => {
-                              onPayMaintenance(biz.id, 'electricity');
-                              onSaveProgress?.(); // 🔥 Сохраняем после оплаты
-                            }}
-                            style={styles.maintenanceBtn}
-                          >
-                            Оплатить
-                          </button>
-                        )}
+                        {/* 🔥 Кнопка всегда видна, но с разным состоянием */}
+                        <button
+                          onClick={() => {
+                            onPayMaintenance(biz.id, 'electricity');
+                            onSaveProgress?.();
+                          }}
+                          style={maint.elecRemaining > 12 ? styles.maintenanceBtnDisabled : styles.maintenanceBtn}
+                          disabled={maint.elecRemaining > 12}
+                        >
+                          {maint.elecRemaining > 12 ? '✓ Оплачено' : 'Оплатить'}
+                        </button>
                       </div>
                       <div style={styles.maintenanceItem}>
                         <Clock size={14} color={maint.repairRemaining > 3 ? '#22c55e' : '#ef4444'} />
                         <span style={styles.maintenanceText}>
                           Ремонт: {formatTime(maint.repairRemaining * 24)}
                         </span>
-                        {maint.repairRemaining < 3 && (
-                          <button
-                            onClick={() => {
-                              onPayMaintenance(biz.id, 'repair');
-                              onSaveProgress?.(); // 🔥 Сохраняем после починки
-                            }}
-                            style={styles.maintenanceBtn}
-                          >
-                            Починить
-                          </button>
-                        )}
+                        {/* 🔥 Кнопка всегда видна, но с разным состоянием */}
+                        <button
+                          onClick={() => {
+                            onPayMaintenance(biz.id, 'repair');
+                            onSaveProgress?.();
+                          }}
+                          style={maint.repairRemaining > 3 ? styles.maintenanceBtnDisabled : styles.maintenanceBtn}
+                          disabled={maint.repairRemaining > 3}
+                        >
+                          {maint.repairRemaining > 3 ? '✓ Починено' : 'Починить'}
+                        </button>
                       </div>
                     </div>
 
@@ -196,7 +197,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
                       onClick={() => {
                         if (window.confirm(`Продать "${conf?.name}" за ${sellPrice.toLocaleString()} ₽ (50% от цены)?`)) {
                           onSell(biz.id);
-                          onSaveProgress?.(); // 🔥 Сохраняем после продажи
+                          onSaveProgress?.();
                         }
                       }}
                       style={styles.sellBtn}
@@ -220,7 +221,7 @@ export const BusinessCenterModal: React.FC<BusinessCenterModalProps> = ({
             <button 
               onClick={() => {
                 onHireManager();
-                onSaveProgress?.(); // 🔥 Сохраняем после найма
+                onSaveProgress?.();
               }} 
               style={styles.hireManagerBtn}
             >
@@ -462,6 +463,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 11,
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  // 🔥 НОВЫЙ СТИЛЬ для неактивной кнопки
+  maintenanceBtnDisabled: {
+    padding: '4px 12px',
+    borderRadius: 6,
+    border: 'none',
+    background: 'rgba(34, 197, 94, 0.2)',
+    color: '#22c55e',
+    fontSize: 11,
+    fontWeight: '600',
+    cursor: 'not-allowed',
   },
   sellBtn: {
     width: '100%',
