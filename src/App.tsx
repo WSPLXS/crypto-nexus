@@ -846,7 +846,7 @@ useEffect(() => {
   onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
   onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
 />
-      <BusinessCenterModal 
+<BusinessCenterModal 
   isOpen={showBusiness} 
   onClose={() => setShowBusiness(false)} 
   rubBalance={rubBalance}
@@ -854,24 +854,37 @@ useEffect(() => {
   businessMaintenance={businessMaintenance} 
   totalIncome={totalBusinessIncome} 
   managerHired={managerHired} 
+  
+  // 🔥 ИСПРАВЛЕННЫЙ onBuy:
   onBuy={(biz) => { 
-    setOwnedBusinesses(prev => [...prev, {...biz, ownedAt: Date.now()}]); 
-    // 🔥 Обновляем Ref сразу!
-    ownedBusinessesRef.current = [...ownedBusinesses, {...biz, ownedAt: Date.now()}];
+    const newBiz = {...biz, ownedAt: Date.now()};
+    setOwnedBusinesses(prev => [...prev, newBiz]);
+    ownedBusinessesRef.current = [...ownedBusinessesRef.current, newBiz];
+
+    // 🔥 СНИМАЕМ РУБЛИ
+    setRubBalance(prev => prev - biz.price);
+    rubBalanceRef.current -= biz.price; // Безопасно обновляем Ref
+
+    // 🔥 СОХРАНЯЕМ В БАЗУ
+    saveProgress();
   }} 
+  
   onPayMaintenance={(bizId, type) => { 
     const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; 
     setBusinessMaintenance(newMaint);
-    // 🔥 Обновляем Ref
     businessMaintenanceRef.current = newMaint;
+    saveProgress(); // 🔥 Добавили сохранение
   }} 
+  
   onHireManager={() => { 
     if (rubBalance >= 15000) { 
       setRubBalance(p => p - 15000);
-      rubBalanceRef.current = rubBalance - 15000; // 🔥 Обновляем Ref
+      rubBalanceRef.current -= 15000;
       setManagerHired(true); 
+      saveProgress(); // 🔥 Добавили сохранение
     } else alert('Нужно 15 000 ₽'); 
   }} 
+  
   onSell={handleSellBusiness}
   onSaveProgress={saveProgress}
 />
