@@ -951,15 +951,18 @@ useEffect(() => {
 <CasinoModal 
   isOpen={showCasino} 
   onClose={() => setShowCasino(false)} 
-  usdBalance={balance} // 🔥 ПЕРЕДАЕМ БАЛАНС ДОЛЛАРОВ
+  usdBalance={balance} 
   bankUsd={bankUsd} 
   bankRub={bankRub} 
-  chips={casinoChips} // 🔥 ПЕРЕДАЕМ ФИШКИ
+  chips={casinoChips} 
   onChipExchange={(newChips, newUsd, newBankUsd, newBankRub) => { 
+    // 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
+    casinoChipsRef.current = newChips; // 🔥 ПЕРВЫМ ДЕЛОМ!
+    balanceRef.current = newUsd;
+    
+    // Теперь обновляем стейт (для отображения)
     setCasinoChips(newChips); 
-    casinoChipsRef.current = newChips; // 🔥 ОБНОВЛЯЕМ REF
-    setBalance(newUsd); // 🔥 ОБНОВЛЯЕМ БАЛАНС ДОЛЛАРОВ!
-    balanceRef.current = newUsd; // 🔥 ОБНОВЛЯЕМ REF БАЛАНСА
+    setBalance(newUsd);
     setBankUsd(newBankUsd); 
     setBankRub(newBankRub); 
   }} 
