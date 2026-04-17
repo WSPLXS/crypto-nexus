@@ -215,6 +215,10 @@ function App() {
 
 const saveProgress = async () => {
   console.log('🔍 SAVE PROGRESS CALLED');
+  console.log('💰 balanceRef.current:', balanceRef.current);
+  console.log('🪙 casinoChipsRef.current:', casinoChipsRef.current);
+  console.log('💵 stakedAmountRef.current:', stakedAmountRef.current);
+  
   try {
     const payload = { 
       id: userIdNum, 
@@ -232,24 +236,14 @@ const saveProgress = async () => {
       boost_multiplier: boostMultiplierRef.current, 
       boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
       daily_quests: JSON.stringify(dailyQuestsRef.current),
-      
-      // ✅ Добавляем обратно:
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
       business_maintenance: JSON.stringify(businessMaintenanceRef.current),
-      
-      // 🔥 ИСПОЛЬЗУЕМ REF ДЛЯ КРИПТЫ И СТЕЙКИНГА:
       crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
-      staked_amount: stakedAmountRef.current, // 🔥 СТЕЙКИНГ ЧЕРЕЗ REF
-      casino_chips: casinoChipsRef.current, // 🔥 ДОБАВИЛИ: СОХРАНЯЕМ ФИШКИ ЧЕРЕЗ REF
-      
-      // И остальные (если они есть):
-      // owned_items: JSON.stringify(ownedItems),
-      // bank_usd: bankUsd,
-      // bank_rub: bankRub,
-      // casino_chips: casinoChips,
-      // job_cooldowns: JSON.stringify(jobCooldowns),
-      // hustle_cooldowns: JSON.stringify(hustleCooldowns)
+      staked_amount: stakedAmountRef.current,
+      casino_chips: casinoChipsRef.current, // 🔥 ПРОВЕРЬ ЭТО ЗНАЧЕНИЕ
     };
+
+    console.log('📦 Payload:', payload);
 
     const { data, error } = await supabase
       .from('users')
@@ -260,7 +254,7 @@ const saveProgress = async () => {
       console.error('❌ Save error:', error);
       throw error;
     }
-    console.log('✅ Save success');
+    console.log('✅ Save success - Balance:', payload.balance, 'Chips:', payload.casino_chips);
   } catch (err) { 
     console.error('❌ Ошибка сохранения:', err); 
   }
@@ -956,9 +950,16 @@ useEffect(() => {
   bankRub={bankRub} 
   chips={casinoChips} 
   onChipExchange={(newChips, newUsd, newBankUsd, newBankRub) => { 
+    console.log('🔄 onChipExchange called');
+    console.log('  newChips:', newChips);
+    console.log('  newUsd:', newUsd);
+    
     // 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
-    casinoChipsRef.current = newChips; // 🔥 ПЕРВЫМ ДЕЛОМ!
+    casinoChipsRef.current = newChips;
     balanceRef.current = newUsd;
+    
+    console.log('  casinoChipsRef.current:', casinoChipsRef.current);
+    console.log('  balanceRef.current:', balanceRef.current);
     
     // Теперь обновляем стейт (для отображения)
     setCasinoChips(newChips); 
