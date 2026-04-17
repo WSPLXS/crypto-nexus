@@ -4,13 +4,16 @@ import { X, Coins, Dice1, Zap, TrendingUp, Shield } from 'lucide-react';
 interface CasinoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  usdBalance: number; // 🔥 ОСТАВИЛИ ТОЛЬКО НУЖНЫЕ ПРОПСЫ
+  usdBalance: number;
   bankUsd: number;
   bankRub: number;
   chips: number;
-  onChipExchange: (newChips: number, newUsdBalance: number, newBankUsd: number, newBankRub: number) => void; // 🔥 ДОБАВИЛИ newUsdBalance
+  onChipExchange: (newChips: number, newUsdBalance: number, newBankUsd: number, newBankRub: number) => void;
   onSaveProgress?: () => void;
 }
+
+// 🔥 ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ОКРУГЛЕНИЯ
+const roundTo2 = (num: number) => Math.round(num * 100) / 100;
 
 export const CasinoModal: React.FC<CasinoModalProps> = ({
   isOpen, onClose, usdBalance, bankUsd, bankRub, chips,
@@ -33,14 +36,11 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
     if (!amt || amt <= 0) return alert('Введите количество фишек');
     if (amt > usdBalance) return alert(`Недостаточно долларов! У вас $${usdBalance.toFixed(2)}`);
     
-    // 🔥 Снимаем доллары с баланса И добавляем фишки
-    const newUsd = usdBalance - amt;
-    const newChips = chips + amt;
+    const newUsd = roundTo2(usdBalance - amt);
+    const newChips = roundTo2(chips + amt); // 🔥 ОКРУГЛЯЕМ
     
-    // 🔥 Обновляем ВСЁ: фишки, баланс долларов, банк
     onChipExchange(newChips, newUsd, bankUsd, bankRub);
-    
-    onSaveProgress?.(); // 🔥 Сохраняем в базу
+    onSaveProgress?.();
     
     alert(`✅ Куплено ${amt} фишек за $${amt}`);
     setBuyAmount('');
@@ -52,14 +52,11 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
     if (!amt || amt <= 0) return alert('Введите количество фишек');
     if (amt > chips) return alert(`Недостаточно фишек! У вас ${chips.toFixed(2)} фишек.`);
     
-    // 🔥 Начисляем доллары на баланс И снимаем фишки
-    const newUsd = usdBalance + amt;
-    const newChips = chips - amt;
+    const newUsd = roundTo2(usdBalance + amt);
+    const newChips = roundTo2(chips - amt); // 🔥 ОКРУГЛЯЕМ
     
-    // 🔥 Обновляем ВСЁ: фишки, баланс долларов, банк
     onChipExchange(newChips, newUsd, bankUsd, bankRub);
-    
-    onSaveProgress?.(); // 🔥 Сохраняем в базу
+    onSaveProgress?.();
     
     alert(`✅ Продано ${amt} фишек за $${amt}`);
     setSellAmount('');
@@ -70,7 +67,6 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
     const bet = parseFloat(diceBet);
     if (!bet || bet <= 0) return alert('Введите ставку');
     
-    // 🔥 ПРОВЕРКА: сравниваем с фишками
     if (bet > chips) {
       return alert(`Неверная ставка! У вас только ${chips.toFixed(2)} фишек.`);
     }
@@ -78,10 +74,11 @@ export const CasinoModal: React.FC<CasinoModalProps> = ({
     // Генерируем результат (1-100)
     const result = Math.floor(Math.random() * 100) + 1;
     const win = diceRoll === 'over' ? result > diceTarget : result < diceTarget;
-    const payout = win ? bet * 1.95 : 0; // 95% RTP
     
-    // Обновляем фишки
-    const newChips = chips - bet + payout;
+    // 🔥 ОКРУГЛЯЕМ ВЫПЛАТУ И НОВЫЕ ФИШКИ
+    const payout = win ? roundTo2(bet * 1.95) : 0;
+    const newChips = roundTo2(chips - bet + payout);
+    
     onChipExchange(newChips, usdBalance, bankUsd, bankRub);
     onSaveProgress?.();
     
