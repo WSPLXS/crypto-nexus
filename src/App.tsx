@@ -992,11 +992,12 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         <X size={24} color="#9ca3af" />
       </button>
       <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
-      
+            
       <div style={styles.walletTotal}>
         <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
+        {/* 🔥 ЗАМЕНИЛ $ НА ₽ */}
         <div style={styles.walletTotalValue}>
-          ${Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
+        ₽{Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
             const currency = currencies.find(c => c.id === id);
             if (!currency) return total;
             const price = currency.price * (priceMultipliers[id] || 1);
@@ -1004,7 +1005,7 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
       </div>
-      
+           
       <div style={styles.walletList}>
         {Object.keys(cryptoHoldings).length === 0 ? (
           <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p>
@@ -1032,11 +1033,12 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                     </div>
                   </div>
                   <div style={styles.walletItemRight}>
+                    {/* 🔥 ТОЖЕ ЗАМЕНИЛ $ НА ₽ */}
                     <div style={styles.walletItemPrice}>
-                      ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
                     </div>
                     <div style={styles.walletItemTotal}>
-                      ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                     {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
                     </div>
                   </div>
                 </div>
