@@ -734,26 +734,26 @@ useEffect(() => {
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 const handleExchange = async (usdChange: number, rubChange: number) => {
+  // 1. Считаем новые значения
   const newUsd = balance + usdChange;
   const newRub = rubBalance + rubChange;
 
   if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
 
-  // 1. 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
+  // 🔥 2. ОБНОВЛЯЕМ REFS СРАЗУ ЖЕ (Синхронно!)
+  // Это критически важно, так как saveProgress берет данные именно отсюда
   balanceRef.current = newUsd;
-  rubBalanceRef.current = newRub;
-  
-  console.log('💱 Exchange:');
-  console.log('  newUsd:', newUsd);
-  console.log('  newRub:', newRub);
-  console.log('  balanceRef.current:', balanceRef.current);
-  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
+  rubBalanceRef.current = newRub; // <--- ВОТ ЭТА СТРОКА ЧИНИТ БАГУ!
 
-  // 2. Обновляем состояние (для интерфейса)
+  console.log('💱 Exchange Refs Updated:');
+  console.log('  balanceRef:', balanceRef.current);
+  console.log('  rubBalanceRef:', rubBalanceRef.current);
+
+  // 3. Обновляем состояние (для интерфейса)
   setBalance(newUsd);
   setRubBalance(newRub);
 
-  // 3. Сохраняем в базу
+  // 4. Сохраняем в базу (теперь оно возьмет новые значения из Refs)
   try {
     await saveProgress();
     console.log('✅ Exchange saved successfully');
