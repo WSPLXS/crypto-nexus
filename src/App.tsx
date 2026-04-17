@@ -141,6 +141,7 @@ function App() {
   const managerHiredRef = useRef(managerHired);
   const cryptoHoldingsRef = useRef(cryptoHoldings);
   const stakedAmountRef = useRef(stakedAmount); // 🔥 REF ДЛЯ СТЕЙКИНГА
+  const casinoChipsRef = useRef(casinoChips); // 🔥 REF ДЛЯ ФИШЕК
 
   useEffect(() => { balanceRef.current = balance; }, [balance]);
   useEffect(() => { rubBalanceRef.current = rubBalance; }, [rubBalance]);
@@ -159,6 +160,7 @@ function App() {
   useEffect(() => { managerHiredRef.current = managerHired; }, [managerHired]);
   useEffect(() => { cryptoHoldingsRef.current = cryptoHoldings; }, [cryptoHoldings]);
   useEffect(() => { stakedAmountRef.current = stakedAmount; }, [stakedAmount]); // 🔥 СИНХРОНИЗАЦИЯ СТЕЙКИНГА
+  useEffect(() => { casinoChipsRef.current = casinoChips; }, [casinoChips]); // 🔥 СИНХРОНИЗАЦИЯ ФИШЕК
 
   useEffect(() => { if (boostMultiplier > 1 && !boostExpiresAt) setBoostMultiplier(1); }, [boostMultiplier, boostExpiresAt]);
 
@@ -238,6 +240,7 @@ const saveProgress = async () => {
       // 🔥 ИСПОЛЬЗУЕМ REF ДЛЯ КРИПТЫ И СТЕЙКИНГА:
       crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
       staked_amount: stakedAmountRef.current, // 🔥 СТЕЙКИНГ ЧЕРЕЗ REF
+        casino_chips: casinoChipsRef.current, // 🔥 ДОБАВИЛИ: СОХРАНЯЕМ ФИШКИ ЧЕРЕЗ REF
       
       // И остальные (если они есть):
       // owned_items: JSON.stringify(ownedItems),
@@ -402,6 +405,7 @@ const saveProgress = async () => {
           stakedAmountRef.current = data.staked_amount || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
           
           setCasinoChips(data.casino_chips || 0);
+          casinoChipsRef.current = data.casino_chips || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
           setOwnedItems(typeof data.owned_items === 'string' ? JSON.parse(data.owned_items || '[]') : data.owned_items || []);
           
           // 🔥 ЗАГРУЗКА КРИПТО-ПОРТФЕЛЯ С ОБНОВЛЕНИЕМ REF
@@ -944,21 +948,20 @@ useEffect(() => {
   onSell={handleSellBusiness}
   onSaveProgress={saveProgress}
 />
-      <CasinoModal 
+<CasinoModal 
   isOpen={showCasino} 
   onClose={() => setShowCasino(false)} 
-  userId={userIdNum} 
   usdBalance={balance} 
-  rubBalance={rubBalance} 
   bankUsd={bankUsd} 
   bankRub={bankRub} 
-  chips={casinoChips} 
+  chips={casinoChips} // 🔥 ДОБАВИЛИ
   onChipExchange={(newChips, newBankUsd, newBankRub) => { 
     setCasinoChips(newChips); 
+    casinoChipsRef.current = newChips; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
     setBankUsd(newBankUsd); 
     setBankRub(newBankRub); 
   }} 
-  onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
+  onSaveProgress={saveProgress} // 🔥 ДОБАВИЛИ
 />
 
       {showCryptoWallet && (<div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2><div style={styles.walletTotal}><div style={styles.walletTotalLabel}>Общая стоимость активов</div><div style={styles.walletTotalValue}>${ownedCurrencies.reduce((total, item) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; return total + (currentPrice * item.amount); }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div><div style={styles.walletList}>{ownedCurrencies.length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p> : ownedCurrencies.map((item, index) => { const currency = currencies.find(c => c.id === item.currencyId); const currentPrice = currency ? currency.price * (priceMultipliers[item.currencyId] || 1) : 0; const totalValue = currentPrice * item.amount; return (<div key={index} style={styles.walletItem}><div style={styles.walletItemLeft}><div style={styles.walletItemIcon}>{currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}</div><div><div style={styles.walletItemName}>{currency?.name || item.currencyId}</div><div style={styles.walletItemAmount}>{item.amount} шт.</div></div></div><div style={styles.walletItemRight}><div style={styles.walletItemPrice}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.walletItemTotal}>${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div></div>); })}</div></div></div>)}

@@ -1,149 +1,236 @@
 import React, { useState } from 'react';
-import { X, Coins, Gamepad2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { CASINO_GAMES } from '../data/economy';
+import { X, Coins, Dice1, Zap, TrendingUp, Shield } from 'lucide-react';
 
 interface CasinoModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  userId: number;
+  onClose: () => void; 
   usdBalance: number;
-  rubBalance: number;
   bankUsd: number;
   bankRub: number;
-  chips: number;
-  onChipExchange: (newChips: number, newBankUsd: number, newBankRub: number) => void;
-  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
+  chips: number; // 🔥 ДОБАВИЛИ
+  onChipExchange: (newChips: number, newBankUsd: number, newBankRub: number) => void; // 🔥 ИЗМЕНИЛИ
+  onSaveProgress?: () => void;
 }
 
 export const CasinoModal: React.FC<CasinoModalProps> = ({
-  isOpen,
-  onClose,
-  usdBalance,
-  rubBalance,
-  chips,
-  onChipExchange,
-  onSaveProgress // 🔥 Добавили проп
+  isOpen, onClose, usdBalance, bankUsd, bankRub, chips,
+  onChipExchange, onSaveProgress
 }) => {
   if (!isOpen) return null;
-  const [tab, setTab] = useState<'exchange' | 'games'>('exchange');
-  const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleExchange = (direction: 'buy' | 'sell') => {
-    const num = parseFloat(amount);
-    if (!num || num <= 0) return alert('Введите сумму');
+  const [screen, setScreen] = useState<'main' | 'games' | 'dice'>('main');
+  const [buyAmount, setBuyAmount] = useState('');
+  const [sellAmount, setSellAmount] = useState('');
+  
+  // Для игры в дайс
+  const [diceBet, setDiceBet] = useState('');
+  const [diceRoll, setDiceRoll] = useState<'over' | 'under'>('over');
+  const [diceTarget, setDiceTarget] = useState(50);
 
-    if (direction === 'buy') {
-      // Покупаем фишки за $
-      if (usdBalance < num) return alert('Недостаточно долларов на балансе!');
-      onChipExchange(chips + num, usdBalance - num, rubBalance);
-      onSaveProgress?.(); // 🔥 Сохраняем после покупки
-    } else {
-      // Продаем фишки обратно в $
-      if (chips < num) return alert('Недостаточно фишек!');
-      onChipExchange(chips - num, usdBalance + num, rubBalance);
-      onSaveProgress?.(); // 🔥 Сохраняем после продажи
-    }
-    setAmount('');
-  };
-
-  const playGame = (game: any) => {
-    const bet = parseFloat(prompt(`Ставка для ${game.name} (мин ${game.minBet}):`) || '0');
-    if (!bet || bet < game.minBet || bet > chips * game.maxBetPercent) return alert('❌ Неверная ставка');
+  // --- ПОКУПКА ФИШЕК ---
+  const handleBuyChips = () => {
+    const amt = parseFloat(buyAmount);
+    if (!amt || amt <= 0) return alert('Введите количество фишек');
+    if (amt > usdBalance) return alert('Недостаточно долларов!');
     
-    setLoading(true);
-    setTimeout(() => {
-      const win = Math.random() > 0.48; // 48% шанс победы (House edge 4%)
-      if (win) {
-        onChipExchange(chips + bet, usdBalance, rubBalance);
-        alert(`🎉 Выигрыш! +${bet} фишек`);
-      } else {
-        onChipExchange(chips - bet, usdBalance, rubBalance);
-        alert(`😔 Проигрыш. -${bet} фишек`);
-      }
-      onSaveProgress?.(); // 🔥 Сохраняем после игры
-      setLoading(false);
-    }, 1000);
+    // 🔥 Снимаем доллары с баланса
+    const newUsd = usdBalance - amt;
+    const newChips = chips + amt;
+    
+    // 🔥 Обновляем через колбэк
+    onChipExchange(newChips, bankUsd, bankRub);
+    
+    onSaveProgress?.(); // 🔥 Сохраняем в базу
+    
+    alert(`✅ Куплено ${amt} фишек за $${amt}`);
+    setBuyAmount('');
   };
 
-  return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button>
-        <div style={styles.header}><Gamepad2 size={24} color="#a855f7" /><h2 style={styles.title}>Казино</h2></div>
+  // --- ПРОДАЖА ФИШЕК ---
+  const handleSellChips = () => {
+    const amt = parseFloat(sellAmount);
+    if (!amt || amt <= 0) return alert('Введите количество фишек');
+    if (amt > chips) return alert('Недостаточно фишек!');
+    
+    // 🔥 Начисляем доллары на баланс
+    const newUsd = usdBalance + amt;
+    const newChips = chips - amt;
+    
+    // 🔥 Обновляем через колбэк
+    onChipExchange(newChips, bankUsd, bankRub);
+    
+    onSaveProgress?.(); // 🔥 Сохраняем в базу
+    
+    alert(`✅ Продано ${amt} фишек за $${amt}`);
+    setSellAmount('');
+  };
 
-        <div style={styles.tabs}>
-          {['exchange', 'games'].map(t => (
-            <button key={t} onClick={() => setTab(t as any)} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}>
-              {t === 'exchange' ? 'Фишки' : 'Игры'}
-            </button>
-          ))}
+  // --- ИГРА: ДАЙС ---
+  const handleDiceBet = () => {
+    const bet = parseFloat(diceBet);
+    if (!bet || bet <= 0) return alert('Введите ставку');
+    
+    // 🔥 ПРОВЕРКА: сравниваем с фишками, а не с балансом!
+    if (bet > chips) {
+      return alert(`Неверная ставка! У вас только ${chips} фишек.`);
+    }
+    
+    // Генерируем результат (1-100)
+    const result = Math.floor(Math.random() * 100) + 1;
+    const win = diceRoll === 'over' ? result > diceTarget : result < diceTarget;
+    const payout = win ? bet * 1.95 : 0; // 95% RTP
+    
+    // Обновляем фишки
+    const newChips = chips - bet + payout;
+    onChipExchange(newChips, bankUsd, bankRub);
+    onSaveProgress?.();
+    
+    alert(`🎲 Выпало: ${result}\n${win ? `✅ Победа! +$${payout.toFixed(2)}` : `❌ Проигрыш. -$${bet}`}`);
+    setDiceBet('');
+  };
+
+  // СТИЛИ
+  const s: any = {
+    overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
+    container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
+    header: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 },
+    backBtn: { background: 'none', border: 'none', padding: 8, cursor: 'pointer' },
+    nickname: { fontSize: 22, fontWeight: '800', color: '#fff' },
+    chipDisplay: { background: 'linear-gradient(135deg, #FFD60A, #FF9500)', borderRadius: 16, padding: '20px', textAlign: 'center', marginBottom: 24 },
+    chipLabel: { fontSize: 14, color: '#000', opacity: 0.8 },
+    chipValue: { fontSize: 36, fontWeight: '800', color: '#000', margin: '8px 0' },
+    exchangeSection: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 },
+    exchangeCard: { background: '#1C1C1E', borderRadius: 16, padding: 16 },
+    exchangeTitle: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 8 },
+    input: { width: '100%', padding: '10px', borderRadius: 10, background: '#2C2C2E', border: '1px solid #3A3A3C', color: '#fff', fontSize: 14, marginBottom: 8 },
+    btn: { width: '100%', padding: '10px', borderRadius: 10, border: 'none', fontWeight: '600', fontSize: 13, cursor: 'pointer' },
+    btnPrimary: { background: '#007AFF', color: '#fff' },
+    btnGreen: { background: '#34C759', color: '#fff' },
+    btnRed: { background: '#FF453A', color: '#fff' },
+    gamesGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+    gameCard: { background: '#1C1C1E', borderRadius: 16, padding: 20, cursor: 'pointer', textAlign: 'center' },
+    gameIcon: { width: 48, height: 48, borderRadius: 12, background: 'rgba(255, 214, 10, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' },
+    gameName: { fontSize: 14, fontWeight: '600', color: '#fff' },
+    diceGame: { background: '#1C1C1E', borderRadius: 20, padding: 20 },
+    diceControls: { display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 },
+    diceTargetSlider: { width: '100%', accentColor: '#FFD60A' },
+    diceResult: { fontSize: 48, fontWeight: '800', color: '#FFD60A', textAlign: 'center', margin: '20px 0' }
+  };
+
+  // ЭКРАН: ГЛАВНОЕ МЕНЮ
+  if (screen === 'main') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={onClose} style={s.backBtn}><X size={24} color="#fff" /></button>
+            <span style={s.nickname}>Казино</span>
+          </div>
+
+          <div style={s.chipDisplay}>
+            <div style={s.chipLabel}>Ваши фишки</div>
+            <div style={s.chipValue}>🪙 {chips.toFixed(2)}</div>
+            <div style={{fontSize: 12, color: '#000', opacity: 0.7}}>Курс: 1$ = 1 фишка</div>
+          </div>
+
+          <div style={s.exchangeSection}>
+            <div style={s.exchangeCard}>
+              <div style={s.exchangeTitle}>🟢 Купить фишки</div>
+              <input style={s.input} placeholder="Количество" type="number" value={buyAmount} onChange={e => setBuyAmount(e.target.value)} />
+              <button style={{...s.btn, ...s.btnGreen}} onClick={handleBuyChips}>Купить за $</button>
+            </div>
+            <div style={s.exchangeCard}>
+              <div style={s.exchangeTitle}>🔴 Продать фишки</div>
+              <input style={s.input} placeholder="Количество" type="number" value={sellAmount} onChange={e => setSellAmount(e.target.value)} />
+              <button style={{...s.btn, ...s.btnRed}} onClick={handleSellChips}>Продать за $</button>
+            </div>
+          </div>
+
+          <div style={s.gamesGrid}>
+            <div style={s.gameCard} onClick={() => setScreen('dice')}>
+              <div style={s.gameIcon}><Dice1 size={24} color="#FFD60A" /></div>
+              <div style={s.gameName}>🎲 Дайс</div>
+            </div>
+            <div style={{...s.gameCard, opacity: 0.5, cursor: 'not-allowed'}}>
+              <div style={s.gameIcon}><Zap size={24} color="#737373" /></div>
+              <div style={{...s.gameName, color: '#737373'}}>⚡ Блэкджек</div>
+            </div>
+          </div>
         </div>
-
-        {tab === 'exchange' && (
-          <div style={styles.content}>
-            <div style={styles.chipDisplay}>
-              <Coins size={48} color="#fbbf24" />
-              <span style={{ fontSize: 32, fontWeight: '800', color: '#fff' }}>{chips}</span>
-              <span style={{ color: '#737373', fontSize: 14 }}>Фишек</span>
-            </div>
-            <div style={styles.balanceInfo}>Ваш баланс: ${usdBalance.toFixed(2)}</div>
-
-            <input
-              style={styles.input}
-              placeholder="Сумма в $"
-              type="number"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-            />
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button onClick={() => handleExchange('buy')} style={styles.btnBuy}>
-                <ArrowUpRight size={18} /> Купить
-              </button>
-              <button onClick={() => handleExchange('sell')} style={styles.btnSell}>
-                <ArrowDownLeft size={18} /> Продать
-              </button>
-            </div>
-            <p style={{ color: '#737373', fontSize: 11, textAlign: 'center', marginTop: 8 }}>Курс: 1 Фишка = $1</p>
-          </div>
-        )}
-
-        {tab === 'games' && (
-          <div style={styles.list}>
-            {CASINO_GAMES.map(g => (
-              <div key={g.id} style={styles.gameItem} onClick={() => !loading && playGame(g)}>
-                <span style={{ fontSize: 28 }}>{g.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={styles.gameName}>{g.name}</div>
-                  <div style={styles.gameSub}>Мин. ставка: {g.minBet}</div>
-                </div>
-                <ArrowUpRight size={20} color="#a855f7" />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-    </div>
-  );
-};
+    );
+  }
 
-const styles: any = {
-  overlay: { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  modal: { background: '#141414', border: '1px solid #a855f7', borderRadius: 24, padding: 20, width: '90%', maxWidth: 360, position: 'relative' as const },
-  closeBtn: { position: 'absolute' as const, top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
-  header: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: '800', color: '#fff', margin: 0 },
-  tabs: { display: 'flex', background: '#1a1a1a', borderRadius: 14, padding: 4, marginBottom: 20 },
-  tab: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600' as const, cursor: 'pointer', fontSize: 13 },
-  tabActive: { background: '#a855f7', color: '#fff' },
-  content: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 },
-  chipDisplay: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 12 },
-  balanceInfo: { color: '#34C759', fontSize: 14, fontWeight: 'bold', marginBottom: 8, background: 'rgba(52, 199, 89, 0.1)', padding: '8px 16px', borderRadius: 12 },
-  input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box' as const, outline: 'none', fontSize: 16, textAlign: 'center' as const },
-  btnBuy: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold' as const, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' },
-  btnSell: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold' as const, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' },
-  list: { display: 'flex', flexDirection: 'column', gap: 12 },
-  gameItem: { background: '#1a1a1a', borderRadius: 14, padding: 16, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'background 0.2s' },
-  gameName: { color: '#fff', fontWeight: 'bold' as const, fontSize: 15 },
-  gameSub: { color: '#737373', fontSize: 11 }
+  // ЭКРАН: ДАЙС
+  if (screen === 'dice') {
+    return (
+      <div style={s.overlay} onClick={onClose}>
+        <div style={s.container} onClick={e => e.stopPropagation()}>
+          <div style={s.header}>
+            <button onClick={() => setScreen('main')} style={s.backBtn}><X size={24} color="#fff" /></button>
+            <span style={s.nickname}>🎲 Дайс</span>
+          </div>
+
+          <div style={s.chipDisplay}>
+            <div style={s.chipLabel}>Фишки для игры</div>
+            <div style={s.chipValue}>🪙 {chips.toFixed(2)}</div>
+          </div>
+
+          <div style={s.diceGame}>
+            <div style={{textAlign: 'center', marginBottom: 20}}>
+              <div style={{fontSize: 13, color: '#8E8E93'}}>Ставка (фишки)</div>
+              <input 
+                style={{...s.input, textAlign: 'center', fontSize: 18, fontWeight: 'bold'}} 
+                placeholder="0" 
+                type="number" 
+                value={diceBet} 
+                onChange={e => setDiceBet(e.target.value)} 
+              />
+            </div>
+
+            <div style={{display: 'flex', gap: 8, marginBottom: 16}}>
+              <button 
+                style={{...s.btn, flex: 1, background: diceRoll === 'over' ? '#007AFF' : '#2C2C2E', color: diceRoll === 'over' ? '#fff' : '#8E8E93'}}
+                onClick={() => setDiceRoll('over')}
+              >
+                Больше {diceTarget}
+              </button>
+              <button 
+                style={{...s.btn, flex: 1, background: diceRoll === 'under' ? '#007AFF' : '#2C2C2E', color: diceRoll === 'under' ? '#fff' : '#8E8E93'}}
+                onClick={() => setDiceRoll('under')}
+              >
+                Меньше {diceTarget}
+              </button>
+            </div>
+
+            <div style={{marginBottom: 20}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8E8E93', marginBottom: 8}}>
+                <span>0</span>
+                <span>Цель: {diceTarget}</span>
+                <span>100</span>
+              </div>
+              <input 
+                type="range" 
+                min="10" 
+                max="90" 
+                value={diceTarget} 
+                onChange={e => setDiceTarget(parseInt(e.target.value))}
+                style={s.diceTargetSlider}
+              />
+            </div>
+
+            <button style={{...s.btn, ...s.btnPrimary, padding: '14px', fontSize: 16}} onClick={handleDiceBet}>
+              🎲 Бросить кубик
+            </button>
+
+            <div style={{textAlign: 'center', marginTop: 16, fontSize: 12, color: '#8E8E93'}}>
+              Выплата при победе: 1.95x (RTP 95%)
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 };
