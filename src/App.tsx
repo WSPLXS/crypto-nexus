@@ -215,9 +215,9 @@ function App() {
 
 const saveProgress = async () => {
   console.log('🔍 SAVE PROGRESS CALLED');
-  console.log('💰 balanceRef.current:', balanceRef.current);
-  console.log('🪙 casinoChipsRef.current:', casinoChipsRef.current);
-  console.log('💵 stakedAmountRef.current:', stakedAmountRef.current);
+  console.log('  balanceRef.current:', balanceRef.current);
+  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
+  console.log('  casinoChipsRef.current:', casinoChipsRef.current);
   
   try {
     const payload = { 
@@ -734,26 +734,34 @@ useEffect(() => {
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
 const handleExchange = async (usdChange: number, rubChange: number) => {
-  // 1. Считаем новые значения
+  console.log('💱 handleExchange STARTED');
+  console.log('  usdChange:', usdChange);
+  console.log('  rubChange:', rubChange);
+  console.log('  balance (state):', balance);
+  console.log('  rubBalance (state):', rubBalance);
+  
   const newUsd = balance + usdChange;
   const newRub = rubBalance + rubChange;
+  
+  console.log('  newUsd:', newUsd);
+  console.log('  newRub:', newRub);
 
   if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
 
-  // 🔥 2. ОБНОВЛЯЕМ REFS СРАЗУ ЖЕ (Синхронно!)
-  // Это критически важно, так как saveProgress берет данные именно отсюда
+  // 🔥 ОБНОВЛЯЕМ REFS
+  console.log('  Updating Refs...');
   balanceRef.current = newUsd;
-  rubBalanceRef.current = newRub; // <--- ВОТ ЭТА СТРОКА ЧИНИТ БАГУ!
+  rubBalanceRef.current = newRub;
+  
+  console.log('  balanceRef.current:', balanceRef.current);
+  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
 
-  console.log('💱 Exchange Refs Updated:');
-  console.log('  balanceRef:', balanceRef.current);
-  console.log('  rubBalanceRef:', rubBalanceRef.current);
-
-  // 3. Обновляем состояние (для интерфейса)
+  // Обновляем стейт
   setBalance(newUsd);
   setRubBalance(newRub);
 
-  // 4. Сохраняем в базу (теперь оно возьмет новые значения из Refs)
+  // Сохраняем
+  console.log('  Calling saveProgress...');
   try {
     await saveProgress();
     console.log('✅ Exchange saved successfully');
