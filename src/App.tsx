@@ -844,7 +844,7 @@ useEffect(() => {
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-      <BankModal 
+<BankModal 
   isOpen={showBank} 
   onClose={() => setShowBank(false)} 
   userId={userIdNum} 
@@ -853,9 +853,11 @@ useEffect(() => {
   rubBalance={rubBalance} 
   bankUsd={bankUsd} 
   bankRub={bankRub} 
+  cryptoHoldings={cryptoHoldings} // 🔥 ДОБАВЬ
   onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
   onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
-  onSaveProgress={saveProgress} // 🔥 ДОБАВЬ ЭТУ СТРОКУ
+  onCryptoHoldingsUpdate={(holdings) => { setCryptoHoldings(holdings); }} // 🔥 ДОБАВЬ
+  onSaveProgress={saveProgress}
 />
 <BusinessCenterModal 
   isOpen={showBusiness} 

@@ -12,14 +12,16 @@ interface BankModalProps {
   rubBalance: number;
   bankUsd: number;
   bankRub: number;
+  cryptoHoldings: Record<string, number>; // 🔥 ДОБАВИЛИ
   onBalanceUpdate: (usd: number, rub: number) => void;
   onBankUpdate: (usd: number, rub: number) => void;
-  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
+  onCryptoHoldingsUpdate?: (holdings: Record<string, number>) => void; // 🔥 ДОБАВИЛИ
+  onSaveProgress?: () => void;
 }
 
 export const BankModal: React.FC<BankModalProps> = ({
-  isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub,
-  onBalanceUpdate, onBankUpdate, onSaveProgress // 🔥 Добавили проп
+  isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub, cryptoHoldings,
+  onBalanceUpdate, onBankUpdate, onCryptoHoldingsUpdate, onSaveProgress
 }) => {
   if (!isOpen) return null;
 
@@ -115,7 +117,7 @@ export const BankModal: React.FC<BankModalProps> = ({
         transferCurrency === 'rub' ? rubBalance - amt : rubBalance
       );
       
-      onSaveProgress?.(); // 🔥 Сохраняем после перевода
+      onSaveProgress?.();
       
       alert(`✅ Переведено ${fmt(amt, transferCurrency === 'rub' ? '₽' : '$')} игроку ${targetUser.nickname}`);
       setTransferAmount(''); 
@@ -136,7 +138,7 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > walletBal) return alert('Недостаточно средств на кошельке');
       onBalanceUpdate(accountCurrency === 'usd' ? balance - amt : balance, accountCurrency === 'rub' ? rubBalance - amt : rubBalance);
       onBankUpdate(accountCurrency === 'usd' ? bankUsd + amt : bankUsd, accountCurrency === 'rub' ? bankRub + amt : bankRub);
-      onSaveProgress?.(); // 🔥 Сохраняем
+      onSaveProgress?.();
       alert(`✅ Пополнено ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
       setDepositAmount('');
     } else {
@@ -144,7 +146,7 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > bankBal) return alert('Недостаточно средств на счете');
       onBankUpdate(accountCurrency === 'usd' ? bankUsd - amt : bankUsd, accountCurrency === 'rub' ? bankRub - amt : bankRub);
       onBalanceUpdate(accountCurrency === 'usd' ? balance + amt : balance, accountCurrency === 'rub' ? rubBalance + amt : rubBalance);
-      onSaveProgress?.(); // 🔥 Сохраняем
+      onSaveProgress?.();
       alert(`✅ Снято ${amt}${accountCurrency === 'rub' ? '₽' : '$'}`);
       setWithdrawAmount('');
     }
@@ -159,32 +161,67 @@ export const BankModal: React.FC<BankModalProps> = ({
       if (amt > rubBalance) return alert('Недостаточно рублей');
       const usdGot = amt / 80;
       onBalanceUpdate(balance + usdGot, rubBalance - amt);
-      onSaveProgress?.(); // 🔥 Сохраняем
+      onSaveProgress?.();
       alert(`✅ Обменяно ${amt}₽ на ${usdGot.toFixed(2)}$`);
     } else {
       if (amt > balance) return alert('Недостаточно долларов');
       const rubGot = amt * 80;
       onBalanceUpdate(balance - amt, rubBalance + rubGot);
-      onSaveProgress?.(); // 🔥 Сохраняем
+      onSaveProgress?.();
       alert(`✅ Обменяно ${amt}$ на ${rubGot}₽`);
     }
     setExchangeAmount('');
   };
 
-  // --- ТОРГОВЛЯ ---
+  // --- ТОРГОВЛЯ (ИСПРАВЛЕНО!) ---
   const handleTrade = (type: 'buy' | 'sell') => {
     const amt = parseFloat(tradeAmount);
     if (!amt || amt <= 0) return alert('Введите количество');
+    
     const price = livePrices[selectedCrypto] || CRYPTO_LIST.find(c => c.id === selectedCrypto)?.basePrice || 0;
     const totalRub = amt * price;
     
     if (type === 'buy') {
-      if (totalRub > rubBalance) return alert('Недостаточно рублей');
+      // 🔥 ПОКУПКА: проверяем баланс
+      if (totalRub > rubBalance) return alert('Недостаточно рублей!');
+      
+      // Снимаем рубли
       onBalanceUpdate(balance, rubBalance - totalRub);
+      
+      // 🔥 Добавляем крипту в holdings
+      const newHoldings = { ...cryptoHoldings };
+      newHoldings[selectedCrypto] = (newHoldings[selectedCrypto] || 0) + amt;
+      if (onCryptoHoldingsUpdate) {
+        onCryptoHoldingsUpdate(newHoldings);
+      }
+      
     } else {
+      // 🔥 ПРОДАЖА: проверяем наличие крипты
+      const ownedAmount = cryptoHoldings[selectedCrypto] || 0;
+      
+      if (ownedAmount <= 0) {
+        return alert(`У вас нет ${selectedCrypto.toUpperCase()}!`);
+      }
+      
+      if (amt > ownedAmount) {
+        return alert(`Недостаточно ${selectedCrypto.toUpperCase()}! У вас есть: ${ownedAmount} шт.`);
+      }
+      
+      // 🔥 Снимаем крипту из holdings
+      const newHoldings = { ...cryptoHoldings };
+      newHoldings[selectedCrypto] = ownedAmount - amt;
+      if (newHoldings[selectedCrypto] <= 0) {
+        delete newHoldings[selectedCrypto];
+      }
+      if (onCryptoHoldingsUpdate) {
+        onCryptoHoldingsUpdate(newHoldings);
+      }
+      
+      // Начисляем рубли
       onBalanceUpdate(balance, rubBalance + totalRub);
     }
-    onSaveProgress?.(); // 🔥 Сохраняем
+    
+    onSaveProgress?.();
     alert(`✅ ${type === 'buy' ? 'Куплено' : 'Продано'} ${amt} ${selectedCrypto.toUpperCase()}`);
     setTradeAmount('');
   };
@@ -197,12 +234,12 @@ export const BankModal: React.FC<BankModalProps> = ({
     
     onBalanceUpdate(balance - amt, rubBalance);
     setStakedAmount(prev => prev + amt);
-    onSaveProgress?.(); // 🔥 Сохраняем
+    onSaveProgress?.();
     alert(`✅ В стейкинг отправлено $${amt}`);
     setStakeInput('');
   };
 
-  // СТИЛИ (без изменений)
+  // СТИЛИ
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
@@ -367,16 +404,34 @@ export const BankModal: React.FC<BankModalProps> = ({
   if (screen === 'trade') {
     const crypto = CRYPTO_LIST.find(c => c.id === selectedCrypto);
     const currentPrice = livePrices[selectedCrypto] || crypto?.basePrice || 0;
+    const ownedAmount = cryptoHoldings[selectedCrypto] || 0;
+    
     return (
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
           <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Торговля</span><div style={{width: 24}} /></div>
           <div style={{maxHeight: 200, overflowY: 'auto', marginBottom: 16}}>
-            {CRYPTO_LIST.map(c => (<div key={c.id} style={{...s.opItem, background: selectedCrypto === c.id ? '#2C2C2E' : '#1C1C1E', border: selectedCrypto === c.id ? '1px solid #007AFF' : '1px solid transparent', cursor: 'pointer'}} onClick={() => setSelectedCrypto(c.id)}><span style={{fontWeight: 'bold', color: '#fff'}}>{c.name}</span><span style={{color: '#8E8E93'}}>{fmt(livePrices[c.id] || c.basePrice, '₽')}</span></div>))}
+            {CRYPTO_LIST.map(c => {
+              const owned = cryptoHoldings[c.id] || 0;
+              return (
+                <div key={c.id} style={{...s.opItem, background: selectedCrypto === c.id ? '#2C2C2E' : '#1C1C1E', border: selectedCrypto === c.id ? '1px solid #007AFF' : '1px solid transparent', cursor: 'pointer'}} onClick={() => setSelectedCrypto(c.id)}>
+                  <span style={{fontWeight: 'bold', color: '#fff'}}>{c.name}</span>
+                  <span style={{color: '#8E8E93'}}>{fmt(livePrices[c.id] || c.basePrice, '₽')}</span>
+                  {owned > 0 && <span style={{color: '#22c55e', fontSize: 12}}>({owned} шт.)</span>}
+                </div>
+              );
+            })}
           </div>
-          <div style={{textAlign: 'center', marginBottom: 16, padding: 20, background: '#1C1C1E', borderRadius: 16}}><div style={{fontSize: 13, color: '#8E8E93'}}>Курс {selectedCrypto.toUpperCase()}</div><div style={{fontSize: 32, fontWeight: '800', color: '#fff'}}>{fmt(currentPrice, '₽')}</div></div>
+          <div style={{textAlign: 'center', marginBottom: 16, padding: 20, background: '#1C1C1E', borderRadius: 16}}>
+            <div style={{fontSize: 13, color: '#8E8E93'}}>Курс {selectedCrypto.toUpperCase()}</div>
+            <div style={{fontSize: 32, fontWeight: '800', color: '#fff'}}>{fmt(currentPrice, '₽')}</div>
+            {ownedAmount > 0 && <div style={{fontSize: 14, color: '#22c55e', marginTop: 8}}>У вас: {ownedAmount} шт.</div>}
+          </div>
           <input style={s.input} placeholder="Количество монет" type="number" value={tradeAmount} onChange={e => setTradeAmount(e.target.value)} />
-          <div style={{display: 'flex', gap: 12}}><button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#34C759'}} onClick={() => handleTrade('buy')}>Купить</button><button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#FF453A'}} onClick={() => handleTrade('sell')}>Продать</button></div>
+          <div style={{display: 'flex', gap: 12}}>
+            <button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#34C759'}} onClick={() => handleTrade('buy')}>Купить</button>
+            <button style={{...s.btn, ...s.btnPrimary, flex: 1, background: '#FF453A'}} onClick={() => handleTrade('sell')}>Продать</button>
+          </div>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Назад</button>
         </div>
       </div>
