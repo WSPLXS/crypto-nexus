@@ -227,15 +227,16 @@ const saveProgress = async () => {
       boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
       daily_quests: JSON.stringify(dailyQuestsRef.current),
       
-      // ✅ ТОЛЬКО ЭТИ ПОЛЯ (которые точно есть):
+      // ✅ Добавляем обратно:
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
-      business_maintenance: JSON.stringify(businessMaintenanceRef.current)
+      business_maintenance: JSON.stringify(businessMaintenanceRef.current),
       
-      // ❌ ВСЕ ОСТАЛЬНЫЕ КОММЕНТИРУЕМ:
-      // manager_hired: managerHiredRef.current,
+      // 🔥 ДОБАВЬ ЭТУ СТРОКУ:
+      crypto_holdings: JSON.stringify(cryptoHoldings),
+      
+      // И остальные (если они есть):
       // staked_amount: stakedAmount,
       // owned_items: JSON.stringify(ownedItems),
-      // crypto_holdings: JSON.stringify(cryptoHoldings),
       // bank_usd: bankUsd,
       // bank_rub: bankRub,
       // casino_chips: casinoChips,
