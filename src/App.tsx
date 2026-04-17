@@ -241,6 +241,7 @@ const saveProgress = async () => {
       crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
       staked_amount: stakedAmountRef.current,
       casino_chips: casinoChipsRef.current, // 🔥 ПРОВЕРЬ ЭТО ЗНАЧЕНИЕ
+      hustle_cooldowns: JSON.stringify(hustleCooldowns),
     };
 
     console.log('📦 Payload:', payload);
@@ -593,10 +594,23 @@ useEffect(() => {
         setHustleTimeLeft(prev => {
           if (prev <= 1) {
             const earned = activeHustle.salary;
+            
+            // 1. Обновляем состояние (для интерфейса)
             setRubBalance(p => p + earned);
-            setHustleCooldowns(prev => ({ ...prev, [activeHustle.id]: Date.now() + 60000 }));
+            
+            // 2. 🔥 КРИТИЧНО: Обновляем Ref СРАЗУ ЖЕ!
+            // Иначе saveProgress сохранит старое значение
+            rubBalanceRef.current += earned; 
+            
+            // 3. Обновляем кулдауны
+            const newCooldowns = { ...hustleCooldowns, [activeHustle.id]: Date.now() + 60000 };
+            setHustleCooldowns(newCooldowns);
+            
             setActiveHustle(null);
-            saveProgress();
+            
+            // 4. Сохраняем в базу (теперь Ref обновлен и баланс сохранится верно)
+            saveProgress(); 
+            
             alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
             return 0;
           }
