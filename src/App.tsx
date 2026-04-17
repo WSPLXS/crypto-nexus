@@ -985,68 +985,68 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
   onSaveProgress={saveProgress}
 />
 
-      {showCryptoWallet && (
-        <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
-              <X size={24} color="#9ca3af" />
-            </button>
-            <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
-            
-            <div style={styles.walletTotal}>
-              <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
-              <div style={styles.walletTotalValue}>
-                ${Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
-                  const currency = currencies.find(c => c.id === id);
-                  if (!currency) return total;
-                  const price = currency.price * (priceMultipliers[id] || 1);
-                  return total + (price * amount);
-                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-            
-            <div style={styles.walletList}>
-              {Object.keys(cryptoHoldings).length === 0 ? (
-                <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p>
-              ) : (
-                Object.entries(cryptoHoldings)
-                  .filter(([_, amount]) => amount > 0)
-                  .map(([currencyId, amount], index) => {
-                    const currency = currencies.find(c => c.id === currencyId);
-                    if (!currency) return null;
-                    
-                    const currentPrice = currency.price * (priceMultipliers[currencyId] || 1);
-                    const totalValue = currentPrice * amount;
-                    
-                    return (
-                      <div key={index} style={styles.walletItem}>
-                        <div style={styles.walletItemLeft}>
-                          <div style={styles.walletItemIcon}>
-                            {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
-                          </div>
-                          <div>
-                            <div style={styles.walletItemName}>{currency?.name || currencyId}</div>
-                            <div style={styles.walletItemAmount}>
-                              {Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} шт.
-                            </div>
-                          </div>
-                        </div>
-                        <div style={styles.walletItemRight}>
-                          <div style={styles.walletItemPrice}>
-                            ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          <div style={styles.walletItemTotal}>
-                            ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-          </div>
+{showCryptoWallet && (
+  <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
+    <div style={styles.modal} onClick={e => e.stopPropagation()}>
+      <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
+        <X size={24} color="#9ca3af" />
+      </button>
+      <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
+      
+      <div style={styles.walletTotal}>
+        <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
+        <div style={styles.walletTotalValue}>
+          ${Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
+            const currency = currencies.find(c => c.id === id);
+            if (!currency) return total;
+            const price = currency.price * (priceMultipliers[id] || 1);
+            return total + (price * amount);
+          }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
-      )}
+      </div>
+      
+      <div style={styles.walletList}>
+        {Object.keys(cryptoHoldings).length === 0 ? (
+          <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p>
+        ) : (
+          Object.entries(cryptoHoldings)
+            .filter(([_, amount]) => amount > 0)
+            .map(([currencyId, amount], index) => {
+              const currency = currencies.find(c => c.id === currencyId);
+              if (!currency) return null;
+              
+              const currentPrice = currency.price * (priceMultipliers[currencyId] || 1);
+              const totalValue = currentPrice * amount;
+              
+              return (
+                <div key={index} style={styles.walletItem}>
+                  <div style={styles.walletItemLeft}>
+                    <div style={styles.walletItemIcon}>
+                      {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div>
+                      <div style={styles.walletItemName}>{currency?.name || currencyId}</div>
+                      <div style={styles.walletItemAmount}>
+                        {Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} шт.
+                      </div>
+                    </div>
+                  </div>
+                  <div style={styles.walletItemRight}>
+                    <div style={styles.walletItemPrice}>
+                      ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style={styles.walletItemTotal}>
+                      ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       {showSideHustles && (<div style={styles.overlay} onClick={() => setShowSideHustles(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💼 Подработки</h2><div style={styles.hustleList}>{[{ id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' }, { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' }, { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }].map(hustle => { const cooldown = hustleCooldowns[hustle.id] || 0; const canWork = cooldown <= Date.now(); const waitTime = Math.ceil((cooldown - Date.now()) / 1000); return (<div key={hustle.id} style={styles.hustleCard}><div style={styles.hustleHeader}><span style={{fontSize: 32}}>{hustle.icon}</span><div style={{flex: 1, marginLeft: 12}}><h3 style={styles.hustleName}>{hustle.name}</h3><p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p></div></div><div style={styles.hustleInfo}><span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span><span style={styles.hustleDetail}>🖱 Быстро нажимай!</span></div><button onClick={() => startSideHustle(hustle)} disabled={!canWork} style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}>{canWork ? 'Начать' : `Подождите ${waitTime} сек`}</button></div>); })}</div></div></div>)}
 
