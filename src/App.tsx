@@ -135,10 +135,11 @@ function App() {
   const boostMultiplierRef = useRef(boostMultiplier); const boostExpiresAtRef = useRef(boostExpiresAt);
   const dailyQuestsRef = useRef(dailyQuests);
   
-  // 🔥 НОВЫЕ REFS ДЛЯ БИЗНЕСОВ
+  // 🔥 НОВЫЕ REFS ДЛЯ БИЗНЕСОВ И КРИПТЫ
   const ownedBusinessesRef = useRef(ownedBusinesses);
   const businessMaintenanceRef = useRef(businessMaintenance);
   const managerHiredRef = useRef(managerHired);
+  const cryptoHoldingsRef = useRef(cryptoHoldings); // 🔥 REF ДЛЯ КРИПТО-ПОРТФЕЛЯ
 
   useEffect(() => { balanceRef.current = balance; }, [balance]);
   useEffect(() => { rubBalanceRef.current = rubBalance; }, [rubBalance]);
@@ -151,10 +152,11 @@ function App() {
   useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
   useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
   
-  // 🔥 СИНХРОНИЗАЦИЯ REFS БИЗНЕСОВ
+  // 🔥 СИНХРОНИЗАЦИЯ REFS
   useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
   useEffect(() => { businessMaintenanceRef.current = businessMaintenance; }, [businessMaintenance]);
   useEffect(() => { managerHiredRef.current = managerHired; }, [managerHired]);
+  useEffect(() => { cryptoHoldingsRef.current = cryptoHoldings; }, [cryptoHoldings]); // 🔥 СИНХРОНИЗАЦИЯ КРИПТО-ПОРТФЕЛЯ
 
   useEffect(() => { if (boostMultiplier > 1 && !boostExpiresAt) setBoostMultiplier(1); }, [boostMultiplier, boostExpiresAt]);
 
@@ -231,8 +233,8 @@ const saveProgress = async () => {
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
       business_maintenance: JSON.stringify(businessMaintenanceRef.current),
       
-      // 🔥 ДОБАВЬ ЭТУ СТРОКУ:
-      crypto_holdings: JSON.stringify(cryptoHoldings),
+      // 🔥 ИСПОЛЬЗУЕМ REF ДЛЯ КРИПТЫ:
+      crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
       
       // И остальные (если они есть):
       // staked_amount: stakedAmount,
@@ -395,7 +397,19 @@ const saveProgress = async () => {
           setStakedAmount(data.staked_amount || 0);
           setCasinoChips(data.casino_chips || 0);
           setOwnedItems(typeof data.owned_items === 'string' ? JSON.parse(data.owned_items || '[]') : data.owned_items || []);
-          setCryptoHoldings(typeof data.crypto_holdings === 'string' ? JSON.parse(data.crypto_holdings || '{}') : data.crypto_holdings || {});
+          
+          // 🔥 ЗАГРУЗКА КРИПТО-ПОРТФЕЛЯ С ОБНОВЛЕНИЕМ REF
+          let crypto = {}; 
+          try { 
+            if (data.crypto_holdings) {
+              crypto = typeof data.crypto_holdings === 'string' 
+                ? JSON.parse(data.crypto_holdings) 
+                : data.crypto_holdings; 
+            } 
+          } catch { crypto = {}; }
+          setCryptoHoldings(crypto);
+          cryptoHoldingsRef.current = crypto; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
+          
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
           setManagerHired(data.manager_hired || false);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
@@ -854,10 +868,13 @@ useEffect(() => {
   rubBalance={rubBalance} 
   bankUsd={bankUsd} 
   bankRub={bankRub} 
-  cryptoHoldings={cryptoHoldings} // 🔥 ДОБАВЬ
+  cryptoHoldings={cryptoHoldings}
   onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
   onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
-  onCryptoHoldingsUpdate={(holdings) => { setCryptoHoldings(holdings); }} // 🔥 ДОБАВЬ
+  onCryptoHoldingsUpdate={(holdings) => { 
+    setCryptoHoldings(holdings); 
+    cryptoHoldingsRef.current = holdings; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
+  }} 
   onSaveProgress={saveProgress}
 />
 <BusinessCenterModal 
