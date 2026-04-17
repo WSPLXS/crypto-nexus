@@ -12,16 +12,19 @@ interface BankModalProps {
   rubBalance: number;
   bankUsd: number;
   bankRub: number;
+  stakedAmount: number; // 🔥 ДОБАВИЛИ
   cryptoHoldings: Record<string, number>; // 🔥 ДОБАВИЛИ
   onBalanceUpdate: (usd: number, rub: number) => void;
   onBankUpdate: (usd: number, rub: number) => void;
-  onCryptoHoldingsUpdate?: (holdings: Record<string, number>) => void; // 🔥 ДОБАВИЛИ
+  onStakeUpdate: (amount: number) => void; // 🔥 ДОБАВИЛИ
+  onCryptoHoldingsUpdate: (holdings: Record<string, number>) => void; // 🔥 ДОБАВИЛИ
   onSaveProgress?: () => void;
 }
 
 export const BankModal: React.FC<BankModalProps> = ({
-  isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub, cryptoHoldings,
-  onBalanceUpdate, onBankUpdate, onCryptoHoldingsUpdate, onSaveProgress
+  isOpen, onClose, userId, userNickname, balance, rubBalance, bankUsd, bankRub,
+  stakedAmount, cryptoHoldings,
+  onBalanceUpdate, onBankUpdate, onStakeUpdate, onCryptoHoldingsUpdate, onSaveProgress
 }) => {
   if (!isOpen) return null;
 
@@ -41,7 +44,6 @@ export const BankModal: React.FC<BankModalProps> = ({
 
   const [monthlySpend, setMonthlySpend] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [stakedAmount, setStakedAmount] = useState(0);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [selectedCrypto, setSelectedCrypto] = useState(CRYPTO_LIST[0].id);
   const [tradeAmount, setTradeAmount] = useState('');
@@ -173,7 +175,7 @@ export const BankModal: React.FC<BankModalProps> = ({
     setExchangeAmount('');
   };
 
-  // --- ТОРГОВЛЯ (ИСПРАВЛЕНО!) ---
+  // --- ТОРГОВЛЯ ---
   const handleTrade = (type: 'buy' | 'sell') => {
     const amt = parseFloat(tradeAmount);
     if (!amt || amt <= 0) return alert('Введите количество');
@@ -182,13 +184,10 @@ export const BankModal: React.FC<BankModalProps> = ({
     const totalRub = amt * price;
     
     if (type === 'buy') {
-      // 🔥 ПОКУПКА: проверяем баланс
       if (totalRub > rubBalance) return alert('Недостаточно рублей!');
       
-      // Снимаем рубли
       onBalanceUpdate(balance, rubBalance - totalRub);
       
-      // 🔥 Добавляем крипту в holdings
       const newHoldings = { ...cryptoHoldings };
       newHoldings[selectedCrypto] = (newHoldings[selectedCrypto] || 0) + amt;
       if (onCryptoHoldingsUpdate) {
@@ -196,7 +195,6 @@ export const BankModal: React.FC<BankModalProps> = ({
       }
       
     } else {
-      // 🔥 ПРОДАЖА: проверяем наличие крипты
       const ownedAmount = cryptoHoldings[selectedCrypto] || 0;
       
       if (ownedAmount <= 0) {
@@ -207,7 +205,6 @@ export const BankModal: React.FC<BankModalProps> = ({
         return alert(`Недостаточно ${selectedCrypto.toUpperCase()}! У вас есть: ${ownedAmount} шт.`);
       }
       
-      // 🔥 Снимаем крипту из holdings
       const newHoldings = { ...cryptoHoldings };
       newHoldings[selectedCrypto] = ownedAmount - amt;
       if (newHoldings[selectedCrypto] <= 0) {
@@ -217,7 +214,6 @@ export const BankModal: React.FC<BankModalProps> = ({
         onCryptoHoldingsUpdate(newHoldings);
       }
       
-      // Начисляем рубли
       onBalanceUpdate(balance, rubBalance + totalRub);
     }
     
@@ -233,13 +229,17 @@ export const BankModal: React.FC<BankModalProps> = ({
     if (amt > balance) return alert('Недостаточно долларов');
     
     onBalanceUpdate(balance - amt, rubBalance);
-    setStakedAmount(prev => prev + amt);
+    
+    if (onStakeUpdate) {
+      onStakeUpdate(stakedAmount + amt);
+    }
+    
     onSaveProgress?.();
     alert(`✅ В стейкинг отправлено $${amt}`);
     setStakeInput('');
   };
 
-  // СТИЛИ
+  // СТИЛИ (без изменений, оставляем как есть)
   const s: any = {
     overlay: { position: 'fixed', inset: 0, background: '#000', zIndex: 9999, overflowY: 'auto' },
     container: { maxWidth: 420, margin: '0 auto', padding: '16px 16px 40px', minHeight: '100vh' },
@@ -444,7 +444,12 @@ export const BankModal: React.FC<BankModalProps> = ({
       <div style={s.overlay} onClick={onClose}>
         <div style={s.container} onClick={e => e.stopPropagation()}>
           <div style={s.header}><button onClick={() => setScreen('main')} style={s.backBtn}><ArrowLeft size={24} color="#fff" /></button><span style={s.nickname}>Стейкинг</span><div style={{width: 24}} /></div>
-          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, textAlign: 'center', marginBottom: 20}}><Shield size={48} color="#FFD60A" style={{margin: '0 auto 12px'}}/><div style={{fontSize: 14, color: '#8E8E93'}}>В стейкинге</div><div style={{fontSize: 36, fontWeight: '800', color: '#FFD60A', margin: '8px 0'}}>${fmt(stakedAmount)}</div><div style={{fontSize: 14, color: '#34C759'}}>+{STAKING_CONFIG.dailyYieldPercent}% / день</div></div>
+          <div style={{background: '#1C1C1E', borderRadius: 22, padding: 20, textAlign: 'center', marginBottom: 20}}>
+            <Shield size={48} color="#FFD60A" style={{margin: '0 auto 12px'}}/>
+            <div style={{fontSize: 14, color: '#8E8E93'}}>В стейкинге</div>
+            <div style={{fontSize: 36, fontWeight: '800', color: '#FFD60A', margin: '8px 0'}}>${fmt(stakedAmount)}</div>
+            <div style={{fontSize: 14, color: '#34C759'}}>+{STAKING_CONFIG.dailyYieldPercent}% / день</div>
+          </div>
           <input style={s.input} placeholder="Сумма в $" type="number" value={stakeInput} onChange={e => setStakeInput(e.target.value)} />
           <button style={{...s.btn, ...s.btnPrimary}} onClick={handleStake}>Отправить в стейкинг</button>
           <button style={{...s.btn, background: '#2C2C2E', color: '#fff'}} onClick={() => setScreen('main')}>Назад</button>

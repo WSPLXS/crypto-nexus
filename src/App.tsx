@@ -135,11 +135,12 @@ function App() {
   const boostMultiplierRef = useRef(boostMultiplier); const boostExpiresAtRef = useRef(boostExpiresAt);
   const dailyQuestsRef = useRef(dailyQuests);
   
-  // 🔥 НОВЫЕ REFS ДЛЯ БИЗНЕСОВ И КРИПТЫ
+  // 🔥 НОВЫЕ REFS
   const ownedBusinessesRef = useRef(ownedBusinesses);
   const businessMaintenanceRef = useRef(businessMaintenance);
   const managerHiredRef = useRef(managerHired);
-  const cryptoHoldingsRef = useRef(cryptoHoldings); // 🔥 REF ДЛЯ КРИПТО-ПОРТФЕЛЯ
+  const cryptoHoldingsRef = useRef(cryptoHoldings);
+  const stakedAmountRef = useRef(stakedAmount); // 🔥 REF ДЛЯ СТЕЙКИНГА
 
   useEffect(() => { balanceRef.current = balance; }, [balance]);
   useEffect(() => { rubBalanceRef.current = rubBalance; }, [rubBalance]);
@@ -156,7 +157,8 @@ function App() {
   useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
   useEffect(() => { businessMaintenanceRef.current = businessMaintenance; }, [businessMaintenance]);
   useEffect(() => { managerHiredRef.current = managerHired; }, [managerHired]);
-  useEffect(() => { cryptoHoldingsRef.current = cryptoHoldings; }, [cryptoHoldings]); // 🔥 СИНХРОНИЗАЦИЯ КРИПТО-ПОРТФЕЛЯ
+  useEffect(() => { cryptoHoldingsRef.current = cryptoHoldings; }, [cryptoHoldings]);
+  useEffect(() => { stakedAmountRef.current = stakedAmount; }, [stakedAmount]); // 🔥 СИНХРОНИЗАЦИЯ СТЕЙКИНГА
 
   useEffect(() => { if (boostMultiplier > 1 && !boostExpiresAt) setBoostMultiplier(1); }, [boostMultiplier, boostExpiresAt]);
 
@@ -233,11 +235,11 @@ const saveProgress = async () => {
       owned_businesses: JSON.stringify(ownedBusinessesRef.current),
       business_maintenance: JSON.stringify(businessMaintenanceRef.current),
       
-      // 🔥 ИСПОЛЬЗУЕМ REF ДЛЯ КРИПТЫ:
+      // 🔥 ИСПОЛЬЗУЕМ REF ДЛЯ КРИПТЫ И СТЕЙКИНГА:
       crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
+      staked_amount: stakedAmountRef.current, // 🔥 СТЕЙКИНГ ЧЕРЕЗ REF
       
       // И остальные (если они есть):
-      // staked_amount: stakedAmount,
       // owned_items: JSON.stringify(ownedItems),
       // bank_usd: bankUsd,
       // bank_rub: bankRub,
@@ -394,7 +396,11 @@ const saveProgress = async () => {
           // 🔥 НОВЫЕ ПОЛЯ (БАНК, СТЕЙКИНГ, КАЗИНО, МАГАЗИН)
           setBankUsd(data.bank_usd || 0); 
           setBankRub(data.bank_rub || 0);
+          
+          // 🔥 ЗАГРУЗКА СТЕЙКИНГА С ОБНОВЛЕНИЕМ REF
           setStakedAmount(data.staked_amount || 0);
+          stakedAmountRef.current = data.staked_amount || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
+          
           setCasinoChips(data.casino_chips || 0);
           setOwnedItems(typeof data.owned_items === 'string' ? JSON.parse(data.owned_items || '[]') : data.owned_items || []);
           
@@ -502,19 +508,34 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [isAuthenticated, isLoading]); // 🔥 Убрали ownedBusinesses и businessMaintenance из зависимостей
 
+  // 🔥 НАЧИСЛЕНИЕ ПРОЦЕНТОВ ПО СТЕЙКИНГУ (3.5% в день)
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || stakedAmount <= 0) return;
+    
+    const interval = setInterval(() => {
+      // 3.5% в день = 3.5 / 100 / 24 = 0.0014583 в час
+      const hourlyYield = stakedAmount * 0.0014583;
+      
+      if (hourlyYield > 0) {
+        setBalance(prev => prev + hourlyYield);
+        // 🔥 Обновляем Ref для баланса
+        balanceRef.current += hourlyYield;
+        console.log(`💰 Стейкинг: +$${hourlyYield.toFixed(4)} в час`);
+      }
+    }, 3600000); // Каждый час (3600000 мс)
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading, stakedAmount]);
+
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const interval = setInterval(() => {
       if (managerHired && ownedBusinesses.length > 0) {
         setRubBalance(prev => prev + (ownedBusinesses.length * 50));
       }
-      if (stakedAmount > 0) {
-        const hourlyYield = stakedAmount * (STAKING_CONFIG.dailyYieldPercent / 100 / 24);
-        setBalance(prev => prev + hourlyYield);
-      }
     }, 3600000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, isLoading, managerHired, ownedBusinesses, stakedAmount]);
+  }, [isAuthenticated, isLoading, managerHired, ownedBusinesses]);
 
   useEffect(() => { const handleSave = () => saveProgress(); window.addEventListener('beforeunload', handleSave); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') handleSave(); }); return () => { window.removeEventListener('beforeunload', handleSave); document.removeEventListener('visibilitychange', handleSave); }; }, []);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
@@ -847,7 +868,7 @@ useEffect(() => {
         {showMessages && (<div style={styles.overlay} onClick={() => setShowMessages(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowMessages(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Сообщения</h2><MessageTabs currentUserId={userIdNum} handleFriendResponse={handleFriendResponse} calculateNetWorth={calculateNetWorth} renderVipBadge={renderVipBadge} /></div></div>)}
         {showCreateClan && (<div style={styles.overlay} onClick={() => setShowCreateClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Создать клан</h3><input id="clanName" placeholder="Название (до 25)" maxLength={25} style={styles.input} /><textarea id="clanDesc" placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="requireApproval" /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="minLevel" min={1} max={30} defaultValue={1} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="maxMembers" min={5} max={1000} defaultValue={50} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowCreateClan(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('clanName') as HTMLInputElement).value; const description = (document.getElementById('clanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('requireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('minLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('maxMembers') as HTMLInputElement).value); handleCreateClan({ name, emoji: '🏰', description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Создать</button></div></div></div>)}
         {showClanSettings && myClan && (<div style={styles.overlay} onClick={() => setShowClanSettings(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Настройки клана</h3><label style={styles.label}>Название клана:<input id="editClanName" defaultValue={myClan.name} placeholder="Название (до 25)" maxLength={25} style={{...styles.input, marginTop: 8}} /></label><textarea id="editClanDesc" defaultValue={myClan.description || ''} placeholder="Описание (до 200)" maxLength={200} style={{...styles.input, height: 60, resize: 'none'}} /><label style={styles.label}><input type="checkbox" id="editRequireApproval" defaultChecked={myClan.require_approval} /> Вступление по заявке</label><label style={styles.label}>Мин. уровень: <input type="number" id="editMinLevel" defaultValue={myClan.min_level} min={1} max={30} style={{width: 40, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><label style={styles.label}>Макс. участников: <input type="number" id="editMaxMembers" defaultValue={myClan.max_members} min={5} max={1000} style={{width: 60, background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4, padding: 2}} /></label><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => setShowClanSettings(false)} style={styles.btnSecondary}>Отменить</button><button onClick={() => { const name = (document.getElementById('editClanName') as HTMLInputElement).value; const description = (document.getElementById('editClanDesc') as HTMLTextAreaElement).value; const requireApproval = (document.getElementById('editRequireApproval') as HTMLInputElement).checked; const minLevel = parseInt((document.getElementById('editMinLevel') as HTMLInputElement).value); const maxMembers = parseInt((document.getElementById('editMaxMembers') as HTMLInputElement).value); handleUpdateClan({ name, description, requireApproval, minLevel, maxMembers }); }} style={styles.btnPrimary}>Сохранить</button></div><div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(239, 68, 68, 0.3)'}}><button onClick={() => { if (confirm('⚠️ ВНИМАНИЕ! Удалить клан навсегда? Все участники будут исключены.')) handleDeleteClan(); }} style={styles.btnDanger}><Trash2 size={16} style={{display: 'inline', marginRight: 8, verticalAlign: 'middle'}}/> Удалить клан</button></div></div></div>)}
-        {showRankManager && (<div style={styles.overlay} onClick={() => setShowRankManager(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Управление рангами</h3><div style={styles.memberList}>{clanMembers.filter(m => m.role < 4).map(m => (<div key={m.user_id} style={styles.memberItem}><input type="checkbox" checked={selectedForRank.includes(m.user_id)} onChange={(e) => { if (e.target.checked) setSelectedForRank([...selectedForRank, m.user_id]); else setSelectedForRank(selectedForRank.filter(id => id !== m.user_id)); }} style={{width: 20, height: 20, marginRight: 12}} /><div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div><div style={{flex:1}}><div style={styles.memberName}>{m.nickname} {renderVipBadge(m.vip_status)}</div><div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div></div></div>))}</div><div style={{marginTop: 16}}><label style={styles.label}>Новый ранг: <select value={newRank} onChange={(e) => setNewRank(parseInt(e.target.value))} style={{marginLeft: 8, padding: '4px 8px', background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4}}><option value={1}>1 - Участник</option><option value={2}>2 - Фармила</option><option value={3}>3 - Заместитель</option></select></label></div><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => { setShowRankManager(false); setSelectedForRank([]); }} style={styles.btnSecondary}>Отменить</button><button onClick={handleRankUpdate} style={styles.btnPrimary}>Сохранить</button></div></div></div>)}
+        {showRankManager && (<div style={styles.overlay} onClick={() => setShowRankManager(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Управление рангами</h3><div style={styles.memberList}>{clanMembers.filter(m => m.role < 4).map(m => (<div key={m.user_id} style={styles.memberItem}><input type="checkbox" checked={selectedForRank.includes(m.user_id)} onChange={(e) => { if (e.target.checked) setSelectedForRank([...selectedForRank, m.user_id]); else setSelectedForRank(selectedForRank.filter(id => id !== m.user_id)); }} style={{width: 20, height: 20, marginRight: 12}} /><div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div><div style={{flex:1}}><div style={styles.memberName}>{m.nickname} {renderVipBadge(m.vip_status)}</div><div style={styles.memberRole}>['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]</div></div></div>))}</div><div style={{marginTop: 16}}><label style={styles.label}>Новый ранг: <select value={newRank} onChange={(e) => setNewRank(parseInt(e.target.value))} style={{marginLeft: 8, padding: '4px 8px', background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4}}><option value={1}>1 - Участник</option><option value={2}>2 - Фармила</option><option value={3}>3 - Заместитель</option></select></label></div><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => { setShowRankManager(false); setSelectedForRank([]); }} style={styles.btnSecondary}>Отменить</button><button onClick={handleRankUpdate} style={styles.btnPrimary}>Сохранить</button></div></div></div>)}
         {showFindClan && (<div style={styles.overlay} onClick={() => setShowFindClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFindClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск клана</h2><input placeholder="Введите название клана..." value={clanSearchQuery} onChange={(e) => { setClanSearchQuery(e.target.value); searchClans(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{clanSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите название для поиска</p> : clanSearchResults.map(clan => (<div key={clan.id} style={styles.listItem}><div style={styles.clanAvatar}>{clan.emoji}</div><div style={{flex:1}}><div style={styles.listName}>{clan.name}</div><div style={styles.listSub}>{clan.members_count || 0}/{clan.max_members} участников • Мин. ур: {clan.min_level}</div></div><button onClick={() => handleJoinClan(clan.id)} style={styles.btnSmall}>Вступить</button></div>))}</div></div></div>)}
       </div>
 
@@ -868,9 +889,14 @@ useEffect(() => {
   rubBalance={rubBalance} 
   bankUsd={bankUsd} 
   bankRub={bankRub} 
+  stakedAmount={stakedAmount} // 🔥 ДОБАВИЛИ
   cryptoHoldings={cryptoHoldings}
   onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
   onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
+  onStakeUpdate={(amount) => { 
+    setStakedAmount(amount); 
+    stakedAmountRef.current = amount; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
+  }} 
   onCryptoHoldingsUpdate={(holdings) => { 
     setCryptoHoldings(holdings); 
     cryptoHoldingsRef.current = holdings; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
