@@ -60,10 +60,22 @@ body {
 .ios-toggle.active .ios-toggle-knob { transform: translateX(20px); }
 
 input[type="range"] {
-  -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
-  background: var(--border); outline: none;
+  -webkit-appearance: none;
+  appearance: none; /* 🔥 ДОБАВИЛИ СТАНДАРТНОЕ СВОЙСТВО */
+  width: 100%; 
+  height: 6px; 
+  border-radius: 3px;
+  background: var(--border); 
+  outline: none;
 }
+
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); cursor: pointer; box-shadow: 0 0 8px var(--accent-glow);
+  -webkit-appearance: none;
+  appearance: none; /* 🔥 ДОБАВИЛИ СТАНДАРТНОЕ СВОЙСТВО */
+  width: 20px; 
+  height: 20px; 
+  border-radius: 50%;
+  background: var(--accent); 
+  cursor: pointer; 
+  box-shadow: 0 0 8px var(--accent-glow);
 }

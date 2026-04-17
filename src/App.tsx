@@ -733,27 +733,34 @@ useEffect(() => {
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
-      const handleExchange = async (usdChange: number, rubChange: number) => {
-    const newUsd = balance + usdChange;
-    const newRub = rubBalance + rubChange;
+const handleExchange = async (usdChange: number, rubChange: number) => {
+  const newUsd = balance + usdChange;
+  const newRub = rubBalance + rubChange;
 
-    if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
+  if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
 
-    // 1. Обновляем состояние (для интерфейса)
-    setBalance(newUsd);
-    setRubBalance(newRub);
+  // 1. 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
+  balanceRef.current = newUsd;
+  rubBalanceRef.current = newRub;
+  
+  console.log('💱 Exchange:');
+  console.log('  newUsd:', newUsd);
+  console.log('  newRub:', newRub);
+  console.log('  balanceRef.current:', balanceRef.current);
+  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
 
-    // 2. 🔥 КРИТИЧНО: Синхронно обновляем Refs, чтобы saveProgress взял НОВЫЕ данные
-    balanceRef.current = newUsd;
-    rubBalanceRef.current = newRub;
+  // 2. Обновляем состояние (для интерфейса)
+  setBalance(newUsd);
+  setRubBalance(newRub);
 
-    // 3. Сохраняем в базу
-    try {
-      await saveProgress();
-    } catch (err) {
-      console.error('❌ Ошибка сохранения обмена:', err);
-    }
-  };
+  // 3. Сохраняем в базу
+  try {
+    await saveProgress();
+    console.log('✅ Exchange saved successfully');
+  } catch (err) {
+    console.error('❌ Ошибка сохранения обмена:', err);
+  }
+};
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
 
   const renderClanMenu = () => {
