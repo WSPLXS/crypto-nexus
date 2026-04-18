@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import WebApp from '@twa-dev/sdk';
-import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield, Menu, ShoppingBag } from 'lucide-react';
+import { Handshake, MessageCircle, Crown, Pencil, Check, X, Trophy, Search, UserPlus, ArrowLeft, Trash2, ScrollText, Banknote, Repeat, Gem, ChevronRight, DollarSign, CircleDollarSign, Send, Building2, Briefcase, Gamepad2, Wallet, TrendingUp, Zap, Clock, UserCheck, Shield, Menu, ShoppingBag, ChevronLeft } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { GPU } from './components/GPU';
 import { TopMenu } from './components/TopMenu';
@@ -21,6 +21,256 @@ import { currencies } from './data/currencies';
 import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { BUSINESSES, STAKING_CONFIG } from './data/economy';
 import { supabase } from './lib/supabase';
+
+// 🔥 ДАННЫЕ ДЛЯ МАШИН (БРЕНДЫ И МОДЕЛИ)
+const CAR_BRANDS = [
+  { id: 'lada', name: 'LADA', icon: '🚗', models: [
+    { id: 'lada_vesta', name: 'Vesta', price: 1200000 },
+    { id: 'lada_granta', name: 'Granta', price: 800000 },
+    { id: 'lada_niva', name: 'Niva', price: 900000 },
+    { id: 'lada_largus', name: 'Largus', price: 1100000 },
+    { id: 'lada_xray', name: 'XRAY', price: 1000000 },
+    { id: 'lada_2101', name: '2101', price: 150000 },
+    { id: 'lada_2102', name: '2102', price: 160000 },
+    { id: 'lada_2103', name: '2103', price: 180000 },
+    { id: 'lada_2104', name: '2104', price: 140000 },
+    { id: 'lada_2105', name: '2105', price: 150000 },
+    { id: 'lada_2106', name: '2106', price: 200000 },
+    { id: 'lada_2107', name: '2107', price: 180000 },
+    { id: 'lada_2108', name: '2108', price: 130000 },
+    { id: 'lada_2109', name: '2109', price: 140000 },
+    { id: 'lada_21099', name: '21099', price: 160000 },
+    { id: 'lada_2110', name: '2110', price: 170000 }
+  ]},
+  { id: 'bmw', name: 'BMW', icon: '🏎️', models: [
+    { id: 'bmw_3', name: '3 Series', price: 3500000 },
+    { id: 'bmw_5', name: '5 Series', price: 5500000 },
+    { id: 'bmw_x5', name: 'X5', price: 8000000 },
+    { id: 'bmw_x3', name: 'X3', price: 4500000 },
+    { id: 'bmw_7', name: '7 Series', price: 11000000 },
+    { id: 'bmw_m3', name: 'M3', price: 7000000 },
+    { id: 'bmw_m5', name: 'M5', price: 12000000 },
+    { id: 'bmw_m4', name: 'M4', price: 8500000 }
+  ]},
+  { id: 'mercedes', name: 'Mercedes', icon: '✨', models: [
+    { id: 'mb_c', name: 'C-Class', price: 4000000 },
+    { id: 'mb_e', name: 'E-Class', price: 6000000 },
+    { id: 'mb_s', name: 'S-Class', price: 13000000 },
+    { id: 'mb_glc', name: 'GLC', price: 5500000 },
+    { id: 'mb_gle', name: 'GLE', price: 8000000 },
+    { id: 'mb_g', name: 'G-Class', price: 22000000 }
+  ]},
+  { id: 'toyota', name: 'Toyota', icon: '🚙', models: [
+    { id: 'toy_camry', name: 'Camry', price: 3000000 },
+    { id: 'toy_corolla', name: 'Corolla', price: 2000000 },
+    { id: 'toy_rav4', name: 'RAV4', price: 3500000 },
+    { id: 'toy_lc', name: 'Land Cruiser', price: 12000000 },
+    { id: 'toy_prius', name: 'Prius', price: 1800000 },
+    { id: 'toy_hilux', name: 'Hilux', price: 4000000 }
+  ]},
+  { id: 'lexus', name: 'Lexus', icon: '💎', models: [
+    { id: 'lex_rx', name: 'RX', price: 5000000 },
+    { id: 'lex_lx', name: 'LX', price: 11000000 },
+    { id: 'lex_es', name: 'ES', price: 4000000 },
+    { id: 'lex_nx', name: 'NX', price: 3500000 },
+    { id: 'lex_ls', name: 'LS', price: 9000000 },
+    { id: 'lex_gx', name: 'GX', price: 7000000 }
+  ]},
+  { id: 'audi', name: 'AUDI', icon: '⭕', models: [
+    { id: 'audi_a4', name: 'A4', price: 3800000 },
+    { id: 'audi_a6', name: 'A6', price: 6500000 },
+    { id: 'audi_q5', name: 'Q5', price: 5000000 },
+    { id: 'audi_q7', name: 'Q7', price: 8500000 },
+    { id: 'audi_a3', name: 'A3', price: 2500000 },
+    { id: 'audi_etron', name: 'e-tron', price: 7000000 }
+  ]},
+  { id: 'bugatti', name: 'BUGATTI', icon: '🏁', models: [
+    { id: 'bug_chiron', name: 'Chiron', price: 250000000 },
+    { id: 'bug_veyron', name: 'Veyron', price: 180000000 },
+    { id: 'bug_divo', name: 'Divo', price: 450000000 },
+    { id: 'bug_cento', name: 'Centodieci', price: 800000000 },
+    { id: 'bug_bolide', name: 'Bolide', price: 350000000 }
+  ]},
+  { id: 'ferrari', name: 'Ferrari', icon: '🐎', models: [
+    { id: 'fer_488', name: '488', price: 28000000 },
+    { id: 'fer_f8', name: 'F8 Tributo', price: 32000000 },
+    { id: 'fer_roma', name: 'Roma', price: 25000000 },
+    { id: 'fer_sf90', name: 'SF90 Stradale', price: 45000000 },
+    { id: 'fer_portofino', name: 'Portofino', price: 22000000 },
+    { id: 'fer_812', name: '812 Superfast', price: 40000000 }
+  ]},
+  { id: 'lambo', name: 'Lamborghini', icon: '🐂', models: [
+    { id: 'lam_avent', name: 'Aventador', price: 45000000 },
+    { id: 'lam_hur', name: 'Huracán', price: 28000000 },
+    { id: 'lam_urus', name: 'Urus', price: 35000000 },
+    { id: 'lam_rev', name: 'Revuelto', price: 55000000 },
+    { id: 'lam_gall', name: 'Gallardo', price: 18000000 }
+  ]},
+  { id: 'nissan', name: 'Nissan', icon: '⛩️', models: [
+    { id: 'nis_qashqai', name: 'Qashqai', price: 2500000 },
+    { id: 'nis_xtrail', name: 'X-Trail', price: 2800000 },
+    { id: 'nis_altima', name: 'Altima', price: 2200000 },
+    { id: 'nis_gtr', name: 'GT-R', price: 12000000 },
+    { id: 'nis_patrol', name: 'Patrol', price: 7000000 },
+    { id: 'nis_leaf', name: 'Leaf', price: 1800000 }
+  ]},
+  { id: 'honda', name: 'Honda', icon: '🏍️', models: [
+    { id: 'hon_civic', name: 'Civic', price: 2000000 },
+    { id: 'hon_accord', name: 'Accord', price: 2500000 },
+    { id: 'hon_crv', name: 'CR-V', price: 3000000 },
+    { id: 'hon_pilot', name: 'Pilot', price: 4000000 },
+    { id: 'hon_hrv', name: 'HR-V', price: 2200000 },
+    { id: 'hon_fit', name: 'Fit', price: 1200000 }
+  ]},
+  { id: 'kia', name: 'KIA', icon: '', models: [
+    { id: 'kia_sport', name: 'Sportage', price: 2500000 },
+    { id: 'kia_sorent', name: 'Sorento', price: 3500000 },
+    { id: 'kia_rio', name: 'Rio', price: 1400000 },
+    { id: 'kia_cerato', name: 'Cerato/Forte', price: 1800000 },
+    { id: 'kia_tell', name: 'Telluride', price: 4000000 },
+    { id: 'kia_ev6', name: 'EV6', price: 4500000 }
+  ]},
+  { id: 'xiaomi', name: 'XIAOMI', icon: '📱', models: [
+    { id: 'xio_su7', name: 'SU7', price: 3000000 }
+  ]},
+  { id: 'tesla', name: 'TESLA', icon: '⚡', models: [
+    { id: 'tes_3', name: 'Model 3', price: 4000000 },
+    { id: 'tes_y', name: 'Model Y', price: 5000000 },
+    { id: 'tes_s', name: 'Model S', price: 8000000 },
+    { id: 'tes_x', name: 'Model X', price: 9000000 },
+    { id: 'tes_cyber', name: 'Cybertruck', price: 7500000 }
+  ]},
+  { id: 'alfa', name: 'Alfa Romeo', icon: '🔺', models: [
+    { id: 'alf_giulia', name: 'Giulia', price: 4000000 },
+    { id: 'alf_stelvio', name: 'Stelvio', price: 5000000 },
+    { id: 'alf_tonale', name: 'Tonale', price: 3500000 },
+    { id: 'alf_4c', name: '4C', price: 6000000 },
+    { id: 'alf_giul', name: 'Giulietta', price: 2500000 }
+  ]},
+  { id: 'bentley', name: 'Bentley', icon: '🕰️', models: [
+    { id: 'ben_cont', name: 'Continental GT', price: 25000000 },
+    { id: 'ben_fly', name: 'Flying Spur', price: 22000000 },
+    { id: 'ben_bent', name: 'Bentayga', price: 20000000 },
+    { id: 'ben_mul', name: 'Mulsanne', price: 35000000 }
+  ]},
+  { id: 'cadillac', name: 'Cadillac', icon: '🏰', models: [
+    { id: 'cad_esc', name: 'Escalade', price: 9000000 },
+    { id: 'cad_ct5', name: 'CT5', price: 4500000 },
+    { id: 'cad_xt5', name: 'XT5', price: 5000000 },
+    { id: 'cad_xt6', name: 'XT6', price: 6000000 },
+    { id: 'cad_lyriq', name: 'Lyriq', price: 6500000 }
+  ]},
+  { id: 'chevrolet', name: 'Chevrolet', icon: '🟡', models: [
+    { id: 'che_corv', name: 'Corvette', price: 8000000 },
+    { id: 'che_cam', name: 'Camaro', price: 4000000 },
+    { id: 'che_silv', name: 'Silverado', price: 5000000 },
+    { id: 'che_tahoe', name: 'Tahoe', price: 7000000 },
+    { id: 'che_equi', name: 'Equinox', price: 3000000 },
+    { id: 'che_mal', name: 'Malibu', price: 2000000 }
+  ]},
+  { id: 'ford', name: 'Ford', icon: '🔵', models: [
+    { id: 'for_f150', name: 'F-150', price: 5000000 },
+    { id: 'for_must', name: 'Mustang', price: 4500000 },
+    { id: 'for_expl', name: 'Explorer', price: 5000000 },
+    { id: 'for_foc', name: 'Focus', price: 1500000 },
+    { id: 'for_rang', name: 'Ranger', price: 3500000 },
+    { id: 'for_bron', name: 'Bronco', price: 6000000 }
+  ]},
+  { id: 'tank', name: 'TANK', icon: '🚜', models: [
+    { id: 'tank_300', name: 'Tank 300', price: 3000000 },
+    { id: 'tank_500', name: 'Tank 500', price: 5000000 }
+  ]},
+  { id: 'hummer', name: 'Hummer', icon: '🚛', models: [
+    { id: 'hum_h1', name: 'H1', price: 15000000 },
+    { id: 'hum_h2', name: 'H2', price: 12000000 },
+    { id: 'hum_h3', name: 'H3', price: 8000000 },
+    { id: 'hum_ev', name: 'EV', price: 15000000 }
+  ]},
+  { id: 'infiniti', name: 'Infiniti', icon: '♾️', models: [
+    { id: 'inf_q50', name: 'Q50', price: 3500000 },
+    { id: 'inf_qx60', name: 'QX60', price: 5000000 },
+    { id: 'inf_qx80', name: 'QX80', price: 7000000 },
+    { id: 'inf_q60', name: 'Q60', price: 4000000 },
+    { id: 'inf_fx', name: 'FX/QX70', price: 5000000 }
+  ]},
+  { id: 'jeep', name: 'Jeep', icon: '🚙', models: [
+    { id: 'jee_wrap', name: 'Wrangler', price: 5000000 },
+    { id: 'jee_grand', name: 'Grand Cherokee', price: 5000000 },
+    { id: 'jee_cher', name: 'Cherokee', price: 3000000 },
+    { id: 'jee_comp', name: 'Compass', price: 2500000 },
+    { id: 'jee_gladi', name: 'Gladiator', price: 6000000 },
+    { id: 'jee_ren', name: 'Renegade', price: 2000000 }
+  ]},
+  { id: 'landrover', name: 'Land Rover', icon: '🌍', models: [
+    { id: 'lr_def', name: 'Defender', price: 7000000 },
+    { id: 'lr_disc', name: 'Discovery', price: 6000000 },
+    { id: 'lr_rr', name: 'Range Rover', price: 15000000 },
+    { id: 'lr_sport', name: 'Range Rover Sport', price: 12000000 },
+    { id: 'lr_evo', name: 'Evoque', price: 4000000 }
+  ]},
+  { id: 'mclaren', name: 'McLaren', icon: '🏎️', models: [
+    { id: 'mcl_720', name: '720S', price: 25000000 },
+    { id: 'mcl_570', name: '570S', price: 18000000 },
+    { id: 'mcl_art', name: 'Artura', price: 22000000 },
+    { id: 'mcl_gt', name: 'GT', price: 20000000 },
+    { id: 'mcl_p1', name: 'P1', price: 150000000 },
+    { id: 'mcl_sen', name: 'Senna', price: 120000000 }
+  ]},
+  { id: 'mitsubishi', name: 'Mitsubishi', icon: '🔴', models: [
+    { id: 'mit_out', name: 'Outlander', price: 2500000 },
+    { id: 'mit_paj', name: 'Pajero', price: 4000000 },
+    { id: 'mit_l200', name: 'L200/Triton', price: 3000000 },
+    { id: 'mit_eclipse', name: 'Eclipse Cross', price: 2500000 },
+    { id: 'mit_asx', name: 'ASX', price: 1500000 }
+  ]},
+  { id: 'porsche', name: 'Porsche', icon: '🔱', models: [
+    { id: 'por_911', name: '911', price: 15000000 },
+    { id: 'por_cay', name: 'Cayenne', price: 9000000 },
+    { id: 'por_mac', name: 'Macan', price: 6000000 },
+    { id: 'por_pan', name: 'Panamera', price: 11000000 },
+    { id: 'por_tay', name: 'Taycan', price: 12000000 },
+    { id: 'por_718', name: '718 Boxster/Cayman', price: 7000000 }
+  ]},
+  { id: 'rolls', name: 'Rolls-Royce', icon: '👸', models: [
+    { id: 'rr_ph', name: 'Phantom', price: 45000000 },
+    { id: 'rr_gh', name: 'Ghost', price: 30000000 },
+    { id: 'rr_cul', name: 'Cullinan', price: 40000000 },
+    { id: 'rr_wra', name: 'Wraith', price: 25000000 },
+    { id: 'rr_daw', name: 'Dawn', price: 25000000 },
+    { id: 'rr_spec', name: 'Spectre', price: 40000000 }
+  ]},
+  { id: 'skoda', name: 'Skoda', icon: '🟢', models: [
+    { id: 'sko_oct', name: 'Octavia', price: 2000000 },
+    { id: 'sko_sup', name: 'Superb', price: 2500000 },
+    { id: 'sko_kod', name: 'Kodiaq', price: 2500000 },
+    { id: 'sko_kar', name: 'Karoq', price: 2000000 },
+    { id: 'sko_scal', name: 'Scala', price: 1800000 },
+    { id: 'sko_kam', name: 'Kamiq', price: 1600000 }
+  ]},
+  { id: 'subaru', name: 'Subaru', icon: '⭐', models: [
+    { id: 'sub_out', name: 'Outback', price: 3000000 },
+    { id: 'sub_for', name: 'Forester', price: 2500000 },
+    { id: 'sub_imp', name: 'Impreza', price: 1800000 },
+    { id: 'sub_leg', name: 'Legacy', price: 2200000 },
+    { id: 'sub_wrx', name: 'WRX', price: 3500000 },
+    { id: 'sub_cross', name: 'Crosstrek', price: 2000000 }
+  ]},
+  { id: 'suzuki', name: 'Suzuki', icon: 'S', models: [
+    { id: 'suz_swift', name: 'Swift', price: 1200000 },
+    { id: 'suz_vit', name: 'Vitara', price: 1800000 },
+    { id: 'suz_jim', name: 'Jimny', price: 2000000 },
+    { id: 'suz_sx4', name: 'SX4', price: 1400000 },
+    { id: 'suz_gv', name: 'Grand Vitara', price: 2200000 }
+  ]},
+  { id: 'vw', name: 'Volkswagen', icon: '🅥', models: [
+    { id: 'vw_golf', name: 'Golf', price: 2000000 },
+    { id: 'vw_pass', name: 'Passat', price: 2500000 },
+    { id: 'vw_tig', name: 'Tiguan', price: 3000000 },
+    { id: 'vw_polo', name: 'Polo', price: 1300000 },
+    { id: 'vw_toua', name: 'Touareg', price: 7000000 },
+    { id: 'vw_id4', name: 'ID.4', price: 4000000 }
+  ]}
+];
 
 function App() {
   let userIdNum: number;
@@ -104,6 +354,9 @@ function App() {
   const [hustleClicks, setHustleClicks] = useState(0);
   const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
   const [hustleCooldowns, setHustleCooldowns] = useState<Record<string, number>>({});
+  
+  // 🔥 СОСТОЯНИЕ ДЛЯ МАГАЗИНА МАШИН (БРЕНД)
+  const [selectedCarBrand, setSelectedCarBrand] = useState<string | null>(null);
 
   const [questStartTreasury, setQuestStartTreasury] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
@@ -240,7 +493,7 @@ const saveProgress = async () => {
       business_maintenance: JSON.stringify(businessMaintenanceRef.current),
       crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
       staked_amount: stakedAmountRef.current,
-      casino_chips: casinoChipsRef.current, // 🔥 ПРОВЕРЬ ЭТО ЗНАЧЕНИЕ
+      casino_chips: casinoChipsRef.current, 
       hustle_cooldowns: JSON.stringify(hustleCooldowns),
     };
 
@@ -594,23 +847,12 @@ useEffect(() => {
         setHustleTimeLeft(prev => {
           if (prev <= 1) {
             const earned = activeHustle.salary;
-            
-            // 1. Обновляем состояние (для интерфейса)
             setRubBalance(p => p + earned);
-            
-            // 2. 🔥 КРИТИЧНО: Обновляем Ref СРАЗУ ЖЕ!
-            // Иначе saveProgress сохранит старое значение
-            rubBalanceRef.current += earned; 
-            
-            // 3. Обновляем кулдауны
+            rubBalanceRef.current += earned;
             const newCooldowns = { ...hustleCooldowns, [activeHustle.id]: Date.now() + 60000 };
             setHustleCooldowns(newCooldowns);
-            
             setActiveHustle(null);
-            
-            // 4. Сохраняем в базу (теперь Ref обновлен и баланс сохранится верно)
             saveProgress(); 
-            
             alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
             return 0;
           }
@@ -670,9 +912,6 @@ useEffect(() => {
   // Начисляем доллары
   setBalance(p => p + price);
   setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
-  
-  // Обновляем мультипликатор (опционально)
-  // setPriceMultipliers(prev => ({...prev, [currencyId]: Math.max(1, (prev[currencyId] || 1) * 0.95)}));
   
   setTimeout(() => saveProgress(), 50);
   alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
@@ -999,76 +1238,135 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
   onSaveProgress={saveProgress}
 />
 
-{showCryptoWallet && (
-  <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
-    <div style={styles.modal} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
-        <X size={24} color="#9ca3af" />
-      </button>
-      <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
+      {showCryptoWallet && (
+        <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCryptoWallet(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <h2 style={styles.modalTitle}>💰 Крипто Кошелек</h2>
             
-      <div style={styles.walletTotal}>
-        <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
-        {/* 🔥 ЗАМЕНИЛ $ НА ₽ */}
-        <div style={styles.walletTotalValue}>
-        ₽{Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
-            const currency = currencies.find(c => c.id === id);
-            if (!currency) return total;
-            const price = currency.price * (priceMultipliers[id] || 1);
-            return total + (price * amount);
-          }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </div>
-      </div>
-           
-      <div style={styles.walletList}>
-        {Object.keys(cryptoHoldings).length === 0 ? (
-          <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p>
-        ) : (
-          Object.entries(cryptoHoldings)
-            .filter(([_, amount]) => amount > 0)
-            .map(([currencyId, amount], index) => {
-              const currency = currencies.find(c => c.id === currencyId);
-              if (!currency) return null;
-              
-              const currentPrice = currency.price * (priceMultipliers[currencyId] || 1);
-              const totalValue = currentPrice * amount;
-              
-              return (
-                <div key={index} style={styles.walletItem}>
-                  <div style={styles.walletItemLeft}>
-                    <div style={styles.walletItemIcon}>
-                      {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
-                    </div>
-                    <div>
-                      <div style={styles.walletItemName}>{currency?.name || currencyId}</div>
-                      <div style={styles.walletItemAmount}>
-                        {Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} шт.
+            <div style={styles.walletTotal}>
+              <div style={styles.walletTotalLabel}>Общая стоимость активов</div>
+              <div style={styles.walletTotalValue}>
+                ₽{Object.entries(cryptoHoldings).reduce((total, [id, amount]) => {
+                  const currency = currencies.find(c => c.id === id);
+                  if (!currency) return total;
+                  const price = currency.price * (priceMultipliers[id] || 1);
+                  return total + (price * amount);
+                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+            
+            <div style={styles.walletList}>
+              {Object.keys(cryptoHoldings).length === 0 ? (
+                <p style={{textAlign: 'center', color: '#737373', padding: '40px 0'}}>У вас пока нет криптовалют</p>
+              ) : (
+                Object.entries(cryptoHoldings)
+                  .filter(([_, amount]) => amount > 0)
+                  .map(([currencyId, amount], index) => {
+                    const currency = currencies.find(c => c.id === currencyId);
+                    if (!currency) return null;
+                    
+                    const currentPrice = currency.price * (priceMultipliers[currencyId] || 1);
+                    const totalValue = currentPrice * amount;
+                    
+                    return (
+                      <div key={index} style={styles.walletItem}>
+                        <div style={styles.walletItemLeft}>
+                          <div style={styles.walletItemIcon}>
+                            {currency?.shortName ? currency.shortName.charAt(0).toUpperCase() : '?'}
+                          </div>
+                          <div>
+                            <div style={styles.walletItemName}>{currency?.name || currencyId}</div>
+                            <div style={styles.walletItemAmount}>
+                              {Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} шт.
+                            </div>
+                          </div>
+                        </div>
+                        <div style={styles.walletItemRight}>
+                          <div style={styles.walletItemPrice}>
+                            {currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
+                          </div>
+                          <div style={styles.walletItemTotal}>
+                            {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div style={styles.walletItemRight}>
-                    {/* 🔥 ТОЖЕ ЗАМЕНИЛ $ НА ₽ */}
-                    <div style={styles.walletItemPrice}>
-                  {currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
-                    </div>
-                    <div style={styles.walletItemTotal}>
-                     {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSideHustles && (<div style={styles.overlay} onClick={() => setShowSideHustles(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowSideHustles(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💼 Подработки</h2><div style={styles.hustleList}>{[{ id: 'flyer_poster', name: 'Расклейщик объявлений', duration: 15, salary: 1000, icon: '📋' }, { id: 'leaflet_distributor', name: 'Раздача листовок', duration: 20, salary: 1500, icon: '📄' }, { id: 'delivery', name: 'Доставщик', duration: 30, salary: 1500, icon: '🚚' }].map(hustle => { const cooldown = hustleCooldowns[hustle.id] || 0; const canWork = cooldown <= Date.now(); const waitTime = Math.ceil((cooldown - Date.now()) / 1000); return (<div key={hustle.id} style={styles.hustleCard}><div style={styles.hustleHeader}><span style={{fontSize: 32}}>{hustle.icon}</span><div style={{flex: 1, marginLeft: 12}}><h3 style={styles.hustleName}>{hustle.name}</h3><p style={styles.hustleSalary}>+{hustle.salary.toLocaleString()} ₽</p></div></div><div style={styles.hustleInfo}><span style={styles.hustleDetail}>⏱ {hustle.duration} сек</span><span style={styles.hustleDetail}>🖱 Быстро нажимай!</span></div><button onClick={() => startSideHustle(hustle)} disabled={!canWork} style={canWork ? styles.hustleBtn : styles.hustleBtnDisabled}>{canWork ? 'Начать' : `Подождите ${waitTime} сек`}</button></div>); })}</div></div></div>)}
 
       {activeHustle && hustleTimeLeft > 0 && (<div style={styles.overlay} onClick={() => {}}><div style={styles.hustleGameModal}><div style={styles.hustleGameHeader}><h2 style={{margin: 0, fontSize: 20}}>{activeHustle.icon} {activeHustle.name}</h2><button onClick={() => setActiveHustle(null)} style={styles.closeBtn}><X size={20} color="#9ca3af" /></button></div><div style={styles.hustleTimer}><div style={styles.hustleTimerBar}><div style={{...styles.hustleTimerProgress, width: `${(hustleTimeLeft / activeHustle.duration) * 100}%`}} /></div><span style={styles.hustleTimeText}>{hustleTimeLeft} сек</span></div><div style={styles.hustleClicker} onClick={handleHustleClick} onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><div style={styles.hustleCoin}>💰</div><div style={styles.hustleClicks}>{hustleClicks} кликов</div></div><p style={styles.hustleInstruction}>Быстро нажимай на монетку!</p></div></div>)}
 
-      {showShopMenu && (<div style={styles.overlay} onClick={() => setShowShopMenu(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowShopMenu(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🛒 Магазин</h2><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (<button key={tab} onClick={() => setActiveShopTab(tab)} style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}>{tab === 'cars' && '🚗 '}{tab === 'realestate' && '🏠 '}{tab === 'accessories' && '💎 '}{tab === 'phones' && '📱 '}{tab === 'other' && '📦 '}{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}</button>))}</div><div style={styles.shopContent}>{activeShopTab === 'cars' && (<div style={styles.shopGrid}>{[{ id: 'car1', name: 'Лада Гранта', price: 500000, category: 'cars', icon: '🚙' }, { id: 'car2', name: 'Toyota Camry', price: 2500000, category: 'cars', icon: '🚘' }, { id: 'car3', name: 'BMW X5', price: 6000000, category: 'cars', icon: '🚔' }, { id: 'car4', name: 'Mercedes G-Class', price: 12000000, category: 'cars', icon: '🚕' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'realestate' && (<div style={styles.shopGrid}>{[{ id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' }, { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' }, { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' }, { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'accessories' && (<div style={styles.shopGrid}>{[{ id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' }, { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' }, { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' }, { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}{activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}</div></div></div>)}
+      {showShopMenu && (<div style={styles.overlay} onClick={() => setShowShopMenu(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowShopMenu(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>🛒 Магазин</h2><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
+        <button 
+          key={tab} 
+          onClick={() => { 
+            setActiveShopTab(tab); 
+            if (tab !== 'cars') setSelectedCarBrand(null); 
+          }} 
+          style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}
+        >
+          {tab === 'cars' && '🚗 '}{tab === 'realestate' && '🏠 '}{tab === 'accessories' && '💎 '}{tab === 'phones' && '📱 '}{tab === 'other' && '📦 '}{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}
+        </button>))}
+      </div><div style={styles.shopContent}>
+        
+        {/* 🔥 НОВАЯ ЛОГИКА ДЛЯ МАШИН */}
+        {activeShopTab === 'cars' && (
+          <>
+            {!selectedCarBrand ? (
+              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ
+              <div style={styles.brandGrid}>
+                {CAR_BRANDS.map(brand => (
+                  <button 
+                    key={brand.id} 
+                    style={styles.brandCard}
+                    onClick={() => setSelectedCarBrand(brand.id)}
+                  >
+                    <div style={styles.brandIcon}>{brand.icon}</div>
+                    <div style={styles.brandName}>{brand.name}</div>
+                    <div style={styles.brandCount}>{brand.models.length} моделей</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              // 🔥 ЭКРАН 2: СПИСОК МОДЕЛЕЙ
+              <div>
+                <div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16}}>
+                  <button style={styles.backBtnSmall} onClick={() => setSelectedCarBrand(null)}>
+                    <ChevronLeft size={20} color="#fff" /> Назад
+                  </button>
+                  <h3 style={{color: '#fff', margin: 0}}>
+                    {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.icon} {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.name}
+                  </h3>
+                </div>
+                <div style={styles.shopGrid}>
+                  {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.models.map(item => (
+                    <div key={item.id} style={styles.shopItem}>
+                      <div style={styles.shopItemIcon}>{CAR_BRANDS.find(b => b.id === selectedCarBrand)?.icon}</div>
+                      <div style={styles.shopItemName}>{item.name}</div>
+                      <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                      <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeShopTab === 'realestate' && (<div style={styles.shopGrid}>{[{ id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' }, { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' }, { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' }, { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+        {activeShopTab === 'accessories' && (<div style={styles.shopGrid}>{[{ id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' }, { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' }, { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' }, { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+        {activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+        {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+      </div></div></div>)}
 
       {showAssetsModal && (<div style={styles.overlay} onClick={() => setShowAssetsModal(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Моё состояние</h2><div style={styles.netWorthPanel}><div style={styles.netWorthLabel}>Ваше общее состояние на:</div><div style={styles.netWorthValue}>{totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</div></div><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (<button key={tab} onClick={() => setActiveAssetsTab(tab)} style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}>{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}</button>))}</div><div style={styles.shopContent}>{ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: 40}}>У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}</p> : <div style={styles.shopGrid}>{ownedItems.filter(item => item.category === activeAssetsTab).map((item, idx) => (<div key={idx} style={styles.shopItem}><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><div style={{fontSize: 11, color: '#737373'}}>Куплено: {new Date(item.ownedAt).toLocaleDateString()}</div></div>))}</div>}</div></div></div>)}
 
@@ -1249,6 +1547,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
   shopContent: { flex: 1, overflowY: 'auto' },
   shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 },
+  brandCard: { background: '#1C1C1E', border: '1px solid rgba(156,163,175,0.1)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.1s' },
+  brandIcon: { fontSize: 28, marginBottom: 8 },
+  brandName: { fontSize: 12, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
+  brandCount: { fontSize: 10, color: '#737373' },
+  backBtnSmall: { background: 'transparent', border: '1px solid rgba(156,163,175,0.2)', borderRadius: 8, padding: '6px 12px', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
   shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
   shopItemIcon: { fontSize: 32, marginBottom: 8 },
   shopItemName: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 4 },
