@@ -1590,7 +1590,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%', 
     height: '100%', 
     objectFit: 'contain',
-    filter: 'brightness(0) invert(1)', // 🔥 Делаем логотипы белыми для единого стиля
   },
   brandFallback: {
     width: '100%',
