@@ -1412,7 +1412,7 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
-      {showAssetsModal && (
+            {showAssetsModal && (
         <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
           <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}>
@@ -1440,14 +1440,15 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
             </div>
             
             <div style={styles.shopContent}>
-              {ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? (
+              {/* 🔥 ИСПРАВЛЕННЫЙ ФИЛЬТР: (item.category || 'other') */}
+              {ownedItems.filter(item => (item.category || 'other') === activeAssetsTab).length === 0 ? (
                 <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
                   У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
                 </p>
               ) : (
                 <div style={styles.shopGrid}>
                   {ownedItems
-                    .filter(item => item.category === activeAssetsTab)
+                    .filter(item => (item.category || 'other') === activeAssetsTab)
                     .map((item, idx) => {
                       const sellPrice = Math.floor(item.price * 0.5);
                       return (
