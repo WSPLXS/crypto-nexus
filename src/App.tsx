@@ -22,9 +22,9 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { BUSINESSES, STAKING_CONFIG } from './data/economy';
 import { supabase } from './lib/supabase';
 
-// 🔥 ДАННЫЕ ДЛЯ МАШИН (БРЕНДЫ И МОДЕЛИ)
+// 🔥 ДАННЫЕ ДЛЯ МАШИН (БРЕНДЫ И МОДЕЛИ) С ЛОГОТИПАМИ
 const CAR_BRANDS = [
-  { id: 'lada', name: 'LADA', icon: '🚗', models: [
+  { id: 'lada', name: 'LADA', logo: '/logos/lada.png', models: [
     { id: 'lada_vesta', name: 'Vesta', price: 1200000 },
     { id: 'lada_granta', name: 'Granta', price: 800000 },
     { id: 'lada_niva', name: 'Niva', price: 900000 },
@@ -42,7 +42,7 @@ const CAR_BRANDS = [
     { id: 'lada_21099', name: '21099', price: 160000 },
     { id: 'lada_2110', name: '2110', price: 170000 }
   ]},
-  { id: 'bmw', name: 'BMW', icon: '🏎️', models: [
+  { id: 'bmw', name: 'BMW', logo: '/logos/bmw.png', models: [
     { id: 'bmw_3', name: '3 Series', price: 3500000 },
     { id: 'bmw_5', name: '5 Series', price: 5500000 },
     { id: 'bmw_x5', name: 'X5', price: 8000000 },
@@ -52,7 +52,7 @@ const CAR_BRANDS = [
     { id: 'bmw_m5', name: 'M5', price: 12000000 },
     { id: 'bmw_m4', name: 'M4', price: 8500000 }
   ]},
-  { id: 'mercedes', name: 'Mercedes', icon: '✨', models: [
+  { id: 'mercedes', name: 'Mercedes', logo: '/logos/mercedes.png', models: [
     { id: 'mb_c', name: 'C-Class', price: 4000000 },
     { id: 'mb_e', name: 'E-Class', price: 6000000 },
     { id: 'mb_s', name: 'S-Class', price: 13000000 },
@@ -60,7 +60,7 @@ const CAR_BRANDS = [
     { id: 'mb_gle', name: 'GLE', price: 8000000 },
     { id: 'mb_g', name: 'G-Class', price: 22000000 }
   ]},
-  { id: 'toyota', name: 'Toyota', icon: '🚙', models: [
+  { id: 'toyota', name: 'Toyota', logo: '/logos/toyota.png', models: [
     { id: 'toy_camry', name: 'Camry', price: 3000000 },
     { id: 'toy_corolla', name: 'Corolla', price: 2000000 },
     { id: 'toy_rav4', name: 'RAV4', price: 3500000 },
@@ -68,7 +68,7 @@ const CAR_BRANDS = [
     { id: 'toy_prius', name: 'Prius', price: 1800000 },
     { id: 'toy_hilux', name: 'Hilux', price: 4000000 }
   ]},
-  { id: 'lexus', name: 'Lexus', icon: '💎', models: [
+  { id: 'lexus', name: 'Lexus', logo: '/logos/lexus.png', models: [
     { id: 'lex_rx', name: 'RX', price: 5000000 },
     { id: 'lex_lx', name: 'LX', price: 11000000 },
     { id: 'lex_es', name: 'ES', price: 4000000 },
@@ -76,7 +76,7 @@ const CAR_BRANDS = [
     { id: 'lex_ls', name: 'LS', price: 9000000 },
     { id: 'lex_gx', name: 'GX', price: 7000000 }
   ]},
-  { id: 'audi', name: 'AUDI', icon: '⭕', models: [
+  { id: 'audi', name: 'AUDI', logo: '/logos/audi.png', models: [
     { id: 'audi_a4', name: 'A4', price: 3800000 },
     { id: 'audi_a6', name: 'A6', price: 6500000 },
     { id: 'audi_q5', name: 'Q5', price: 5000000 },
@@ -84,14 +84,14 @@ const CAR_BRANDS = [
     { id: 'audi_a3', name: 'A3', price: 2500000 },
     { id: 'audi_etron', name: 'e-tron', price: 7000000 }
   ]},
-  { id: 'bugatti', name: 'BUGATTI', icon: '🏁', models: [
+  { id: 'bugatti', name: 'BUGATTI', logo: '/logos/bugatti.png', models: [
     { id: 'bug_chiron', name: 'Chiron', price: 250000000 },
     { id: 'bug_veyron', name: 'Veyron', price: 180000000 },
     { id: 'bug_divo', name: 'Divo', price: 450000000 },
     { id: 'bug_cento', name: 'Centodieci', price: 800000000 },
     { id: 'bug_bolide', name: 'Bolide', price: 350000000 }
   ]},
-  { id: 'ferrari', name: 'Ferrari', icon: '🐎', models: [
+  { id: 'ferrari', name: 'Ferrari', logo: '/logos/ferrari.png', models: [
     { id: 'fer_488', name: '488', price: 28000000 },
     { id: 'fer_f8', name: 'F8 Tributo', price: 32000000 },
     { id: 'fer_roma', name: 'Roma', price: 25000000 },
@@ -99,14 +99,14 @@ const CAR_BRANDS = [
     { id: 'fer_portofino', name: 'Portofino', price: 22000000 },
     { id: 'fer_812', name: '812 Superfast', price: 40000000 }
   ]},
-  { id: 'lambo', name: 'Lamborghini', icon: '🐂', models: [
+  { id: 'lambo', name: 'Lamborghini', logo: '/logos/lambo.png', models: [
     { id: 'lam_avent', name: 'Aventador', price: 45000000 },
     { id: 'lam_hur', name: 'Huracán', price: 28000000 },
     { id: 'lam_urus', name: 'Urus', price: 35000000 },
     { id: 'lam_rev', name: 'Revuelto', price: 55000000 },
     { id: 'lam_gall', name: 'Gallardo', price: 18000000 }
   ]},
-  { id: 'nissan', name: 'Nissan', icon: '⛩️', models: [
+  { id: 'nissan', name: 'Nissan', logo: '/logos/nissan.png', models: [
     { id: 'nis_qashqai', name: 'Qashqai', price: 2500000 },
     { id: 'nis_xtrail', name: 'X-Trail', price: 2800000 },
     { id: 'nis_altima', name: 'Altima', price: 2200000 },
@@ -114,7 +114,7 @@ const CAR_BRANDS = [
     { id: 'nis_patrol', name: 'Patrol', price: 7000000 },
     { id: 'nis_leaf', name: 'Leaf', price: 1800000 }
   ]},
-  { id: 'honda', name: 'Honda', icon: '🏍️', models: [
+  { id: 'honda', name: 'Honda', logo: '/logos/honda.png', models: [
     { id: 'hon_civic', name: 'Civic', price: 2000000 },
     { id: 'hon_accord', name: 'Accord', price: 2500000 },
     { id: 'hon_crv', name: 'CR-V', price: 3000000 },
@@ -122,7 +122,7 @@ const CAR_BRANDS = [
     { id: 'hon_hrv', name: 'HR-V', price: 2200000 },
     { id: 'hon_fit', name: 'Fit', price: 1200000 }
   ]},
-  { id: 'kia', name: 'KIA', icon: '', models: [
+  { id: 'kia', name: 'KIA', logo: '/logos/kia.png', models: [
     { id: 'kia_sport', name: 'Sportage', price: 2500000 },
     { id: 'kia_sorent', name: 'Sorento', price: 3500000 },
     { id: 'kia_rio', name: 'Rio', price: 1400000 },
@@ -130,37 +130,37 @@ const CAR_BRANDS = [
     { id: 'kia_tell', name: 'Telluride', price: 4000000 },
     { id: 'kia_ev6', name: 'EV6', price: 4500000 }
   ]},
-  { id: 'xiaomi', name: 'XIAOMI', icon: '📱', models: [
+  { id: 'xiaomi', name: 'XIAOMI', logo: '/logos/xiaomi.png', models: [
     { id: 'xio_su7', name: 'SU7', price: 3000000 }
   ]},
-  { id: 'tesla', name: 'TESLA', icon: '⚡', models: [
+  { id: 'tesla', name: 'TESLA', logo: '/logos/tesla.png', models: [
     { id: 'tes_3', name: 'Model 3', price: 4000000 },
     { id: 'tes_y', name: 'Model Y', price: 5000000 },
     { id: 'tes_s', name: 'Model S', price: 8000000 },
     { id: 'tes_x', name: 'Model X', price: 9000000 },
     { id: 'tes_cyber', name: 'Cybertruck', price: 7500000 }
   ]},
-  { id: 'alfa', name: 'Alfa Romeo', icon: '🔺', models: [
+  { id: 'alfa', name: 'Alfa Romeo', logo: '/logos/alfa.png', models: [
     { id: 'alf_giulia', name: 'Giulia', price: 4000000 },
     { id: 'alf_stelvio', name: 'Stelvio', price: 5000000 },
     { id: 'alf_tonale', name: 'Tonale', price: 3500000 },
     { id: 'alf_4c', name: '4C', price: 6000000 },
     { id: 'alf_giul', name: 'Giulietta', price: 2500000 }
   ]},
-  { id: 'bentley', name: 'Bentley', icon: '🕰️', models: [
+  { id: 'bentley', name: 'Bentley', logo: '/logos/bentley.png', models: [
     { id: 'ben_cont', name: 'Continental GT', price: 25000000 },
     { id: 'ben_fly', name: 'Flying Spur', price: 22000000 },
     { id: 'ben_bent', name: 'Bentayga', price: 20000000 },
     { id: 'ben_mul', name: 'Mulsanne', price: 35000000 }
   ]},
-  { id: 'cadillac', name: 'Cadillac', icon: '🏰', models: [
+  { id: 'cadillac', name: 'Cadillac', logo: '/logos/cadillac.png', models: [
     { id: 'cad_esc', name: 'Escalade', price: 9000000 },
     { id: 'cad_ct5', name: 'CT5', price: 4500000 },
     { id: 'cad_xt5', name: 'XT5', price: 5000000 },
     { id: 'cad_xt6', name: 'XT6', price: 6000000 },
     { id: 'cad_lyriq', name: 'Lyriq', price: 6500000 }
   ]},
-  { id: 'chevrolet', name: 'Chevrolet', icon: '🟡', models: [
+  { id: 'chevrolet', name: 'Chevrolet', logo: '/logos/chevrolet.png', models: [
     { id: 'che_corv', name: 'Corvette', price: 8000000 },
     { id: 'che_cam', name: 'Camaro', price: 4000000 },
     { id: 'che_silv', name: 'Silverado', price: 5000000 },
@@ -168,7 +168,7 @@ const CAR_BRANDS = [
     { id: 'che_equi', name: 'Equinox', price: 3000000 },
     { id: 'che_mal', name: 'Malibu', price: 2000000 }
   ]},
-  { id: 'ford', name: 'Ford', icon: '🔵', models: [
+  { id: 'ford', name: 'Ford', logo: '/logos/ford.png', models: [
     { id: 'for_f150', name: 'F-150', price: 5000000 },
     { id: 'for_must', name: 'Mustang', price: 4500000 },
     { id: 'for_expl', name: 'Explorer', price: 5000000 },
@@ -176,24 +176,24 @@ const CAR_BRANDS = [
     { id: 'for_rang', name: 'Ranger', price: 3500000 },
     { id: 'for_bron', name: 'Bronco', price: 6000000 }
   ]},
-  { id: 'tank', name: 'TANK', icon: '🚜', models: [
+  { id: 'tank', name: 'TANK', logo: '/logos/tank.png', models: [
     { id: 'tank_300', name: 'Tank 300', price: 3000000 },
     { id: 'tank_500', name: 'Tank 500', price: 5000000 }
   ]},
-  { id: 'hummer', name: 'Hummer', icon: '🚛', models: [
+  { id: 'hummer', name: 'Hummer', logo: '/logos/hummer.png', models: [
     { id: 'hum_h1', name: 'H1', price: 15000000 },
     { id: 'hum_h2', name: 'H2', price: 12000000 },
     { id: 'hum_h3', name: 'H3', price: 8000000 },
     { id: 'hum_ev', name: 'EV', price: 15000000 }
   ]},
-  { id: 'infiniti', name: 'Infiniti', icon: '♾️', models: [
+  { id: 'infiniti', name: 'Infiniti', logo: '/logos/infiniti.png', models: [
     { id: 'inf_q50', name: 'Q50', price: 3500000 },
     { id: 'inf_qx60', name: 'QX60', price: 5000000 },
     { id: 'inf_qx80', name: 'QX80', price: 7000000 },
     { id: 'inf_q60', name: 'Q60', price: 4000000 },
     { id: 'inf_fx', name: 'FX/QX70', price: 5000000 }
   ]},
-  { id: 'jeep', name: 'Jeep', icon: '🚙', models: [
+  { id: 'jeep', name: 'Jeep', logo: '/logos/jeep.png', models: [
     { id: 'jee_wrap', name: 'Wrangler', price: 5000000 },
     { id: 'jee_grand', name: 'Grand Cherokee', price: 5000000 },
     { id: 'jee_cher', name: 'Cherokee', price: 3000000 },
@@ -201,14 +201,14 @@ const CAR_BRANDS = [
     { id: 'jee_gladi', name: 'Gladiator', price: 6000000 },
     { id: 'jee_ren', name: 'Renegade', price: 2000000 }
   ]},
-  { id: 'landrover', name: 'Land Rover', icon: '🌍', models: [
+  { id: 'landrover', name: 'Land Rover', logo: '/logos/landrover.png', models: [
     { id: 'lr_def', name: 'Defender', price: 7000000 },
     { id: 'lr_disc', name: 'Discovery', price: 6000000 },
     { id: 'lr_rr', name: 'Range Rover', price: 15000000 },
     { id: 'lr_sport', name: 'Range Rover Sport', price: 12000000 },
     { id: 'lr_evo', name: 'Evoque', price: 4000000 }
   ]},
-  { id: 'mclaren', name: 'McLaren', icon: '🏎️', models: [
+  { id: 'mclaren', name: 'McLaren', logo: '/logos/mclaren.png', models: [
     { id: 'mcl_720', name: '720S', price: 25000000 },
     { id: 'mcl_570', name: '570S', price: 18000000 },
     { id: 'mcl_art', name: 'Artura', price: 22000000 },
@@ -216,14 +216,14 @@ const CAR_BRANDS = [
     { id: 'mcl_p1', name: 'P1', price: 150000000 },
     { id: 'mcl_sen', name: 'Senna', price: 120000000 }
   ]},
-  { id: 'mitsubishi', name: 'Mitsubishi', icon: '🔴', models: [
+  { id: 'mitsubishi', name: 'Mitsubishi', logo: '/logos/mitsubishi.png', models: [
     { id: 'mit_out', name: 'Outlander', price: 2500000 },
     { id: 'mit_paj', name: 'Pajero', price: 4000000 },
     { id: 'mit_l200', name: 'L200/Triton', price: 3000000 },
     { id: 'mit_eclipse', name: 'Eclipse Cross', price: 2500000 },
     { id: 'mit_asx', name: 'ASX', price: 1500000 }
   ]},
-  { id: 'porsche', name: 'Porsche', icon: '🔱', models: [
+  { id: 'porsche', name: 'Porsche', logo: '/logos/porsche.png', models: [
     { id: 'por_911', name: '911', price: 15000000 },
     { id: 'por_cay', name: 'Cayenne', price: 9000000 },
     { id: 'por_mac', name: 'Macan', price: 6000000 },
@@ -231,7 +231,7 @@ const CAR_BRANDS = [
     { id: 'por_tay', name: 'Taycan', price: 12000000 },
     { id: 'por_718', name: '718 Boxster/Cayman', price: 7000000 }
   ]},
-  { id: 'rolls', name: 'Rolls-Royce', icon: '👸', models: [
+  { id: 'rolls', name: 'Rolls-Royce', logo: '/logos/rolls.png', models: [
     { id: 'rr_ph', name: 'Phantom', price: 45000000 },
     { id: 'rr_gh', name: 'Ghost', price: 30000000 },
     { id: 'rr_cul', name: 'Cullinan', price: 40000000 },
@@ -239,7 +239,7 @@ const CAR_BRANDS = [
     { id: 'rr_daw', name: 'Dawn', price: 25000000 },
     { id: 'rr_spec', name: 'Spectre', price: 40000000 }
   ]},
-  { id: 'skoda', name: 'Skoda', icon: '🟢', models: [
+  { id: 'skoda', name: 'Skoda', logo: '/logos/skoda.png', models: [
     { id: 'sko_oct', name: 'Octavia', price: 2000000 },
     { id: 'sko_sup', name: 'Superb', price: 2500000 },
     { id: 'sko_kod', name: 'Kodiaq', price: 2500000 },
@@ -247,7 +247,7 @@ const CAR_BRANDS = [
     { id: 'sko_scal', name: 'Scala', price: 1800000 },
     { id: 'sko_kam', name: 'Kamiq', price: 1600000 }
   ]},
-  { id: 'subaru', name: 'Subaru', icon: '⭐', models: [
+  { id: 'subaru', name: 'Subaru', logo: '/logos/subaru.png', models: [
     { id: 'sub_out', name: 'Outback', price: 3000000 },
     { id: 'sub_for', name: 'Forester', price: 2500000 },
     { id: 'sub_imp', name: 'Impreza', price: 1800000 },
@@ -255,14 +255,14 @@ const CAR_BRANDS = [
     { id: 'sub_wrx', name: 'WRX', price: 3500000 },
     { id: 'sub_cross', name: 'Crosstrek', price: 2000000 }
   ]},
-  { id: 'suzuki', name: 'Suzuki', icon: 'S', models: [
+  { id: 'suzuki', name: 'Suzuki', logo: '/logos/suzuki.png', models: [
     { id: 'suz_swift', name: 'Swift', price: 1200000 },
     { id: 'suz_vit', name: 'Vitara', price: 1800000 },
     { id: 'suz_jim', name: 'Jimny', price: 2000000 },
     { id: 'suz_sx4', name: 'SX4', price: 1400000 },
     { id: 'suz_gv', name: 'Grand Vitara', price: 2200000 }
   ]},
-  { id: 'vw', name: 'Volkswagen', icon: '🅥', models: [
+  { id: 'vw', name: 'Volkswagen', logo: '/logos/vw.png', models: [
     { id: 'vw_golf', name: 'Golf', price: 2000000 },
     { id: 'vw_pass', name: 'Passat', price: 2500000 },
     { id: 'vw_tig', name: 'Tiguan', price: 3000000 },
@@ -1318,11 +1318,11 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         </button>))}
       </div><div style={styles.shopContent}>
         
-        {/* 🔥 НОВАЯ ЛОГИКА ДЛЯ МАШИН */}
+        {/* 🔥 НОВАЯ ЛОГИКА ДЛЯ МАШИН С ЛОГОТИПАМИ */}
         {activeShopTab === 'cars' && (
           <>
             {!selectedCarBrand ? (
-              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ
+              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ С ЛОГОТИПАМИ
               <div style={styles.brandGrid}>
                 {CAR_BRANDS.map(brand => (
                   <button 
@@ -1330,7 +1330,22 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                     style={styles.brandCard}
                     onClick={() => setSelectedCarBrand(brand.id)}
                   >
-                    <div style={styles.brandIcon}>{brand.icon}</div>
+                    <div style={styles.brandLogoContainer}>
+                      <img 
+                        src={brand.logo} 
+                        alt={brand.name}
+                        style={styles.brandLogo}
+                        onError={(e) => {
+                          // 🔥 Если логотип не загрузился, показываем первую букву
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                        }}
+                      />
+                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>
+                        {brand.name[0]}
+                      </div>
+                    </div>
                     <div style={styles.brandName}>{brand.name}</div>
                     <div style={styles.brandCount}>{brand.models.length} моделей</div>
                   </button>
@@ -1344,13 +1359,13 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                     <ChevronLeft size={20} color="#fff" /> Назад
                   </button>
                   <h3 style={{color: '#fff', margin: 0}}>
-                    {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.icon} {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.name}
+                    {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.name}
                   </h3>
                 </div>
                 <div style={styles.shopGrid}>
                   {CAR_BRANDS.find(b => b.id === selectedCarBrand)?.models.map(item => (
                     <div key={item.id} style={styles.shopItem}>
-                      <div style={styles.shopItemIcon}>{CAR_BRANDS.find(b => b.id === selectedCarBrand)?.icon}</div>
+                      <div style={styles.shopItemIcon}>{CAR_BRANDS.find(b => b.id === selectedCarBrand)?.name[0]}</div>
                       <div style={styles.shopItemName}>{item.name}</div>
                       <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
                       <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
@@ -1547,11 +1562,64 @@ const styles: { [key: string]: React.CSSProperties } = {
   shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
   shopContent: { flex: 1, overflowY: 'auto' },
   shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 },
-  brandCard: { background: '#1C1C1E', border: '1px solid rgba(156,163,175,0.1)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.1s' },
-  brandIcon: { fontSize: 28, marginBottom: 8 },
-  brandName: { fontSize: 12, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-  brandCount: { fontSize: 10, color: '#737373' },
+  
+  // 🔥 НОВЫЕ СТИЛИ ДЛЯ БРЕНДОВ С ЛОГОТИПАМИ
+  brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
+  brandCard: { 
+    background: '#1C1C1E', 
+    border: '1px solid rgba(156,163,175,0.1)', 
+    borderRadius: 16, 
+    padding: 16, 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    cursor: 'pointer',
+    transition: 'transform 0.1s, background 0.2s',
+    minHeight: 140
+  },
+  brandLogoContainer: { 
+    width: 64, 
+    height: 64, 
+    marginBottom: 12,
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  brandLogo: { 
+    width: '100%', 
+    height: '100%', 
+    objectFit: 'contain',
+    filter: 'brightness(0) invert(1)', // 🔥 Делаем логотипы белыми для единого стиля
+  },
+  brandFallback: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    position: 'absolute',
+    top: 0,
+    left: 0
+  },
+  brandName: { 
+    fontSize: 12, 
+    fontWeight: 'bold', 
+    color: '#fff', 
+    marginBottom: 4,
+    textAlign: 'center'
+  },
+  brandCount: { 
+    fontSize: 10, 
+    color: '#737373',
+    textAlign: 'center'
+  },
+  
   backBtnSmall: { background: 'transparent', border: '1px solid rgba(156,163,175,0.2)', borderRadius: 8, padding: '6px 12px', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
   shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
   shopItemIcon: { fontSize: 32, marginBottom: 8 },
