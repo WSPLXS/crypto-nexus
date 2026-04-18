@@ -952,6 +952,24 @@ useEffect(() => {
     }
   };
 
+  // 🔥 ПРОДАЖА ПРЕДМЕТОВ ИЗ ИНВЕНТАРЯ
+  const handleSellItemFromState = (item: any) => {
+    const refund = Math.floor(item.price * 0.5); // 50% от стоимости
+    
+    if (!confirm(`Продать ${item.name} за ${refund.toLocaleString()} ₽?`)) return;
+    
+    // 1. Возвращаем деньги
+    setRubBalance(prev => prev + refund);
+    
+    // 2. Удаляем предмет из инвентаря (фильтруем по ownedAt)
+    setOwnedItems(prev => prev.filter(i => i.ownedAt !== item.ownedAt));
+    
+    // 3. Сохраняем прогресс
+    saveProgress();
+    
+    alert(`✅ Продано за ${refund.toLocaleString()} ₽`);
+  };
+
   const startSideHustle = (hustle: any) => {
     const now = Date.now();
     const cooldown = hustleCooldowns[hustle.id] || 0;
@@ -1394,7 +1412,81 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
-      {showAssetsModal && (<div style={styles.overlay} onClick={() => setShowAssetsModal(false)}><div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}><button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>💰 Моё состояние</h2><div style={styles.netWorthPanel}><div style={styles.netWorthLabel}>Ваше общее состояние на:</div><div style={styles.netWorthValue}>{totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</div></div><div style={styles.shopTabs}>{(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (<button key={tab} onClick={() => setActiveAssetsTab(tab)} style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}>{tab === 'cars' ? 'Машины' : tab === 'realestate' ? 'Недвижимость' : tab === 'accessories' ? 'Аксессуары' : tab === 'phones' ? 'Телефоны' : 'Прочее'}</button>))}</div><div style={styles.shopContent}>{ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? <p style={{textAlign: 'center', color: '#737373', padding: 40}}>У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}</p> : <div style={styles.shopGrid}>{ownedItems.filter(item => item.category === activeAssetsTab).map((item, idx) => (<div key={idx} style={styles.shopItem}><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><div style={{fontSize: 11, color: '#737373'}}>Куплено: {new Date(item.ownedAt).toLocaleDateString()}</div></div>))}</div>}</div></div></div>)}
+      {showAssetsModal && (
+        <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
+          <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <h2 style={styles.modalTitle}>💰 Моё состояние</h2>
+            
+            <div style={styles.netWorthPanel}>
+              <div style={styles.netWorthLabel}>Ваше общее состояние на:</div>
+              <div style={styles.netWorthValue}>
+                {totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
+              </div>
+            </div>
+            
+            <div style={styles.shopTabs}>
+              {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveAssetsTab(tab)} 
+                  style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}
+                >
+                  {tab === 'cars' ? '🚗 Машины' : tab === 'realestate' ? '🏠 Недвижимость' : tab === 'accessories' ? '💎 Аксессуары' : tab === 'phones' ? '📱 Телефоны' : '📦 Прочее'}
+                </button>
+              ))}
+            </div>
+            
+            <div style={styles.shopContent}>
+              {ownedItems.filter(item => item.category === activeAssetsTab).length === 0 ? (
+                <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
+                  У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
+                </p>
+              ) : (
+                <div style={styles.shopGrid}>
+                  {ownedItems
+                    .filter(item => item.category === activeAssetsTab)
+                    .map((item, idx) => {
+                      const sellPrice = Math.floor(item.price * 0.5);
+                      return (
+                        <div key={idx} style={{...styles.shopItem, display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+                          <div style={styles.shopItemIcon}>
+                             {item.icon || '📦'}
+                          </div>
+                          <div style={styles.shopItemName}>{item.name}</div>
+                          <div style={{fontSize: 12, color: '#a3a3a3', marginBottom: 4}}>
+                            Куплено: {item.price.toLocaleString()} ₽
+                          </div>
+                          
+                          {/* 🔥 КНОПКА ПРОДАЖИ */}
+                          <button 
+                            style={{
+                              width: '100%', 
+                              padding: '8px', 
+                              borderRadius: 8, 
+                              border: 'none', 
+                              background: '#ef4444', 
+                              color: 'white', 
+                              fontWeight: '600', 
+                              fontSize: 11, 
+                              cursor: 'pointer',
+                              marginTop: 'auto'
+                            }} 
+                            onClick={() => handleSellItemFromState(item)}
+                          >
+                            Продать за {sellPrice.toLocaleString()} ₽
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
