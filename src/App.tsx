@@ -495,6 +495,7 @@ const saveProgress = async () => {
       staked_amount: stakedAmountRef.current,
       casino_chips: casinoChipsRef.current, 
       hustle_cooldowns: JSON.stringify(hustleCooldowns),
+      owned_items: JSON.stringify(ownedItems),
     };
 
     console.log('📦 Payload:', payload);
