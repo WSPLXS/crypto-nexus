@@ -936,10 +936,20 @@ useEffect(() => {
   const handleBuyItem = (item: any) => {
     if (rubBalance >= item.price) {
       setRubBalance(p => p - item.price);
-      setOwnedItems(prev => [...prev, { ...item, ownedAt: Date.now() }]);
+      
+      // 🔥 ДОБАВЛЯЕМ category, если его нет (берем из текущей вкладки магазина)
+      const itemWithCategory = { 
+        ...item, 
+        category: item.category || activeShopTab, 
+        ownedAt: Date.now() 
+      };
+      
+      setOwnedItems(prev => [...prev, itemWithCategory]);
       saveProgress();
       alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
-    } else { alert('Недостаточно рублей!'); }
+    } else { 
+      alert('Недостаточно рублей!'); 
+    }
   };
 
   const startSideHustle = (hustle: any) => {
