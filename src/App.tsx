@@ -836,7 +836,6 @@ const saveProgress = async () => {
   console.log('  rubBalanceRef.current:', rubBalanceRef.current);
   console.log('  casinoChipsRef.current:', casinoChipsRef.current);
   console.log('  ownedItemsRef.current:', ownedItemsRef.current); // 🔥 Логирование ownedItems
-  
   try {
     const payload = { 
       id: userIdNum, 
@@ -862,14 +861,11 @@ const saveProgress = async () => {
       hustle_cooldowns: JSON.stringify(hustleCooldowns),
       owned_items: JSON.stringify(ownedItemsRef.current), // 🔥 Исправлено: используем ref
     };
-
     console.log('📦 Payload:', payload);
-
     const { data, error } = await supabase
       .from('users')
       .update(payload)
       .eq('id', userIdNum);
-    
     if (error) {
       console.error('❌ Save error:', error);
       throw error;
@@ -977,214 +973,170 @@ const saveProgress = async () => {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
         if (data) {
-          setBalance(data.balance || 0); 
-          setRubBalance(data.rub_balance || 1000); 
+          setBalance(data.balance || 0);
+          setRubBalance(data.rub_balance || 1000);
           const loadedMaxBalance = data.max_balance || 100;
           setMaxBalance(Math.max(loadedMaxBalance, data.rub_balance || 1000));
-          
           // Крипта
-          let owned = []; 
+          let owned = [];
           try { if (data.owned_currencies) owned = typeof data.owned_currencies === 'string' ? JSON.parse(data.owned_currencies) : data.owned_currencies; } catch { owned = []; }
           setOwnedCurrencies(Array.isArray(owned) ? owned : []);
-          
           // Мультипликаторы
-          let mults = {}; 
+          let mults = {};
           try { if (data.price_multipliers) mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers; } catch { mults = {}; }
           setPriceMultipliers(mults);
-          
-          setSelectedCurrencyId(data.selected_currency || 'btc'); 
+          setSelectedCurrencyId(data.selected_currency || 'btc');
           setTotalSpent(data.total_spent || 0);
-          setReferrerId(data.referrer_id || null); 
+          setReferrerId(data.referrer_id || null);
           setReferralBonusGiven(data.referral_bonus_awarded || false);
-          
           if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
-          
           if (data.vip_status) setVipStatus(data.vip_status);
-          if (data.boost_expires_at) { 
-            const exp = new Date(data.boost_expires_at).getTime(); 
-            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); } 
+          if (data.boost_expires_at) {
+            const exp = new Date(data.boost_expires_at).getTime();
+            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); }
           }
-          
           // Квесты
           if (data.daily_quests) { try { setDailyQuests(JSON.parse(data.daily_quests)); } catch { setDailyQuests([]); } }
           if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
-          
           // 🔥 НОВЫЕ ПОЛЯ (БАНК, СТЕЙКИНГ, КАЗИНО, МАГАЗИН)
-          setBankUsd(data.bank_usd || 0); 
+          setBankUsd(data.bank_usd || 0);
           setBankRub(data.bank_rub || 0);
-          
           // 🔥 ЗАГРУЗКА СТЕЙКИНГА С ОБНОВЛЕНИЕМ REF
           setStakedAmount(data.staked_amount || 0);
           stakedAmountRef.current = data.staked_amount || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           setCasinoChips(data.casino_chips || 0);
           casinoChipsRef.current = data.casino_chips || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           // 🔥 ЗАГРУЗКА КУПЛЕННЫХ ПРЕДМЕТОВ (ИСПРАВЛЕНО)
           try {
-            const loadedItems = typeof data.owned_items === 'string' 
-              ? JSON.parse(data.owned_items || '[]') 
+            const loadedItems = typeof data.owned_items === 'string'
+              ? JSON.parse(data.owned_items || '[]')
               : data.owned_items || [];
-            
             console.log('🔍 Loaded ownedItems from DB:', loadedItems);
-            
             // 🔥 Гарантируем, что у каждого предмета есть category
             const processedItems = loadedItems.map((item: any) => ({
               ...item,
               category: item.category || 'other' // если category не указан, ставим 'other'
             }));
-            
             setOwnedItems(processedItems);
             console.log('✅ Processed ownedItems:', processedItems);
           } catch (error) {
             console.error('❌ Error loading ownedItems:', error);
             setOwnedItems([]);
           }
-          
           // 🔥 ЗАГРУЗКА КРИПТО-ПОРТФЕЛЯ С ОБНОВЛЕНИЕМ REF
-          let crypto = {}; 
-          try { 
+          let crypto = {};
+          try {
             if (data.crypto_holdings) {
-              crypto = typeof data.crypto_holdings === 'string' 
-                ? JSON.parse(data.crypto_holdings) 
-                : data.crypto_holdings; 
-            } 
+              crypto = typeof data.crypto_holdings === 'string'
+                ? JSON.parse(data.crypto_holdings)
+                : data.crypto_holdings;
+            }
           } catch { crypto = {}; }
           setCryptoHoldings(crypto);
           cryptoHoldingsRef.current = crypto; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
           setManagerHired(data.manager_hired || false);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
           setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {});
-
-// 🔥 БИЗНЕСЫ - ПОЛНОЕ ИСПРАВЛЕНИЕ
-
-// 1. Загрузка бизнесов
-let businesses = [];
-try { 
-  if (data.owned_businesses) {
-    businesses = typeof data.owned_businesses === 'string' 
-      ? JSON.parse(data.owned_businesses) 
-      : data.owned_businesses; 
-  } 
-} catch { businesses = []; }
-setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
-// 🔥 КРИТИЧНО: Обновляем Ref!
-ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
-console.log('💼 Loaded businesses:', businesses);
-
-// 2. Загрузка maintenance (обслуживание)
-let maint = {};
-try { 
-  if (data.business_maintenance) {
-    maint = typeof data.business_maintenance === 'string' 
-      ? JSON.parse(data.business_maintenance) 
-      : data.business_maintenance; 
-  } 
-} catch { maint = {}; }
-setBusinessMaintenance(maint);
-// 🔥 КРИТИЧНО: Обновляем Ref!
-businessMaintenanceRef.current = maint;
-console.log('🔧 Loaded maintenance:', maint);
-
-// 3. Загрузка менеджера
-setManagerHired(data.manager_hired || false);
-
-// 🔥 РАСЧЕТ ОФФЛАЙН ДОХОДА ДЛЯ БИЗНЕСОВ
-if (data.last_login && businesses.length > 0) {
-  const lastLoginTime = new Date(data.last_login).getTime();
-  const nowTime = Date.now();
-  const diffMs = nowTime - lastLoginTime;
-  const diffHours = diffMs / (1000 * 60 * 60);
-
-  if (diffHours > (1/60)) { // Более 1 минуты
-    let offlineBizIncome = 0;
-    
-businesses.forEach((biz: any) => {
-  const conf = BUSINESSES.find(b => b.id === biz.id);
-  if (!conf) return;
-  
-  const m = (maint as any)[biz.id] || { electricity: 0, repair: 0 };
-      const timeSinceElecHours = (lastLoginTime - m.electricity) / (1000 * 60 * 60);
-      const timeSinceRepHours = (lastLoginTime - m.repair) / (1000 * 60 * 60);
-
-      if (timeSinceElecHours < 36 && timeSinceRepHours < (7 * 24)) {
-        offlineBizIncome += conf.incomePerHour * diffHours;
-      }
-    });
-
-    if (offlineBizIncome > 0) {
-      setRubBalance(prev => prev + offlineBizIncome);
-      console.log(`🏢 Offline Business Income: +${offlineBizIncome.toFixed(2)} ₽`);
-    }
-  }
-}
-
-// Оффлайн доход (Крипта)
-if (data.last_login && owned.length > 0) {
-  const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-  if (diff > 60) { 
-    const tier = getLevelInfo(data.max_balance || 0).tier; 
-    const mult = getGlobalMultiplier(tier); 
-    const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0); 
-    const off = inc * diff * 0.2; 
-    if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); } 
-  }
-}
+          // 🔥 БИЗНЕСЫ - ПОЛНОЕ ИСПРАВЛЕНИЕ
+          // 1. Загрузка бизнесов
+          let businesses = [];
+          try {
+            if (data.owned_businesses) {
+              businesses = typeof data.owned_businesses === 'string'
+                ? JSON.parse(data.owned_businesses)
+                : data.owned_businesses;
+            }
+          } catch { businesses = []; }
+          setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
+          // 🔥 КРИТИЧНО: Обновляем Ref!
+          ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
+          console.log('💼 Loaded businesses:', businesses);
+          // 2. Загрузка maintenance (обслуживание)
+          let maint = {};
+          try {
+            if (data.business_maintenance) {
+              maint = typeof data.business_maintenance === 'string'
+                ? JSON.parse(data.business_maintenance)
+                : data.business_maintenance;
+            }
+          } catch { maint = {}; }
+          setBusinessMaintenance(maint);
+          // 🔥 КРИТИЧНО: Обновляем Ref!
+          businessMaintenanceRef.current = maint;
+          console.log('🔧 Loaded maintenance:', maint);
+          // 3. Загрузка менеджера
+          setManagerHired(data.manager_hired || false);
+          // Оффлайн доход
+          if (data.last_login && owned.length > 0) {
+            const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
+            if (diff > 60) {
+              const tier = getLevelInfo(data.max_balance || 0).tier;
+              const mult = getGlobalMultiplier(tier);
+              const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0);
+              const off = inc * diff * 0.2;
+              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); }
+            }
+          }
         }
       } catch (err) { console.error('💀 Critical load error:', err); } finally { setIsLoading(false); if (isAuthenticated) checkSubscription(); }
     }
     loadProgress();
   }, [userIdNum]);
 
-useEffect(() => {
-  if (!isAuthenticated || isLoading) return;
-  
-  const interval = setInterval(() => {
-    let income = 0;
-    const now = Date.now();
+  // 🔥 НАЧИСЛЕНИЕ ДОХОДА БИЗНЕСА (ИСПРАВЛЕННАЯ ЛОГИКА)
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
     
-    // 🔥 Используем Ref для актуальных данных
-    const businesses = ownedBusinessesRef.current;
-    const maint = businessMaintenanceRef.current;
-    
-    businesses.forEach(biz => {
-      const conf = BUSINESSES.find(c => c.id === biz.id);
-      if (!conf) return;
+    const interval = setInterval(() => {
+      let income = 0;
+      const now = Date.now();
       
-      const bizMaint = maint[biz.id] || { electricity: 0, repair: 0 };
-      const elecDiff = (now - bizMaint.electricity) / 1000 / 3600;
-      const repDiff = (now - bizMaint.repair) / 1000 / 3600 / 24;
+      // 🔥 Используем Ref для актуальных данных
+      const businesses = ownedBusinessesRef.current;
+      const maint = businessMaintenanceRef.current;
       
-      // 🔥 Бизнес работает если электричество и ремонт оплачены
-      if (elecDiff <= 36 && repDiff <= 7) {
-        income += conf.incomePerHour;
+      businesses.forEach(biz => {
+        const conf = BUSINESSES.find(c => c.id === biz.id);
+        if (!conf) return;
+        
+        const bizMaint = maint[biz.id];
+        
+        // 🔥 FIX: Если записи об обслуживании нет (новый бизнес), считаем его активным
+        if (!bizMaint) {
+           income += conf.incomePerHour;
+           return;
+        }
+        
+        const elecDiff = (now - bizMaint.electricity) / 1000 / 3600;
+        const repDiff = (now - bizMaint.repair) / 1000 / 3600 / 24;
+        
+        // 🔥 Бизнес работает если электричество и ремонт оплачены
+        if (elecDiff <= 36 && repDiff <= 7) {
+          income += conf.incomePerHour;
+        }
+      });
+      
+      if (income > 0) {
+        // 🔥 Начисляем доход каждую минуту (1/60 от часового дохода)
+        const perMinute = income / 60;
+        setBankRub(prev => prev + perMinute);
+        setRubBalance(prev => prev + perMinute);
+        setTotalBusinessIncome(prev => prev + perMinute);
       }
-    });
+    }, 60000); // Каждую минуту
     
-    if (income > 0) {
-      // 🔥 Начисляем доход каждую минуту (1/60 от часового дохода)
-      const perMinute = income / 60;
-      setBankRub(prev => prev + perMinute);
-      setRubBalance(prev => prev + perMinute);
-      setTotalBusinessIncome(prev => prev + perMinute);
-    }
-  }, 60000); // Каждую минуту
-  
-  return () => clearInterval(interval);
-}, [isAuthenticated, isLoading]); // 🔥 Убрали ownedBusinesses и businessMaintenance из зависимостей
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading]);
 
   // 🔥 НАЧИСЛЕНИЕ ПРОЦЕНТОВ ПО СТЕЙКИНГУ (3.5% в день)
   useEffect(() => {
     if (!isAuthenticated || isLoading || stakedAmount <= 0) return;
-    
     const interval = setInterval(() => {
       // 3.5% в день = 3.5 / 100 / 24 = 0.0014583 в час
       const hourlyYield = stakedAmount * 0.0014583;
-      
       if (hourlyYield > 0) {
         setBalance(prev => prev + hourlyYield);
         // 🔥 Обновляем Ref для баланса
@@ -1192,7 +1144,6 @@ useEffect(() => {
         console.log(`💰 Стейкинг: +$${hourlyYield.toFixed(4)} в час`);
       }
     }, 3600000); // Каждый час (3600000 мс)
-    
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, stakedAmount]);
 
@@ -1209,13 +1160,11 @@ useEffect(() => {
   useEffect(() => { const handleSave = () => saveProgress(); window.addEventListener('beforeunload', handleSave); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') handleSave(); }); return () => { window.removeEventListener('beforeunload', handleSave); document.removeEventListener('visibilitychange', handleSave); }; }, []);
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
   useEffect(() => { if (!isAuthenticated || isLoading) return; const i = setInterval(() => { if (totalIncome > 0) { setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; }); } }, 1000); return () => clearInterval(i); }, [isAuthenticated, totalIncome, isLoading]);
-  
   // 🔥 НОВЫЙ: Синхронизация maxBalance с rubBalance
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     setMaxBalance(prev => Math.max(prev, rubBalance));
   }, [rubBalance, isAuthenticated, isLoading]);
-  
   useEffect(() => {
     if (!isAuthenticated || isLoading || !myClan) return;
     const now = Date.now();
@@ -1231,7 +1180,6 @@ useEffect(() => {
       supabase.from('users').update({ last_daily_reset: now, daily_quests: JSON.stringify(newQuests), quest_start_usd: balance, quest_start_rub: rubBalance, quest_start_treasury: currentTreasury }).eq('id', userIdNum);
     }
   }, [isAuthenticated, isLoading, myClan]);
-
   useEffect(() => {
     if (!boostExpiresAt) return;
     const interval = setInterval(() => {
@@ -1241,7 +1189,6 @@ useEffect(() => {
     }, 1000);
     return () => clearInterval(interval);
   }, [boostExpiresAt]);
-
   useEffect(() => {
     if (dailyQuests.length === 0) return;
     const updated = dailyQuests.map(q => {
@@ -1263,7 +1210,6 @@ useEffect(() => {
     });
     if (JSON.stringify(updated) !== JSON.stringify(dailyQuests)) { setDailyQuests(updated); supabase.from('users').update({ daily_quests: JSON.stringify(updated) }).eq('id', userIdNum); }
   }, [balance, rubBalance, level, dailyQuests, boostExpiresAt, myClan, questStartTreasury]);
-
   useEffect(() => {
     if (hustleTimeLeft > 0 && activeHustle) {
       const timer = setInterval(() => {
@@ -1275,7 +1221,7 @@ useEffect(() => {
             const newCooldowns = { ...hustleCooldowns, [activeHustle.id]: Date.now() + 60000 };
             setHustleCooldowns(newCooldowns);
             setActiveHustle(null);
-            saveProgress(); 
+            saveProgress();
             alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
             return 0;
           }
@@ -1287,59 +1233,51 @@ useEffect(() => {
   }, [hustleTimeLeft, activeHustle]);
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => { localStorage.setItem('cryptoNexus_nickname', nickname); if (refId && refId !== userIdNum) setReferrerId(refId); setIsAuthenticated(true); setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500); };
-  
-  const handleBuy = (currencyId: string, amount: number) => { 
-    const base = currencies.find(c => c.id === currencyId); 
-    if (!base) return; 
+  const handleBuy = (currencyId: string, amount: number) => {
+    const base = currencies.find(c => c.id === currencyId);
+    if (!base) return;
     const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
     const currentAmount = currentOwned?.amount || 0;
     if (currentAmount + amount > 50) { alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`); return; }
-    const mult = priceMultipliers[currencyId] || 1; 
-    const price = base.price * mult * amount; 
-    if (balance >= price) { 
-      setBalance(p => p - price); 
-      setTotalSpent(p => p + price); 
-      setOwnedCurrencies(prev => { 
-        const ex = prev.find(c => c.currencyId === currencyId); 
-        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; 
-      }); 
-      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); 
-      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
-      setTimeout(() => saveProgress(), 50); 
-    } 
-  };
-
-  const handleSell = (currencyId: string, amount: number) => {
-  // 🔥 ПРОВЕРКА: есть ли у игрока эта крипта
-  const owned = ownedCurrencies.find(c => c.currencyId === currencyId);
-  if (!owned || owned.amount < amount) {
-    alert('У тебя нет этой криптовалюты в таком количестве!');
-    return;
-  }
-  
-  const currency = currencies.find(c => c.id === currencyId);
-  if (!currency) return;
-  
-  const price = currency.price * (priceMultipliers[currencyId] || 1) * amount;
-  
-  // Снимаем крипту
-  setOwnedCurrencies(prev => {
-    const ex = prev.find(c => c.currencyId === currencyId);
-    if (!ex) return prev;
-    if (ex.amount === amount) {
-      return prev.filter(c => c.currencyId !== currencyId);
+    const mult = priceMultipliers[currencyId] || 1;
+    const price = base.price * mult * amount;
+    if (balance >= price) {
+      setBalance(p => p - price);
+      setTotalSpent(p => p + price);
+      setOwnedCurrencies(prev => {
+        const ex = prev.find(c => c.currencyId === currencyId);
+        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}];
+      });
+      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15}));
+      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId);
+      setTimeout(() => saveProgress(), 50);
     }
-    return prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount - amount} : c);
-  });
-  
-  // Начисляем доллары
-  setBalance(p => p + price);
-  setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
-  
-  setTimeout(() => saveProgress(), 50);
-  alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
-};
-
+  };
+  const handleSell = (currencyId: string, amount: number) => {
+    // 🔥 ПРОВЕРКА: есть ли у игрока эта крипта
+    const owned = ownedCurrencies.find(c => c.currencyId === currencyId);
+    if (!owned || owned.amount < amount) {
+      alert('У тебя нет этой криптовалюты в таком количестве!');
+      return;
+    }
+    const currency = currencies.find(c => c.id === currencyId);
+    if (!currency) return;
+    const price = currency.price * (priceMultipliers[currencyId] || 1) * amount;
+    // Снимаем крипту
+    setOwnedCurrencies(prev => {
+      const ex = prev.find(c => c.currencyId === currencyId);
+      if (!ex) return prev;
+      if (ex.amount === amount) {
+        return prev.filter(c => c.currencyId !== currencyId);
+      }
+      return prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount - amount} : c);
+    });
+    // Начисляем доллары
+    setBalance(p => p + price);
+    setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
+    setTimeout(() => saveProgress(), 50);
+    alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
+  };
   const handleSellBusiness = (bizId: string) => {
     const bizConfig = BUSINESSES.find(b => b.id === bizId);
     if (!bizConfig) return;
@@ -1354,7 +1292,6 @@ useEffect(() => {
       alert(`Бизнес "${bizConfig.name}" продан за ${refundPrice.toLocaleString()} ₽`);
     }
   };
-
   // 🔥 ФУНКЦИЯ ПОКУПКИ ПРЕДМЕТОВ (С КАСТОМИЗАЦИЕЙ)
   const handleShopBuy = (item: any) => {
     // Если товар требует кастомизации (кепка/бандана)
@@ -1367,22 +1304,18 @@ useEffect(() => {
       finalizePurchase(item, null);
     }
   };
-
   // 🔥 ФУНКЦИЯ ФИНАЛЬНОЙ ПОКУПКИ
   const finalizePurchase = (item: any, color: any) => {
     // Определяем итоговое имя и иконку
     let finalName = item.name;
     let finalIcon = item.icon;
-    
     // Если выбран цвет (для кепки/банданы)
     if (color) {
       finalName = `${item.name} (${color.name})`;
       // Можно менять иконку в зависимости от цвета, но оставим базовую для простоты
     }
-
     if (rubBalance >= item.price) {
       setRubBalance(p => p - item.price);
-      
       const newItem = {
         ...item,
         name: finalName, // Сохраняем название с цветом
@@ -1391,34 +1324,27 @@ useEffect(() => {
         ownedAt: Date.now(),
         customColor: color ? color.name : null // Сохраняем цвет в данных
       };
-      
       console.log('🛒 Покупка предмета:', newItem);
       setOwnedItems(prev => [...prev, newItem]);
       ownedItemsRef.current = [...ownedItems, newItem]; // 🔥 Обновляем ref
       saveProgress();
       alert(`Куплено: ${finalName} за ${item.price.toLocaleString()} ₽`);
-      
       // Закрываем модалку если она была открыта
       if (showColorPicker) {
         setShowColorPicker(false);
         setPendingItem(null);
       }
-    } else { 
-      alert('Недостаточно рублей!'); 
+    } else {
+      alert('Недостаточно рублей!');
     }
   };
-
   // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОДАЖИ
   const handleSellItemFromState = (item: any) => {
     const refund = Math.floor(item.price * 0.5);
-    
     if (!confirm(`Продать ${item.name} за ${refund.toLocaleString()} ₽?`)) return;
-    
     console.log('💰 Продажа предмета:', item);
-    
     // Возвращаем деньги
     setRubBalance(prev => prev + refund);
-    
     // 🔥 Удаляем предмет по уникальному ID или ownedAt
     setOwnedItems(prev => {
       const filtered = prev.filter(i => {
@@ -1429,11 +1355,9 @@ useEffect(() => {
       ownedItemsRef.current = filtered; // 🔥 Обновляем ref
       return filtered;
     });
-    
     saveProgress();
     alert(`✅ Продано за ${refund.toLocaleString()} ₽`);
   };
-
   const startSideHustle = (hustle: any) => {
     const now = Date.now();
     const cooldown = hustleCooldowns[hustle.id] || 0;
@@ -1441,7 +1365,6 @@ useEffect(() => {
     setActiveHustle(hustle); setHustleClicks(0); setHustleTimeLeft(hustle.duration); setShowSideHustles(false);
   };
   const handleHustleClick = () => { if (hustleTimeLeft > 0) setHustleClicks(prev => prev + 1); };
-  
   const handleCreateClan = async (clanData: any) => {
     if (myClan) { alert('Вы уже находитесь в клане!'); setShowCreateClan(false); return; }
     if (balance < 100000) return alert('Нужно $100,000!');
@@ -1479,44 +1402,36 @@ useEffect(() => {
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
-const handleExchange = async (usdChange: number, rubChange: number) => {
-  console.log('💱 handleExchange STARTED');
-  console.log('  usdChange:', usdChange);
-  console.log('  rubChange:', rubChange);
-  console.log('  balance (state):', balance);
-  console.log('  rubBalance (state):', rubBalance);
-  
-  const newUsd = balance + usdChange;
-  const newRub = rubBalance + rubChange;
-  
-  console.log('  newUsd:', newUsd);
-  console.log('  newRub:', newRub);
-
-  if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
-
-  // 🔥 ОБНОВЛЯЕМ REFS
-  console.log('  Updating Refs...');
-  balanceRef.current = newUsd;
-  rubBalanceRef.current = newRub;
-  
-  console.log('  balanceRef.current:', balanceRef.current);
-  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
-
-  // Обновляем стейт
-  setBalance(newUsd);
-  setRubBalance(newRub);
-
-  // Сохраняем
-  console.log('  Calling saveProgress...');
-  try {
-    await saveProgress();
-    console.log('✅ Exchange saved successfully');
-  } catch (err) {
-    console.error('❌ Ошибка сохранения обмена:', err);
-  }
-};
+  const handleExchange = async (usdChange: number, rubChange: number) => {
+    console.log('💱 handleExchange STARTED');
+    console.log('  usdChange:', usdChange);
+    console.log('  rubChange:', rubChange);
+    console.log('  balance (state):', balance);
+    console.log('  rubBalance (state):', rubBalance);
+    const newUsd = balance + usdChange;
+    const newRub = rubBalance + rubChange;
+    console.log('  newUsd:', newUsd);
+    console.log('  newRub:', newRub);
+    if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
+    // 🔥 ОБНОВЛЯЕМ REFS
+    console.log('  Updating Refs...');
+    balanceRef.current = newUsd;
+    rubBalanceRef.current = newRub;
+    console.log('  balanceRef.current:', balanceRef.current);
+    console.log('  rubBalanceRef.current:', rubBalanceRef.current);
+    // Обновляем стейт
+    setBalance(newUsd);
+    setRubBalance(newRub);
+    // Сохраняем
+    console.log('  Calling saveProgress...');
+    try {
+      await saveProgress();
+      console.log('✅ Exchange saved successfully');
+    } catch (err) {
+      console.error('❌ Ошибка сохранения обмена:', err);
+    }
+  };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
-
   const renderClanMenu = () => {
     if (myClan && !showClanHub) {
       return (
@@ -1549,8 +1464,8 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
             ))}
           </div>
           <div style={{marginTop: 16}}>
-             <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}><ArrowLeft size={16} style={{marginRight: 8}}/> Назад</button>
-             <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}><Banknote size={16} style={{marginRight: 8}}/> Общак клана</button>
+            <button onClick={() => setShowClanHub(true)} style={{...styles.btnSecondary, width: '100%'}}><ArrowLeft size={16} style={{marginRight: 8}}/> Назад</button>
+            <button onClick={() => setShowTreasury(true)} style={{...styles.btnSecondary, width: '100%', marginTop: 12}}><Banknote size={16} style={{marginRight: 8}}/> Общак клана</button>
           </div>
         </>
       );
@@ -1599,7 +1514,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
               <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}><Menu size={18} /><span>Открыть меню</span></button>
             </div>
           </div>
-
           <div style={styles.screen}>
             <div style={styles.secondaryHeader}><h2 style={{margin: 0, fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: '-0.5px'}}>Меню</h2><span style={{color: '#737373', fontSize: 13, marginTop: 4}}>Управление активами</span></div>
             <div style={styles.grid20}>
@@ -1615,7 +1529,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
             </div> 
           </div>
         </div>
-
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} musicVolume={50} sfxVolume={50} isDark={isDark} onThemeToggle={() => setIsDark(!isDark)} onSave={() => {}} />
         <SearchComponent isOpen={showSearch} onClose={() => setShowSearch(false)} balance={balance} priceMultipliers={priceMultipliers} onBuy={handleBuy} />
         <Referral isOpen={showReferral} onClose={() => setShowReferral(false)} currentUserId={userIdNum} />
@@ -1630,7 +1543,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         {showRankManager && (<div style={styles.overlay} onClick={() => setShowRankManager(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>Управление рангами</h3><div style={styles.memberList}>{clanMembers.filter(m => m.role < 4).map(m => (<div key={m.user_id} style={styles.memberItem}><input type="checkbox" checked={selectedForRank.includes(m.user_id)} onChange={(e) => { if (e.target.checked) setSelectedForRank([...selectedForRank, m.user_id]); else setSelectedForRank(selectedForRank.filter(id => id !== m.user_id)); }} style={{width: 20, height: 20, marginRight: 12}} /><div style={styles.memberAvatar}>{m.custom_avatar_url ? <img src={m.custom_avatar_url} style={styles.memberImg} /> : m.nickname[0]}</div><div style={{flex:1}}><div style={styles.memberName}>{m.nickname} {renderVipBadge(m.vip_status)}</div><div style={styles.memberRole}>{['', 'Участник', 'Фармила', 'Заместитель', 'Создатель'][m.role]}</div></div></div>))}</div><div style={{marginTop: 16}}><label style={styles.label}>Новый ранг: <select value={newRank} onChange={(e) => setNewRank(parseInt(e.target.value))} style={{marginLeft: 8, padding: '4px 8px', background: '#262626', border: '1px solid #404040', color: 'white', borderRadius: 4}}><option value={1}>1 - Участник</option><option value={2}>2 - Фармила</option><option value={3}>3 - Заместитель</option></select></label></div><div style={{display:'flex', gap:8, marginTop: 12}}><button onClick={() => { setShowRankManager(false); setSelectedForRank([]); }} style={styles.btnSecondary}>Отменить</button><button onClick={handleRankUpdate} style={styles.btnPrimary}>Сохранить</button></div></div></div>)}
         {showFindClan && (<div style={styles.overlay} onClick={() => setShowFindClan(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><button onClick={() => setShowFindClan(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><h2 style={styles.modalTitle}>Поиск клана</h2><input placeholder="Введите название клана..." value={clanSearchQuery} onChange={(e) => { setClanSearchQuery(e.target.value); searchClans(e.target.value); }} style={styles.input} autoFocus /><div style={styles.list}>{clanSearchResults.length === 0 ? <p style={{textAlign:'center', color:'#737373'}}>Введите название для поиска</p> : clanSearchResults.map(clan => (<div key={clan.id} style={styles.listItem}><div style={styles.clanAvatar}>{clan.emoji}</div><div style={{flex:1}}><div style={styles.listName}>{clan.name}</div><div style={styles.listSub}>{clan.members_count || 0}/{clan.max_members} участников • Мин. ур: {clan.min_level}</div></div><button onClick={() => handleJoinClan(clan.id)} style={styles.btnSmall}>Вступить</button></div>))}</div></div></div>)}
       </div>
-
       {showOfflineEarnings && (<div style={styles.offlineOverlay}><div style={styles.offlineModal}><button onClick={() => setShowOfflineEarnings(false)} style={styles.closeBtn}><X size={24} color="#9ca3af" /></button><div style={styles.offlineIcon}>💰</div><div style={styles.offlineTitle}>Пока тебя не было!</div><div style={{...styles.offlineAmount, fontSize: offlineAmount > 1e9 ? '20px' : offlineAmount > 1e6 ? '28px' : offlineAmount > 1e4 ? '32px' : '36px'}}>+${offlineAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div style={styles.offlineText}>Твои майнеры заработали</div></div></div>)}
       
       <TransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} currentUserId={userIdNum} usdBalance={balance} rubBalance={rubBalance} onTransferSuccess={(newUsd, newRub) => { setBalance(newUsd); setRubBalance(newRub); saveProgress(); }} />
@@ -1639,97 +1551,101 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
       <DailyQuestsModal isOpen={showQuests} onClose={() => setShowQuests(false)} quests={dailyQuests} boostActive={boostMultiplier > 1} boostTimeLeft={boostTimeLeft} />
       <DonateModal isOpen={showDonate} onClose={() => setShowDonate(false)} onPurchase={handlePurchase} />
 
-<BankModal 
-  isOpen={showBank} 
-  onClose={() => setShowBank(false)} 
-  userId={userIdNum} 
-  userNickname={currentNickname} 
-  balance={balance} 
-  rubBalance={rubBalance} 
-  bankUsd={bankUsd} 
-  bankRub={bankRub} 
-  stakedAmount={stakedAmount} // 🔥 ДОБАВИЛИ
-  cryptoHoldings={cryptoHoldings}
-  onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
-  onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
-  onStakeUpdate={(amount) => { 
-    setStakedAmount(amount); 
-    stakedAmountRef.current = amount; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
-  }} 
-  onCryptoHoldingsUpdate={(holdings) => { 
-    setCryptoHoldings(holdings); 
-    cryptoHoldingsRef.current = holdings; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
-  }} 
-  onSaveProgress={saveProgress}
-/>
-<BusinessCenterModal 
-  isOpen={showBusiness} 
-  onClose={() => setShowBusiness(false)} 
-  rubBalance={rubBalance}
-  ownedBusinesses={ownedBusinesses} 
-  businessMaintenance={businessMaintenance} 
-  managerHired={managerHired} 
-  
-  // 🔥 ИСПРАВЛЕННЫЙ onBuy:
-  onBuy={(biz) => { 
-    const newBiz = {...biz, ownedAt: Date.now()};
-    setOwnedBusinesses(prev => [...prev, newBiz]);
-    ownedBusinessesRef.current = [...ownedBusinessesRef.current, newBiz];
+      <BankModal 
+        isOpen={showBank} 
+        onClose={() => setShowBank(false)} 
+        userId={userIdNum} 
+        userNickname={currentNickname} 
+        balance={balance} 
+        rubBalance={rubBalance} 
+        bankUsd={bankUsd} 
+        bankRub={bankRub} 
+        stakedAmount={stakedAmount} // 🔥 ДОБАВИЛИ
+        cryptoHoldings={cryptoHoldings}
+        onBalanceUpdate={(usd: number, rub: number) => { setBalance(usd); setRubBalance(rub); }} 
+        onBankUpdate={(usd: number, rub: number) => { setBankUsd(usd); setBankRub(rub); }} 
+        onStakeUpdate={(amount) => { 
+          setStakedAmount(amount); 
+          stakedAmountRef.current = amount; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
+        }} 
+        onCryptoHoldingsUpdate={(holdings) => { 
+          setCryptoHoldings(holdings); 
+          cryptoHoldingsRef.current = holdings; // 🔥 МГНОВЕННО ОБНОВЛЯЕМ REF!
+        }} 
+        onSaveProgress={saveProgress}
+      />
+      <BusinessCenterModal 
+        isOpen={showBusiness} 
+        onClose={() => setShowBusiness(false)} 
+        rubBalance={rubBalance}
+        ownedBusinesses={ownedBusinesses} 
+        businessMaintenance={businessMaintenance} 
+        managerHired={managerHired} 
+        
+        // 🔥 ИСПРАВЛЕННЫЙ onBuy (Теперь инициализирует обслуживание)
+        onBuy={(biz) => { 
+          const now = Date.now();
+          const newBiz = {...biz, ownedAt: now};
+          setOwnedBusinesses(prev => [...prev, newBiz]);
+          ownedBusinessesRef.current = [...ownedBusinessesRef.current, newBiz];
 
-    // 🔥 СНИМАЕМ РУБЛИ
-    setRubBalance(prev => prev - biz.price);
-    rubBalanceRef.current -= biz.price; // Безопасно обновляем Ref
+          // 🔥 FIX: Initialize maintenance for new business
+          const currentMaint = businessMaintenanceRef.current;
+          const newMaint = { ...currentMaint, [biz.id]: { electricity: now, repair: now } };
+          setBusinessMaintenance(newMaint);
+          businessMaintenanceRef.current = newMaint;
 
-    // 🔥 СОХРАНЯЕМ В БАЗУ
-    saveProgress();
-  }} 
-  
-  onPayMaintenance={(bizId, type) => { 
-    const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; 
-    setBusinessMaintenance(newMaint);
-    businessMaintenanceRef.current = newMaint;
-    saveProgress(); // 🔥 Добавили сохранение
-  }} 
-  
-  onHireManager={() => { 
-    if (rubBalance >= 15000) { 
-      setRubBalance(p => p - 15000);
-      rubBalanceRef.current -= 15000;
-      setManagerHired(true); 
-      saveProgress(); // 🔥 Добавили сохранение
-    } else alert('Нужно 15 000 ₽'); 
-  }} 
-  
-  onSell={handleSellBusiness}
-  onSaveProgress={saveProgress}
-/>
-<CasinoModal 
-  isOpen={showCasino} 
-  onClose={() => setShowCasino(false)} 
-  usdBalance={balance} 
-  bankUsd={bankUsd} 
-  bankRub={bankRub} 
-  chips={casinoChips} 
-  onChipExchange={(newChips, newUsd, newBankUsd, newBankRub) => { 
-    console.log('🔄 onChipExchange called');
-    console.log('  newChips:', newChips);
-    console.log('  newUsd:', newUsd);
-    
-    // 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
-    casinoChipsRef.current = newChips;
-    balanceRef.current = newUsd;
-    
-    console.log('  casinoChipsRef.current:', casinoChipsRef.current);
-    console.log('  balanceRef.current:', balanceRef.current);
-    
-    // Теперь обновляем стейт (для отображения)
-    setCasinoChips(newChips); 
-    setBalance(newUsd);
-    setBankUsd(newBankUsd); 
-    setBankRub(newBankRub); 
-  }} 
-  onSaveProgress={saveProgress}
-/>
+          // 🔥 СНИМАЕМ РУБЛИ
+          setRubBalance(prev => prev - biz.price);
+          rubBalanceRef.current -= biz.price; 
+
+          // 🔥 СОХРАНЯЕМ В БАЗУ
+          saveProgress();
+        }} 
+        
+        onPayMaintenance={(bizId, type) => { 
+          const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; 
+          setBusinessMaintenance(newMaint);
+          businessMaintenanceRef.current = newMaint;
+          saveProgress(); // 🔥 Добавили сохранение
+        }} 
+        
+        onHireManager={() => { 
+          if (rubBalance >= 15000) { 
+            setRubBalance(p => p - 15000);
+            rubBalanceRef.current -= 15000;
+            setManagerHired(true); 
+            saveProgress(); // 🔥 Добавили сохранение
+          } else alert('Нужно 15 000 ₽'); 
+        }} 
+        
+        onSell={handleSellBusiness}
+        onSaveProgress={saveProgress}
+      />
+      <CasinoModal 
+        isOpen={showCasino} 
+        onClose={() => setShowCasino(false)} 
+        usdBalance={balance} 
+        bankUsd={bankUsd} 
+        bankRub={bankRub} 
+        chips={casinoChips} 
+        onChipExchange={(newChips, newUsd, newBankUsd, newBankRub) => { 
+          console.log('🔄 onChipExchange called');
+          console.log('  newChips:', newChips);
+          console.log('  newUsd:', newUsd);
+          // 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
+          casinoChipsRef.current = newChips;
+          balanceRef.current = newUsd;
+          console.log('  casinoChipsRef.current:', casinoChipsRef.current);
+          console.log('  balanceRef.current:', balanceRef.current);
+          // Теперь обновляем стейт (для отображения)
+          setCasinoChips(newChips); 
+          setBalance(newUsd);
+          setBankUsd(newBankUsd); 
+          setBankRub(newBankRub); 
+        }} 
+        onSaveProgress={saveProgress}
+      />
 
       {showCryptoWallet && (
         <div style={styles.overlay} onClick={() => setShowCryptoWallet(false)}>
@@ -1812,33 +1728,15 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         </button>))}
       </div><div style={styles.shopContent}>
         
-        {/* 🔥 НОВАЯ ЛОГИКА ДЛЯ МАШИН С ЛОГОТИПАМИ */}
         {activeShopTab === 'cars' && (
           <>
             {!selectedCarBrand ? (
-              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ С ЛОГОТИПАМИ
               <div style={styles.brandGrid}>
                 {CAR_BRANDS.map(brand => (
-                  <button 
-                    key={brand.id} 
-                    style={styles.brandCard}
-                    onClick={() => setSelectedCarBrand(brand.id)}
-                  >
+                  <button key={brand.id} style={styles.brandCard} onClick={() => setSelectedCarBrand(brand.id)}>
                     <div style={styles.brandLogoContainer}>
-                      <img 
-                        src={brand.logo} 
-                        alt={brand.name}
-                        style={styles.brandLogo}
-                        onError={(e) => {
-                          // 🔥 Если логотип не загрузился, показываем первую букву
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback');
-                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                        }}
-                      />
-                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>
-                        {brand.name[0]}
-                      </div>
+                      <img src={brand.logo} alt={brand.name} style={styles.brandLogo} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback'); if (fallback) (fallback as HTMLElement).style.display = 'flex'; }} />
+                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>{brand.name[0]}</div>
                     </div>
                     <div style={styles.brandName}>{brand.name}</div>
                     <div style={styles.brandCount}>{brand.models.length} моделей</div>
@@ -1846,7 +1744,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                 ))}
               </div>
             ) : (
-              // 🔥 ЭКРАН 2: СПИСОК МОДЕЛЕЙ
               <div>
                 <div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16}}>
                   <button style={styles.backBtnSmall} onClick={() => setSelectedCarBrand(null)}>
@@ -1871,7 +1768,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           </>
         )}
 
-        {/* 🔥 ОБНОВЛЕННЫЙ СПИСОК НЕДВИЖИМОСТИ */}
         {activeShopTab === 'realestate' && (
           <div style={styles.shopGrid}>
             {REAL_ESTATE_LIST.map(item => (
@@ -1885,7 +1781,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           </div>
         )}
 
-        {/* 🔥 НОВЫЙ СПИСОК АКСЕССУАРОВ */}
         {activeShopTab === 'accessories' && (
           <div style={styles.shopGrid}>
             {ACCESSORIES_LIST.map(item => (
@@ -1899,33 +1794,15 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           </div>
         )}
 
-        {/* 🔥 НОВЫЙ СПИСОК ТЕЛЕФОНОВ С БРЕНДАМИ И ЛОГОТИПАМИ */}
         {activeShopTab === 'phones' && (
           <>
             {!selectedPhoneBrand ? (
-              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ С ЛОГОТИПАМИ
               <div style={styles.brandGrid}>
                 {PHONE_BRANDS.map(brand => (
-                  <button 
-                    key={brand.id} 
-                    style={styles.brandCard}
-                    onClick={() => setSelectedPhoneBrand(brand.id)}
-                  >
+                  <button key={brand.id} style={styles.brandCard} onClick={() => setSelectedPhoneBrand(brand.id)}>
                     <div style={styles.brandLogoContainer}>
-                      <img 
-                        src={brand.logo} 
-                        alt={brand.name}
-                        style={styles.brandLogo}
-                        onError={(e) => {
-                          // 🔥 Если логотип не загрузился, показываем первую букву
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback');
-                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                        }}
-                      />
-                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>
-                        {brand.name[0]}
-                      </div>
+                      <img src={brand.logo} alt={brand.name} style={styles.brandLogo} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback'); if (fallback) (fallback as HTMLElement).style.display = 'flex'; }} />
+                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>{brand.name[0]}</div>
                     </div>
                     <div style={styles.brandName}>{brand.name}</div>
                     <div style={styles.brandCount}>{brand.models.length} моделей</div>
@@ -1933,7 +1810,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                 ))}
               </div>
             ) : (
-              // 🔥 ЭКРАН 2: СПИСОК МОДЕЛЕЙ
               <div>
                 <div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16}}>
                   <button style={styles.backBtnSmall} onClick={() => setSelectedPhoneBrand(null)}>
@@ -1961,7 +1837,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
-      {/* 🔥 ИСПРАВЛЕННЫЙ БЛОК "МОЁ СОСТОЯНИЕ" */}
       {showAssetsModal && (
         <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
           <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
@@ -1969,28 +1844,20 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
               <X size={24} color="#9ca3af" />
             </button>
             <h2 style={styles.modalTitle}>💰 Моё состояние</h2>
-            
             <div style={styles.netWorthPanel}>
               <div style={styles.netWorthLabel}>Ваше общее состояние на:</div>
               <div style={styles.netWorthValue}>
                 {totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
               </div>
             </div>
-            
             <div style={styles.shopTabs}>
               {(['cars', 'realestate', 'accessories', 'phones', 'other'] as const).map(tab => (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveAssetsTab(tab)} 
-                  style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}
-                >
+                <button key={tab} onClick={() => setActiveAssetsTab(tab)} style={activeAssetsTab === tab ? styles.shopTabActive : styles.shopTab}>
                   {tab === 'cars' ? '🚗 Машины' : tab === 'realestate' ? '🏠 Недвижимость' : tab === 'accessories' ? '💎 Аксессуары' : tab === 'phones' ? '📱 Телефоны' : '📦 Прочее'}
                 </button>
               ))}
             </div>
-            
             <div style={styles.shopContent}>
-              {/* 🔥 ИСПРАВЛЕННЫЙ ФИЛЬТР: используем (item.category || 'other') */}
               {ownedItems.filter(item => (item.category || 'other') === activeAssetsTab).length === 0 ? (
                 <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
                   У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
@@ -2010,8 +1877,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                           <div style={{fontSize: 12, color: '#a3a3a3', marginBottom: 4}}>
                             Куплено: {item.price.toLocaleString()} ₽
                           </div>
-                          
-                          {/* 🔥 КНОПКА ПРОДАЖИ */}
                           <button 
                             style={{
                               width: '100%', 
@@ -2039,7 +1904,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         </div>
       )}
 
-      {/* 🔥 МОДАЛЬНОЕ ОКНО ВЫБОРА ЦВЕТА */}
       {showColorPicker && pendingItem && (
         <div style={styles.overlay} onClick={() => setShowColorPicker(false)}>
           <div style={{...styles.modal, width: '90%', maxWidth: 350}} onClick={e => e.stopPropagation()}>
@@ -2047,7 +1911,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
               <X size={24} color="#9ca3af" />
             </button>
             <h3 style={{color: '#fff', textAlign: 'center', marginBottom: 20}}>Выберите цвет</h3>
-            
             <div style={{display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24}}>
               {CAP_COLORS.map(color => (
                 <div 
@@ -2068,7 +1931,6 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                 </div>
               ))}
             </div>
-
             <button 
               style={{
                 width: '100%', 
