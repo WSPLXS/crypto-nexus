@@ -777,7 +777,9 @@ function App() {
   useEffect(() => { managerHiredRef.current = managerHired; }, [managerHired]);
   useEffect(() => { cryptoHoldingsRef.current = cryptoHoldings; }, [cryptoHoldings]);
   useEffect(() => { stakedAmountRef.current = stakedAmount; }, [stakedAmount]); // 🔥 СИНХРОНИЗАЦИЯ СТЕЙКИНГА
-  useEffect(() => { casinoChipsRef.current = casinoChips; }, [casinoChips]); // 🔥 СИНХРОНИЗАЦИЯ ФИШЕК
+  useEffect(() => { casinoChipsRef.current = casinoChips; }, [casinoChips]); // 🔥 СИНХРОНИЗАЦИЯ REFS С СОСТОЯНИЯМИ
+  useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
+  useEffect(() => { businessMaintenanceRef.current = businessMaintenance; }, [businessMaintenance]); // 🔥 СИНХРОНИЗАЦИЯ ФИШЕК
 
   useEffect(() => { if (boostMultiplier > 1 && !boostExpiresAt) setBoostMultiplier(1); }, [boostMultiplier, boostExpiresAt]);
 
@@ -1582,26 +1584,23 @@ const saveProgress = async () => {
         businessMaintenance={businessMaintenance} 
         managerHired={managerHired} 
         
-        // 🔥 ИСПРАВЛЕННЫЙ onBuy (Теперь инициализирует обслуживание)
-        onBuy={(biz) => { 
-          const now = Date.now();
-          const newBiz = {...biz, ownedAt: now};
-          setOwnedBusinesses(prev => [...prev, newBiz]);
-          ownedBusinessesRef.current = [...ownedBusinessesRef.current, newBiz];
-
-          // 🔥 FIX: Initialize maintenance for new business
-          const currentMaint = businessMaintenanceRef.current;
-          const newMaint = { ...currentMaint, [biz.id]: { electricity: now, repair: now } };
-          setBusinessMaintenance(newMaint);
-          businessMaintenanceRef.current = newMaint;
-
-          // 🔥 СНИМАЕМ РУБЛИ
-          setRubBalance(prev => prev - biz.price);
-          rubBalanceRef.current -= biz.price; 
-
-          // 🔥 СОХРАНЯЕМ В БАЗУ
-          saveProgress();
-        }} 
+        // 🔥 ИСПРАВЛЕННЫЙ onBuy (Теперь инициализирует обслуживание
+onBuy={(biz) => {
+  const newBiz = {...biz, ownedAt: Date.now()};
+  setOwnedBusinesses(prev => {
+    const updated = [...prev, newBiz];
+    ownedBusinessesRef.current = updated; // 🔥 Обновляем ref внутри setState
+    return updated;
+  });
+  // 🔥 СНИМАЕМ РУБЛИ
+  setRubBalance(prev => {
+    const newBalance = prev - biz.price;
+    rubBalanceRef.current = newBalance; // 🔥 Обновляем ref
+    return newBalance;
+  });
+  // 🔥 СОХРАНЯЕМ В БАЗУ
+  setTimeout(() => saveProgress(), 100); // 🔥 Небольшая задержка для синхронизации
+}}
         
         onPayMaintenance={(bizId, type) => { 
           const newMaint = {...businessMaintenance, [bizId]: {...(businessMaintenance[bizId] || {}), [type]: Date.now()}}; 
