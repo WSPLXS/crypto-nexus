@@ -1,15 +1,16 @@
 import React from 'react';
 
 interface GPUProps { 
-  tier: number; // Уровень игрока (1-100)
-  isMining: boolean; 
+  tier: number;
+  isMining: boolean;
+  isAnimating?: boolean; // 🔥 ДОБАВЛЕНО: необязательный проп
 }
 
-export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
-  // Визуальный тир 1-10 на основе уровня 1-100
-  const visualTier = Math.max(1, Math.min(10, Math.ceil(tier / 10)));
+export const GPU: React.FC<GPUProps> = ({ tier, isMining, isAnimating = false }) => {
+  // 🔥 АДАПТАЦИЯ ПОД НОВУЮ СИСТЕМУ 10 УРОВНЕЙ
+  const visualTier = Math.max(1, Math.min(10, tier));
   
-  // Цветовая схема в зависимости от визуального тира
+  // Цветовая схема в зависимости от тира
   const glowColor = visualTier >= 8 ? '#ef4444' : visualTier >= 5 ? '#f59e0b' : visualTier >= 3 ? '#3b82f6' : '#64748b';
   const fansCount = visualTier >= 6 ? 3 : visualTier >= 3 ? 2 : 1;
   const cardHeight = 140 + (visualTier * 4);
@@ -79,7 +80,8 @@ export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
                 <div style={styles.fanContainer}>
                   <div style={{
                     ...styles.fan,
-                    ...(isMining ? styles.spinning : {}),
+                    // 🔥 ПОСТОЯННОЕ ВРАЩЕНИЕ если isAnimating=true
+                    ...(isAnimating && styles.spinning),
                   }}>
                     {/* Лопасти */}
                     {Array.from({ length: 9 }).map((_, j) => (
@@ -95,10 +97,10 @@ export const GPU: React.FC<GPUProps> = ({ tier, isMining }) => {
                     
                     {/* Центр вентилятора */}
                     <div style={{
-                   ...styles.fanCenter,
-                  background: `radial-gradient(circle, ${glowColor}, ${glowColor}80)`,
-                  boxShadow: `0 0 20px ${glowColor}, inset 0 0 10px rgba(255,255,255,0.3)`,
-                  }}></div>
+                      ...styles.fanCenter,
+                      background: `radial-gradient(circle, ${glowColor}, ${glowColor}80)`,
+                      boxShadow: `0 0 20px ${glowColor}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                    }}></div>
                   </div>
                   
                   {/* RGB кольцо вокруг вентилятора */}

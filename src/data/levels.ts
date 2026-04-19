@@ -1,69 +1,50 @@
-// src/data/levels.ts
+// 🔥 НОВАЯ СИСТЕМА УРОВНЕЙ (10 уровней по рублям)
+export const LEVEL_THRESHOLDS = [
+  0,           // Lvl 1
+  100000,      // Lvl 2: 100к ₽
+  500000,      // Lvl 3: 500к ₽
+  750000,      // Lvl 4: 750к ₽
+  1000000,     // Lvl 5: 1 млн ₽
+  1500000,     // Lvl 6: 1.5 млн ₽
+  3000000,     // Lvl 7: 3 млн ₽
+  5000000,     // Lvl 8: 5 млн ₽
+  8500000,     // Lvl 9: 8.5 млн ₽
+  10000000     // Lvl 10: 10 млн ₽ (MAX)
+];
 
-export interface LevelInfo {
-  level: number;
-  minBalance: number;
-  maxBalance: number;
-  progress: number;
-  tier: number;
-}
-
-// Генерируем 100 уровней с плавной экспоненциальной кривой
-const generateLevels = () => {
-  const levels = [];
-  for (let i = 0; i <= 100; i++) {
-    // Формула: 100 * (уровень ^ 2.5)
-    // Lvl 1: ~$100 | Lvl 10: ~$31k | Lvl 30: ~$500k | Lvl 100: ~$10M
-    const minBalance = i === 0 ? 0 : Math.floor(100 * Math.pow(i, 2.5));
-    levels.push({ level: i, minBalance });
-  }
-  return levels;
-};
-
-const LEVELS = generateLevels();
-
-export const MAX_LEVEL = 100;
-
-export const getLevelInfo = (balance: number): LevelInfo => {
-  let currentLevel = 0;
-  
-  // Находим текущий уровень
-  for (let i = 0; i < LEVELS.length; i++) {
-    if (balance >= LEVELS[i].minBalance) {
-      currentLevel = LEVELS[i].level;
-    } else {
+export const getLevelInfo = (balance: number) => {
+  // 🔥 Ищем текущий уровень
+  let level = 1;
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (balance >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
       break;
     }
   }
-
-  // Ограничиваем макс уровнем
-  if (currentLevel >= MAX_LEVEL) currentLevel = MAX_LEVEL;
-
-  const currentThreshold = LEVELS[currentLevel].minBalance;
-  const nextThreshold = currentLevel < MAX_LEVEL ? LEVELS[currentLevel + 1].minBalance : currentThreshold;
-
-  // Считаем прогресс в %
+  
+  // 🔥 Ограничиваем максимум 10 уровнем
+  level = Math.min(level, 10);
+  
+  // 🔥 Расчет прогресса до следующего уровня
+  const currentThreshold = LEVEL_THRESHOLDS[level - 1];
+  const nextThreshold = level < 10 ? LEVEL_THRESHOLDS[level] : currentThreshold;
+  
   let progress = 0;
-  if (currentLevel < MAX_LEVEL && nextThreshold > currentThreshold) {
-    progress = Math.min(100, Math.floor(((balance - currentThreshold) / (nextThreshold - currentThreshold)) * 100));
+  if (level < 10) {
+    progress = ((balance - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+    progress = Math.min(Math.max(progress, 0), 100); // Ограничиваем 0-100%
   } else {
-    progress = 100;
+    progress = 100; // MAX уровень
   }
-
-  // Тир: каждые 10 уровней = 1 тир (1-10)
-  const tier = Math.ceil(currentLevel / 10);
-
-  return {
-    level: currentLevel,
-    minBalance: currentThreshold,
-    maxBalance: nextThreshold,
-    progress,
-    tier
-  };
+  
+  // 🔥 Тир для мультипликатора (каждые 2 уровня = новый тир)
+  const tier = Math.ceil(level / 2);
+  
+  return { level, progress: Math.round(progress), tier };
 };
 
-// Множитель дохода. Растёт плавно: x1.0 -> x5.0 на максимуме
-export const getGlobalMultiplier = (tier: number): number => {
-  const clampedTier = Math.max(1, Math.min(10, tier));
-  return 1 + (clampedTier - 1) * 0.5;
-};
+export const getGlobalMultiplier = (tier: number) => {
+  // 🔥 Мультипликатор дохода от тира
+  const multipliers = [1, 1.2, 1.5, 1.8, 2.2]; // Tier 1-5
+  return multipliers[Math.min(tier - 1, multipliers.length - 1)];
+}; 

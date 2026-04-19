@@ -1496,7 +1496,7 @@ function App() {
               <button onClick={() => setShowLeaderboard(true)} style={styles.leftBtn}><Trophy size={20} color="var(--text-primary)" /></button>
               <button onClick={() => setShowReferral(true)} style={styles.leftBtn}><Handshake size={20} color="var(--text-primary)" /></button>
             </div>
-            <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} /></div>
+            <div style={styles.center}><GPU tier={level} isMining={totalIncome > 0} isAnimating={true} /></div>
             <div style={styles.newBottomBar}>
               <button onClick={() => setCurrentScreen('secondary')} style={styles.menuOpenBtn}><Menu size={18} /><span>Открыть меню</span></button>
             </div>
