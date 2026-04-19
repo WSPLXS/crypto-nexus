@@ -387,6 +387,7 @@ function App() {
   const selectedCurrencyRef = useRef(selectedCurrencyId); const totalSpentRef = useRef(totalSpent);
   const boostMultiplierRef = useRef(boostMultiplier); const boostExpiresAtRef = useRef(boostExpiresAt);
   const dailyQuestsRef = useRef(dailyQuests);
+  const ownedItemsRef = useRef(ownedItems); // 🔥 Ref для ownedItems
   
   // 🔥 НОВЫЕ REFS
   const ownedBusinessesRef = useRef(ownedBusinesses);
@@ -406,6 +407,7 @@ function App() {
   useEffect(() => { boostMultiplierRef.current = boostMultiplier; }, [boostMultiplier]);
   useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
   useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
+  useEffect(() => { ownedItemsRef.current = ownedItems; }, [ownedItems]); // 🔥 Синхронизация ownedItems ref
   
   // 🔥 СИНХРОНИЗАЦИЯ REFS
   useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
@@ -471,6 +473,7 @@ const saveProgress = async () => {
   console.log('  balanceRef.current:', balanceRef.current);
   console.log('  rubBalanceRef.current:', rubBalanceRef.current);
   console.log('  casinoChipsRef.current:', casinoChipsRef.current);
+  console.log('  ownedItemsRef.current:', ownedItemsRef.current); // 🔥 Логирование ownedItems
   
   try {
     const payload = { 
@@ -495,7 +498,7 @@ const saveProgress = async () => {
       staked_amount: stakedAmountRef.current,
       casino_chips: casinoChipsRef.current, 
       hustle_cooldowns: JSON.stringify(hustleCooldowns),
-      owned_items: JSON.stringify(ownedItems),
+      owned_items: JSON.stringify(ownedItemsRef.current), // 🔥 Исправлено: используем ref
     };
 
     console.log('📦 Payload:', payload);
@@ -607,7 +610,7 @@ const saveProgress = async () => {
 
   useEffect(() => {
     async function loadProgress() {
-      console.log(' Loading progress for userId:', userIdNum);
+      console.log('🔄 Loading progress for userId:', userIdNum);
       try {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
@@ -655,7 +658,27 @@ const saveProgress = async () => {
           
           setCasinoChips(data.casino_chips || 0);
           casinoChipsRef.current = data.casino_chips || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          setOwnedItems(typeof data.owned_items === 'string' ? JSON.parse(data.owned_items || '[]') : data.owned_items || []);
+          
+          // 🔥 ЗАГРУЗКА КУПЛЕННЫХ ПРЕДМЕТОВ (ИСПРАВЛЕНО)
+          try {
+            const loadedItems = typeof data.owned_items === 'string' 
+              ? JSON.parse(data.owned_items || '[]') 
+              : data.owned_items || [];
+            
+            console.log('🔍 Loaded ownedItems from DB:', loadedItems);
+            
+            // 🔥 Гарантируем, что у каждого предмета есть category
+            const processedItems = loadedItems.map((item: any) => ({
+              ...item,
+              category: item.category || 'other' // если category не указан, ставим 'other'
+            }));
+            
+            setOwnedItems(processedItems);
+            console.log('✅ Processed ownedItems:', processedItems);
+          } catch (error) {
+            console.error('❌ Error loading ownedItems:', error);
+            setOwnedItems([]);
+          }
           
           // 🔥 ЗАГРУЗКА КРИПТО-ПОРТФЕЛЯ С ОБНОВЛЕНИЕМ REF
           let crypto = {}; 
@@ -933,18 +956,22 @@ useEffect(() => {
     }
   };
 
+  // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ
   const handleBuyItem = (item: any) => {
     if (rubBalance >= item.price) {
       setRubBalance(p => p - item.price);
       
-      // 🔥 ДОБАВЛЯЕМ category, если его нет (берем из текущей вкладки магазина)
-      const itemWithCategory = { 
-        ...item, 
-        category: item.category || activeShopTab, 
-        ownedAt: Date.now() 
+      // 🔥 ДОБАВЛЯЕМ category и уникальный ID
+      const newItem = {
+        ...item,
+        category: activeShopTab || 'other', // используем текущую вкладку как category
+        id: item.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // уникальный ID
+        ownedAt: Date.now()
       };
       
-      setOwnedItems(prev => [...prev, itemWithCategory]);
+      console.log('🛒 Покупка предмета:', newItem);
+      setOwnedItems(prev => [...prev, newItem]);
+      ownedItemsRef.current = [...ownedItems, newItem]; // 🔥 Обновляем ref
       saveProgress();
       alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
     } else { 
@@ -952,21 +979,29 @@ useEffect(() => {
     }
   };
 
-  // 🔥 ПРОДАЖА ПРЕДМЕТОВ ИЗ ИНВЕНТАРЯ
+  // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОДАЖИ
   const handleSellItemFromState = (item: any) => {
-    const refund = Math.floor(item.price * 0.5); // 50% от стоимости
+    const refund = Math.floor(item.price * 0.5);
     
     if (!confirm(`Продать ${item.name} за ${refund.toLocaleString()} ₽?`)) return;
     
-    // 1. Возвращаем деньги
+    console.log('💰 Продажа предмета:', item);
+    
+    // Возвращаем деньги
     setRubBalance(prev => prev + refund);
     
-    // 2. Удаляем предмет из инвентаря (фильтруем по ownedAt)
-    setOwnedItems(prev => prev.filter(i => i.ownedAt !== item.ownedAt));
+    // 🔥 Удаляем предмет по уникальному ID или ownedAt
+    setOwnedItems(prev => {
+      const filtered = prev.filter(i => {
+        // Пробуем найти по ID (если есть) или по ownedAt
+        return i.id !== item.id && i.ownedAt !== item.ownedAt;
+      });
+      console.log('📦 Updated ownedItems after sell:', filtered);
+      ownedItemsRef.current = filtered; // 🔥 Обновляем ref
+      return filtered;
+    });
     
-    // 3. Сохраняем прогресс
     saveProgress();
-    
     alert(`✅ Продано за ${refund.toLocaleString()} ₽`);
   };
 
@@ -1412,7 +1447,8 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
-            {showAssetsModal && (
+      {/* 🔥 ИСПРАВЛЕННЫЙ БЛОК "МОЁ СОСТОЯНИЕ" */}
+      {showAssetsModal && (
         <div style={styles.overlay} onClick={() => setShowAssetsModal(false)}>
           <div style={{...styles.modal, maxWidth: 500, width: '95%'}} onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowAssetsModal(false)} style={styles.closeBtn}>
@@ -1440,7 +1476,7 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
             </div>
             
             <div style={styles.shopContent}>
-              {/* 🔥 ИСПРАВЛЕННЫЙ ФИЛЬТР: (item.category || 'other') */}
+              {/* 🔥 ИСПРАВЛЕННЫЙ ФИЛЬТР: используем (item.category || 'other') */}
               {ownedItems.filter(item => (item.category || 'other') === activeAssetsTab).length === 0 ? (
                 <p style={{textAlign: 'center', color: '#737373', padding: 40}}>
                   У вас нет {activeAssetsTab === 'cars' ? 'машин' : activeAssetsTab === 'realestate' ? 'недвижимости' : activeAssetsTab === 'accessories' ? 'аксессуаров' : activeAssetsTab === 'phones' ? 'телефонов' : 'товаров'}
