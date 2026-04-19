@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle } from 'lucide-react';
+import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface TransferModalProps {
@@ -12,11 +12,6 @@ interface TransferModalProps {
   onSaveProgress?: () => void;
 }
 
-// 🔥 ФУНКЦИЯ ЭКРАНИРОВАНИЯ СПЕЦСИМВОЛОВ ДЛЯ ILIKE
-const escapeIlike = (str: string) => {
-  return str.replace(/%/g, '\\%').replace(/_/g, '\\_').replace(/\\/g, '\\\\');
-};
-
 export const TransferModal: React.FC<TransferModalProps> = ({
   isOpen, onClose, currentUserId, usdBalance, rubBalance, onTransferSuccess, onSaveProgress
 }) => {
@@ -28,6 +23,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Сброс при открытии
   useEffect(() => {
@@ -38,70 +34,51 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setAmount('');
       setCurrency('usd');
       setError('');
+      setShowSuggestions(false);
     }
   }, [isOpen]);
 
-  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЯ С ПОДДЕРЖКОЙ РУССКИХ НИКОВ
+  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЯ С АВТОДОПОЛНЕНИЕМ
   useEffect(() => {
     const searchUser = async () => {
       const trimmed = searchQuery.trim();
       
-      if (trimmed.length < 1) {
+      if (trimmed.length < 2) {
         setSearchResults([]);
-        setError('');
+        setShowSuggestions(false);
         return;
       }
 
       setSearching(true);
-      setError('');
       
       try {
-        // 🔥 Экранируем спецсимволы для ilike
-        const escaped = escapeIlike(trimmed);
-        
-        // 🔥 Используем ilike для поиска без учёта регистра
-        // Работает и с кириллицей, и с латиницей
+        // 🔥 Используем eq вместо ilike для избежания ошибки 406
+        // Ищем пользователей, чей никнейм НАЧИНАЕТСЯ с введенного текста
         const { data, error: searchError } = await supabase
           .from('users')
           .select('id, nickname, balance, rub_balance')
-          .ilike('nickname', `%${escaped}%`)
+          .like('nickname', `${trimmed}%`)
           .neq('id', currentUserId)
           .limit(10);
 
         if (searchError) {
           console.error('Search error:', searchError);
-          // Если ilike не работает (ошибка 406), пробуем точный поиск
-          if (searchError.code === '406') {
-            const { data: fallbackData } = await supabase
-              .from('users')
-              .select('id, nickname, balance, rub_balance')
-              .eq('nickname', trimmed)
-              .neq('id', currentUserId)
-              .limit(10);
-            
-            if (fallbackData && fallbackData.length > 0) {
-              setSearchResults(fallbackData);
-            } else {
-              setError('Пользователь не найден');
-              setSearchResults([]);
-            }
-          } else {
-            setError('Ошибка поиска');
-            setSearchResults([]);
-          }
+          setSearchResults([]);
+          setShowSuggestions(false);
           return;
         }
         
         if (data && data.length > 0) {
           setSearchResults(data);
+          setShowSuggestions(true);
         } else {
-          setError('Пользователь не найден');
           setSearchResults([]);
+          setShowSuggestions(false);
         }
       } catch (err) {
         console.error('Search error:', err);
-        setError('Ошибка поиска');
         setSearchResults([]);
+        setShowSuggestions(false);
       } finally {
         setSearching(false);
       }
@@ -111,6 +88,14 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     const timeoutId = setTimeout(searchUser, 300);
     return () => clearTimeout(timeoutId);
   }, [searchQuery, currentUserId]);
+
+  // 🔥 ВЫБОР ПОЛЬЗОВАТЕЛЯ ИЗ СПИСКА
+  const handleSelectUser = (user: any) => {
+    setSelectedUser(user);
+    setSearchQuery(user.nickname);
+    setShowSuggestions(false);
+    setError('');
+  };
 
   const handleSend = async () => {
     if (!selectedUser) {
@@ -171,7 +156,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       if (updateError) throw updateError;
 
       // 3. Логируем перевод
-await supabase.from('transactions').insert({
+      await supabase.from('transactions').insert({
   sender_id: currentUserId,
   receiver_id: selectedUser.id,
   amount: num,
@@ -194,14 +179,6 @@ await supabase.from('transactions').insert({
     } finally {
       setLoading(false);
     }
-  };
-
-  // 🔥 ВЫБОР ПОЛЬЗОВАТЕЛЯ ИЗ СПИСКА
-  const handleSelectUser = (user: any) => {
-    setSelectedUser(user);
-    setSearchQuery(user.nickname);
-    setSearchResults([]);
-    setError('');
   };
 
   if (!isOpen) return null;
@@ -247,11 +224,12 @@ await supabase.from('transactions').insert({
                 setSelectedUser(null);
                 setError('');
               }}
+              onFocus={() => searchResults.length > 0 && setShowSuggestions(true)}
               disabled={loading}
             />
             
             {/* 🔥 ВЫПАДАЮЩИЙ СПИСОК ПОДСКАЗОК */}
-            {searchResults.length > 0 && !selectedUser && (
+            {showSuggestions && searchResults.length > 0 && (
               <div style={styles.suggestionsList}>
                 {searchResults.map(user => (
                   <div
@@ -271,6 +249,9 @@ await supabase.from('transactions').insert({
                         ${(user.balance || 0).toFixed(0)} | ₽{(user.rub_balance || 0).toFixed(0)}
                       </div>
                     </div>
+                    {selectedUser?.id === user.id && (
+                      <div style={styles.selectedCheck}>✓</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -410,6 +391,18 @@ const styles: any = {
   },
   suggestionName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
   suggestionBalance: { color: '#737373', fontSize: 12, marginTop: 2 },
+  selectedCheck: {
+    background: '#22c55e',
+    color: 'white',
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: 'bold'
+  },
   selectedUser: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#1a1a1a', borderRadius: 12, marginBottom: 12, border: '1px solid #22c55e' },
   searchAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
   searchName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
