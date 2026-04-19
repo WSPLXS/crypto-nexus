@@ -1482,7 +1482,7 @@ useEffect(() => {
       <div style={styles.container} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div style={{...styles.sliderWrapper, transform: currentScreen === 'secondary' ? 'translateX(-100vw)' : 'translateX(0)'}}>
           <div style={styles.screen}>
-            <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 30 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
+            <div style={styles.levelBar}><span style={styles.levelText}>Lvl {level}</span><div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${progress}%` }}></div></div><span style={styles.levelText}>{level === 10 ? 'MAX' : `Lvl ${level + 1}`}</span></div>
             <div style={styles.topBar}>
               <div style={styles.userSection} onClick={() => openProfile({ id: userIdNum, nickname: currentNickname, netWorth: totalNetWorth, first_login: new Date().toISOString(), custom_avatar_url: avatarUrl, max_balance: maxBalance, vip_status: vipStatus })}>
                 <div style={styles.avatarWrapper}>{avatarUrl ? <img src={avatarUrl} style={styles.avatarImg} /> : <span style={styles.avatarText}>{currentNickname[0].toUpperCase()}</span>}</div>
