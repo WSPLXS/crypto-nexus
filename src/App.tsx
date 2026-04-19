@@ -71,6 +71,118 @@ const ACCESSORIES_LIST = [
   { id: 'acc_bandana', name: 'Бандана (Выбор цвета)', price: 4000, icon: '', custom: true }
 ];
 
+// 🔥 СПИСОК ТЕЛЕФОНОВ (БРЕНДЫ И МОДЕЛИ) С ЛОГОТИПАМИ
+const PHONE_BRANDS = [
+  { id: 'apple', name: 'Apple', logo: '/logos/phones/apple.png', models: [
+    { name: 'iPhone 17 Pro Max', price: 220000 },
+    { name: 'iPhone 17 Pro', price: 190000 },
+    { name: 'iPhone 17 / iPhone Air', price: 160000 },
+    { name: 'iPhone 16e', price: 90000 },
+    { name: 'iPhone 16 Pro Max', price: 200000 },
+    { name: 'iPhone 16 Pro', price: 170000 },
+    { name: 'iPhone 16 / 16 Plus', price: 130000 },
+    { name: 'iPhone 15 Pro Max', price: 180000 },
+    { name: 'iPhone 15 Pro', price: 150000 },
+    { name: 'iPhone 14 Pro Max', price: 150000 },
+    { name: 'iPhone 14 Pro', price: 120000 },
+    { name: 'iPhone 14 / 14 Plus', price: 95000 },
+    { name: 'iPhone 13 / 13 mini', price: 75000 },
+    { name: 'iPhone SE (3-го поколения)', price: 45000 },
+    { name: 'iPhone 12 Pro Max / 12 Pro', price: 110000 },
+    { name: 'iPhone 12 / 12 mini', price: 85000 },
+    { name: 'iPhone 11 Pro Max / 11 Pro', price: 90000 },
+    { name: 'iPhone 11', price: 65000 },
+    { name: 'iPhone XR / XS / XS Max', price: 55000 },
+    { name: 'iPhone SE (2-го поколения)', price: 35000 }
+  ]},
+  { id: 'honor', name: 'Honor', logo: '/logos/phones/honor.png', models: [
+    { name: 'Honor Magic 8 Pro', price: 120000 },
+    { name: 'Honor Magic 7 Pro', price: 110000 },
+    { name: 'Honor 400 Pro', price: 65000 },
+    { name: 'Honor 400 / 400 Lite', price: 45000 },
+    { name: 'Honor X9d / X8d / X7d', price: 25000 },
+    { name: 'Honor 200 / 200 Lite', price: 35000 },
+    { name: 'Honor 90', price: 40000 },
+    { name: 'Honor X5c / X6c', price: 15000 }
+  ]},
+  { id: 'samsung', name: 'Samsung', logo: '/logos/phones/samsung.png', models: [
+    { name: 'Galaxy S25 Ultra', price: 190000 },
+    { name: 'Galaxy S25+ / S25', price: 140000 },
+    { name: 'Galaxy S25 FE', price: 85000 },
+    { name: 'Galaxy Z Fold 7', price: 180000 },
+    { name: 'Galaxy Z Flip 7', price: 150000 },
+    { name: 'Galaxy A57 5G', price: 45000 },
+    { name: 'Galaxy A36 / A26', price: 30000 },
+    { name: 'Galaxy M-серия', price: 20000 }
+  ]},
+  { id: 'vivo', name: 'Vivo', logo: '/logos/phones/vivo.png', models: [
+    { name: 'Vivo X300 Ultra / X300 Pro', price: 130000 },
+    { name: 'Vivo X200 Ultra / X200 Pro / X200 FE', price: 110000 },
+    { name: 'Vivo V50 / V40 / V30', price: 45000 },
+    { name: 'Vivo iQOO Neo 10 / Neo 11', price: 65000 },
+    { name: 'Vivo iQOO Z11 / Z10 Turbo', price: 40000 },
+    { name: 'Vivo Y29 / Y28 / Y04', price: 20000 }
+  ]},
+  { id: 'nokia', name: 'Nokia', logo: '/logos/phones/nokia.png', models: [
+    { name: 'Nokia G60 5G', price: 35000 },
+    { name: 'Nokia X30 5G', price: 40000 },
+    { name: 'Nokia G42 5G / G310 5G', price: 25000 },
+    { name: 'Nokia XR21', price: 45000 },
+    { name: 'Nokia C32 / G22', price: 15000 },
+    { name: 'Nokia 110 4G / 105 2023', price: 5000 },
+    { name: 'Nokia 8210 4G', price: 7000 },
+    { name: 'Nokia 3510 4G / 5710 XpressMusic', price: 8000 }
+  ]},
+  { id: 'huawei', name: 'Huawei', logo: '/logos/phones/huawei.png', models: [
+    { name: 'Huawei Pura 80 Ultra / Pura 80 Pro', price: 180000 },
+    { name: 'Huawei Pura 70 Ultra', price: 160000 },
+    { name: 'Huawei Mate 70 Pro / Mate 60 Pro', price: 150000 },
+    { name: 'Huawei Mate X6 / Mate XT', price: 250000 },
+    { name: 'Huawei Nova 14 Pro / Nova 13', price: 65000 },
+    { name: 'Huawei Nova Y73 / Y63', price: 35000 }
+  ]},
+  { id: 'xiaomi', name: 'Xiaomi', logo: '/logos/phones/xiaomi.png', models: [
+    { name: 'Xiaomi 17 Pro / 17 Ultra', price: 130000 },
+    { name: 'Xiaomi 15 Ultra / 15 Pro', price: 110000 },
+    { name: 'Redmi Note 15 Pro 5G', price: 45000 },
+    { name: 'Redmi K80 / K70 Ultra', price: 65000 },
+    { name: 'Xiaomi Civi 5 Pro', price: 55000 },
+    { name: 'Xiaomi Pad-серия', price: 40000 }
+  ]},
+  { id: 'google', name: 'Google Pixel', logo: '/logos/phones/google.png', models: [
+    { name: 'Pixel 10 Pro XL / Pixel 10 Pro', price: 140000 },
+    { name: 'Pixel 10 / Pixel 10a', price: 95000 },
+    { name: 'Pixel 9 Pro Fold', price: 180000 },
+    { name: 'Pixel 9 Pro XL / Pixel 9 Pro', price: 130000 },
+    { name: 'Pixel 9 / Pixel 9a', price: 85000 },
+    { name: 'Pixel 8a / Pixel 8 Pro', price: 90000 }
+  ]},
+  { id: 'poco', name: 'Poco', logo: '/logos/phones/poco.png', models: [
+    { name: 'Poco F8 Ultra / F8 Pro', price: 65000 },
+    { name: 'Poco F7 Pro / F7 Ultra / F7', price: 55000 },
+    { name: 'Poco X8 Pro / X7 Pro / X7', price: 40000 },
+    { name: 'Poco M8 Pro / M7 Pro / M7', price: 25000 },
+    { name: 'Poco C85 / C75 / C61', price: 15000 },
+    { name: 'Poco Pad / Pad X1', price: 30000 }
+  ]},
+  { id: 'realme', name: 'Realme', logo: '/logos/phones/realme.png', models: [
+    { name: 'Realme GT 7 / GT 7T', price: 65000 },
+    { name: 'Realme 15 Pro 5G / 15 5G', price: 45000 },
+    { name: 'Realme 14 Pro+ / 14 Pro / 14 5G', price: 35000 },
+    { name: 'Realme 13 Pro+ / 13 5G', price: 30000 },
+    { name: 'Realme P3 Ultra / P-серия', price: 25000 },
+    { name: 'Realme Note 70 / Note 60x', price: 15000 },
+    { name: 'Realme Narzo 60 Ultra', price: 35000 },
+    { name: 'Realme C-серия', price: 12000 }
+  ]},
+  { id: 'tecno', name: 'Tecno', logo: '/logos/phones/tecno.png', models: [
+    { name: 'Tecno CAMON 50 Ultra / CAMON 40 Pro', price: 45000 },
+    { name: 'Tecno Pova 7 Ultra / Pova 7 Pro / Pova 7 Neo', price: 30000 },
+    { name: 'Tecno Spark 40 Pro+ / Spark 40 Pro / Spark Slim', price: 20000 },
+    { name: 'Tecno Phantom V Fold 2 / V Flip', price: 85000 }
+  ]}
+];
+
 // 🔥 ДАННЫЕ ДЛЯ МАШИН (БРЕНДЫ И МОДЕЛИ) С ЛОГОТИПАМИ
 const CAR_BRANDS = [
   { id: 'lada', name: 'LADA', logo: '/logos/lada.png', models: [
@@ -179,7 +291,7 @@ const CAR_BRANDS = [
     { id: 'kia_tell', name: 'Telluride', price: 4000000 },
     { id: 'kia_ev6', name: 'EV6', price: 4500000 }
   ]},
-  { id: 'xiaomi', name: 'XIAOMI', logo: '/logos/xiaomi.png', models: [
+  { id: 'xiaomi_car', name: 'XIAOMI', logo: '/logos/xiaomi.png', models: [
     { id: 'xio_su7', name: 'SU7', price: 3000000 }
   ]},
   { id: 'tesla', name: 'TESLA', logo: '/logos/tesla.png', models: [
@@ -456,33 +568,32 @@ const styles: { [key: string]: React.CSSProperties } = {
   shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
   shopContent: { flex: 1, overflowY: 'auto' },
   shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  
   // 🔥 НОВЫЕ СТИЛИ ДЛЯ БРЕНДОВ С ЛОГОТИПАМИ
   brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
-  brandCard: { 
-    background: '#1C1C1E', 
-    border: '1px solid rgba(156,163,175,0.1)', 
-    borderRadius: 16, 
-    padding: 16, 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'center', 
+  brandCard: {
+    background: '#1C1C1E',
+    border: '1px solid rgba(156,163,175,0.1)',
+    borderRadius: 16,
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
     cursor: 'pointer',
     transition: 'transform 0.1s, background 0.2s',
     minHeight: 140
   },
-  brandLogoContainer: { 
-    width: 64, 
-    height: 64, 
+  brandLogoContainer: {
+    width: 64,
+    height: 64,
     marginBottom: 12,
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center'
   },
-  brandLogo: { 
-    width: '100%', 
-    height: '100%', 
+  brandLogo: {
+    width: '100%',
+    height: '100%',
     objectFit: 'contain',
   },
   brandFallback: {
@@ -500,19 +611,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: 0,
     left: 0
   },
-  brandName: { 
-    fontSize: 12, 
-    fontWeight: 'bold', 
-    color: '#fff', 
+  brandName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
     marginBottom: 4,
     textAlign: 'center'
   },
-  brandCount: { 
-    fontSize: 10, 
+  brandCount: {
+    fontSize: 10,
     color: '#737373',
     textAlign: 'center'
   },
-  
   backBtnSmall: { background: 'transparent', border: '1px solid rgba(156,163,175,0.2)', borderRadius: 8, padding: '6px 12px', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
   shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
   shopItemIcon: { fontSize: 32, marginBottom: 8 },
@@ -544,7 +654,6 @@ function App() {
   const [showOfflineEarnings, setShowOfflineEarnings] = useState(false);
   const [offlineAmount, setOfflineAmount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
   const [balance, setBalance] = useState(0);
   const [rubBalance, setRubBalance] = useState(1000);
   const [maxBalance, setMaxBalance] = useState(100);
@@ -554,7 +663,6 @@ function App() {
   const [totalSpent, setTotalSpent] = useState(0);
   const [referralBonusGiven, setReferralBonusGiven] = useState(false);
   const [referrerId, setReferrerId] = useState<number | null>(null);
-
   const [bankUsd, setBankUsd] = useState(0);
   const [bankRub, setBankRub] = useState(0);
   const [cryptoHoldings, setCryptoHoldings] = useState<Record<string, number>>({});
@@ -566,7 +674,6 @@ function App() {
   const [jobCooldowns, setJobCooldowns] = useState<Record<string, number>>({});
   const [cryptoRates, setCryptoRates] = useState<any>({});
   const [totalBusinessIncome, setTotalBusinessIncome] = useState(0);
-
   const [showSettings, setShowSettings] = useState(false);
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -574,7 +681,6 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBank, setShowBank] = useState(false);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  
   const [showClan, setShowClan] = useState(false);
   const [showClanHub, setShowClanHub] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
@@ -594,7 +700,6 @@ function App() {
   const [showCryptoWallet, setShowCryptoWallet] = useState(false);
   const [showBusiness, setShowBusiness] = useState(false);
   const [showCasino, setShowCasino] = useState(false);
-
   // 🔥 Новые состояния для подработок
   const [showSideHustles, setShowSideHustles] = useState(false);
   const [showShopMenu, setShowShopMenu] = useState(false);
@@ -606,15 +711,14 @@ function App() {
   const [hustleClicks, setHustleClicks] = useState(0);
   const [hustleTimeLeft, setHustleTimeLeft] = useState(0);
   const [hustleCooldowns, setHustleCooldowns] = useState<Record<string, number>>({});
-  
   // 🔥 СОСТОЯНИЕ ДЛЯ МАГАЗИНА МАШИН (БРЕНД)
   const [selectedCarBrand, setSelectedCarBrand] = useState<string | null>(null);
-
+  // 🔥 СОСТОЯНИЕ ДЛЯ МАГАЗИНА ТЕЛЕФОНОВ (БРЕНД)
+  const [selectedPhoneBrand, setSelectedPhoneBrand] = useState<string | null>(null);
   // 🔥 СОСТОЯНИЯ ДЛЯ КАСТОМИЗАЦИИ АКСЕССУАРОВ (ЦВЕТА)
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingItem, setPendingItem] = useState<any>(null);
   const [selectedColor, setSelectedColor] = useState<any>(null);
-
   const [questStartTreasury, setQuestStartTreasury] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
@@ -622,7 +726,6 @@ function App() {
   const [clanSearchResults, setClanSearchResults] = useState<any[]>([]);
   const [selectedForRank, setSelectedForRank] = useState<number[]>([]);
   const [newRank, setNewRank] = useState(1);
-
   const [myClan, setMyClan] = useState<any>(null);
   const [myClanRole, setMyClanRole] = useState<number>(0);
   const [clanMembers, setClanMembers] = useState<any[]>([]);
@@ -636,7 +739,6 @@ function App() {
   const [vipStatus, setVipStatus] = useState<string>('none');
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
-
   const [currentScreen, setCurrentScreen] = useState<'main' | 'secondary'>('main');
 
   const balanceRef = useRef(balance); const rubBalanceRef = useRef(rubBalance); const maxBalanceRef = useRef(maxBalance);
@@ -645,7 +747,6 @@ function App() {
   const boostMultiplierRef = useRef(boostMultiplier); const boostExpiresAtRef = useRef(boostExpiresAt);
   const dailyQuestsRef = useRef(dailyQuests);
   const ownedItemsRef = useRef(ownedItems); // 🔥 Ref для ownedItems
-  
   // 🔥 НОВЫЕ REFS
   const ownedBusinessesRef = useRef(ownedBusinesses);
   const businessMaintenanceRef = useRef(businessMaintenance);
@@ -665,7 +766,6 @@ function App() {
   useEffect(() => { boostExpiresAtRef.current = boostExpiresAt; }, [boostExpiresAt]);
   useEffect(() => { dailyQuestsRef.current = dailyQuests; }, [dailyQuests]);
   useEffect(() => { ownedItemsRef.current = ownedItems; }, [ownedItems]); // 🔥 Синхронизация ownedItems ref
-  
   // 🔥 СИНХРОНИЗАЦИЯ REFS
   useEffect(() => { ownedBusinessesRef.current = ownedBusinesses; }, [ownedBusinesses]);
   useEffect(() => { businessMaintenanceRef.current = businessMaintenance; }, [businessMaintenance]);
@@ -691,9 +791,9 @@ function App() {
   const { level, progress, tier } = getLevelInfo(maxBalance);
   const globalMultiplier = getGlobalMultiplier(tier);
   const totalIncome = useMemo(() => {
-    const base = ownedCurrencies.reduce((t, o) => { 
-      const c = currencies.find(cur => cur.id === o.currencyId); 
-      return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0); 
+    const base = ownedCurrencies.reduce((t, o) => {
+      const c = currencies.find(cur => cur.id === o.currencyId);
+      return t + (c ? c.incomePerSecond * o.amount * globalMultiplier : 0);
     }, 0);
     return base * boostMultiplier;
   }, [ownedCurrencies, globalMultiplier, boostMultiplier]);
@@ -711,7 +811,7 @@ function App() {
     });
     ownedItems.forEach(item => { total += item.price; });
     return total;
-  }, [rubBalance, balance, ownedCurrencies, ownedBusinesses, ownedItems, priceMultipliers]); 
+  }, [rubBalance, balance, ownedCurrencies, ownedBusinesses, ownedItems, priceMultipliers]);
 
   const renderVipBadge = (status: string) => {
     if (!status || status === 'none') return null;
@@ -725,55 +825,51 @@ function App() {
     try { const { data } = await supabase.from('users').select('nickname').eq('id', userIdNum).single(); if (!data?.nickname || data.nickname !== currentNickname) await supabase.from('users').upsert({ id: userIdNum, nickname: currentNickname }, { onConflict: 'id' }); } catch {}
   };
 
-const saveProgress = async () => {
-  console.log('🔍 SAVE PROGRESS CALLED');
-  console.log('  balanceRef.current:', balanceRef.current);
-  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
-  console.log('  casinoChipsRef.current:', casinoChipsRef.current);
-  console.log('  ownedItemsRef.current:', ownedItemsRef.current); // 🔥 Логирование ownedItems
-  
-  try {
-    const payload = { 
-      id: userIdNum, 
-      nickname: currentNickname, 
-      balance: balanceRef.current, 
-      rub_balance: rubBalanceRef.current, 
-      max_balance: maxBalanceRef.current, 
-      owned_currencies: JSON.stringify(ownedCurrenciesRef.current), 
-      price_multipliers: JSON.stringify(priceMultipliersRef.current), 
-      selected_currency: selectedCurrencyRef.current, 
-      last_login: new Date().toISOString(), 
-      total_spent: totalSpentRef.current, 
-      referrer_id: referrerId, 
-      referral_bonus_awarded: referralBonusGiven, 
-      boost_multiplier: boostMultiplierRef.current, 
-      boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null, 
-      daily_quests: JSON.stringify(dailyQuestsRef.current),
-      owned_businesses: JSON.stringify(ownedBusinessesRef.current),
-      business_maintenance: JSON.stringify(businessMaintenanceRef.current),
-      crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
-      staked_amount: stakedAmountRef.current,
-      casino_chips: casinoChipsRef.current, 
-      hustle_cooldowns: JSON.stringify(hustleCooldowns),
-      owned_items: JSON.stringify(ownedItemsRef.current), // 🔥 Исправлено: используем ref
-    };
-
-    console.log('📦 Payload:', payload);
-
-    const { data, error } = await supabase
-      .from('users')
-      .update(payload)
-      .eq('id', userIdNum);
-    
-    if (error) {
-      console.error('❌ Save error:', error);
-      throw error;
+  const saveProgress = async () => {
+    console.log('🔍 SAVE PROGRESS CALLED');
+    console.log('  balanceRef.current:', balanceRef.current);
+    console.log('  rubBalanceRef.current:', rubBalanceRef.current);
+    console.log('  casinoChipsRef.current:', casinoChipsRef.current);
+    console.log('  ownedItemsRef.current:', ownedItemsRef.current); // 🔥 Логирование ownedItems
+    try {
+      const payload = {
+        id: userIdNum,
+        nickname: currentNickname,
+        balance: balanceRef.current,
+        rub_balance: rubBalanceRef.current,
+        max_balance: maxBalanceRef.current,
+        owned_currencies: JSON.stringify(ownedCurrenciesRef.current),
+        price_multipliers: JSON.stringify(priceMultipliersRef.current),
+        selected_currency: selectedCurrencyRef.current,
+        last_login: new Date().toISOString(),
+        total_spent: totalSpentRef.current,
+        referrer_id: referrerId,
+        referral_bonus_awarded: referralBonusGiven,
+        boost_multiplier: boostMultiplierRef.current,
+        boost_expires_at: boostExpiresAtRef.current ? new Date(boostExpiresAtRef.current).toISOString() : null,
+        daily_quests: JSON.stringify(dailyQuestsRef.current),
+        owned_businesses: JSON.stringify(ownedBusinessesRef.current),
+        business_maintenance: JSON.stringify(businessMaintenanceRef.current),
+        crypto_holdings: JSON.stringify(cryptoHoldingsRef.current),
+        staked_amount: stakedAmountRef.current,
+        casino_chips: casinoChipsRef.current,
+        hustle_cooldowns: JSON.stringify(hustleCooldowns),
+        owned_items: JSON.stringify(ownedItemsRef.current), // 🔥 Исправлено: используем ref
+      };
+      console.log('📦 Payload:', payload);
+      const { data, error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', userIdNum);
+      if (error) {
+        console.error('❌ Save error:', error);
+        throw error;
+      }
+      console.log('✅ Save success - Balance:', payload.balance, 'Chips:', payload.casino_chips);
+    } catch (err) {
+      console.error('❌ Ошибка сохранения:', err);
     }
-    console.log('✅ Save success - Balance:', payload.balance, 'Chips:', payload.casino_chips);
-  } catch (err) { 
-    console.error('❌ Ошибка сохранения:', err); 
-  }
-};
+  };
 
   const checkSubscription = async () => {
     try {
@@ -814,50 +910,50 @@ const saveProgress = async () => {
 
   // 🔥 ИСПРАВЛЕНО: добавлена закрывающая };
   const fetchLeaderboard = async () => {
-    try { 
-      const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status'); 
-      if (error) throw error; 
-      const sorted = (data || []).map((u: any) => { 
-        return { 
-          id: u.id, 
-          nickname: u.nickname || `Player${String(u.id).slice(-4)}`, 
-          netWorth: calculateNetWorth(u), 
-          avatarUrl: u.custom_avatar_url, 
-          vip_status: u.vip_status 
-        }; 
-      }).sort((a, b) => b.netWorth - a.netWorth).slice(0, 10); 
-      setLeaderboard(sorted); 
+    try {
+      const { data, error } = await supabase.from('users').select('id, nickname, balance, rub_balance, owned_currencies, price_multipliers, owned_businesses, custom_avatar_url, vip_status');
+      if (error) throw error;
+      const sorted = (data || []).map((u: any) => {
+        return {
+          id: u.id,
+          nickname: u.nickname || `Player${String(u.id).slice(-4)}`,
+          netWorth: calculateNetWorth(u),
+          avatarUrl: u.custom_avatar_url,
+          vip_status: u.vip_status
+        };
+      }).sort((a, b) => b.netWorth - a.netWorth).slice(0, 10);
+      setLeaderboard(sorted);
     } catch (err) { console.error('Leaderboard error:', err); }
   }; // ← 🔥 ДОБАВЛЕНО: }; закрывает функцию
 
   const fetchClanData = async () => {
-    if (!isAuthenticated) return; 
+    if (!isAuthenticated) return;
     const { data: member } = await supabase.from('clan_members').select('clan_id, role').eq('user_id', userIdNum).single();
-    if (member) { 
-      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single(); 
-      if (clan) { 
-        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false }); 
-        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => { 
-          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status, balance, rub_balance, owned_businesses, price_multipliers').eq('id', m.user_id).single(); 
-          return { ...m, ...u, netWorth: calculateNetWorth(u) }; 
-        })); 
-        setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) }); 
-        setClanMembers(enrichedMembers); 
+    if (member) {
+      const { data: clan } = await supabase.from('clans').select('*').eq('id', member.clan_id).single();
+      if (clan) {
+        const { data: members } = await supabase.from('clan_members').select('user_id, role').eq('clan_id', clan.id).order('role', { ascending: false });
+        const enrichedMembers = await Promise.all((members || []).map(async (m: any) => {
+          const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status, balance, rub_balance, owned_businesses, price_multipliers').eq('id', m.user_id).single();
+          return { ...m, ...u, netWorth: calculateNetWorth(u) };
+        }));
+        setMyClan({ ...clan, total_income: enrichedMembers.reduce((s: number, m: any) => s + m.netWorth, 0) });
+        setClanMembers(enrichedMembers);
         setMyClanRole(member.role);
-      } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); } 
+      } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
     } else { setMyClan(null); setClanMembers([]); setMyClanRole(0); }
   };
 
   const fetchFriendsData = async () => {
-    if (!isAuthenticated) return; 
-    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending'); 
-    setMessages((reqs || []).filter((r: any) => r.receiver_id === userIdNum).map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' }))); 
-    const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted'); 
-    const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id); 
-    const friendsData = await Promise.all(friendIds.map(async (id: number) => { 
-      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single(); 
-      return { ...u, netWorth: calculateNetWorth(u) }; 
-    })); 
+    if (!isAuthenticated) return;
+    const { data: reqs } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'pending');
+    setMessages((reqs || []).filter((r: any) => r.receiver_id === userIdNum).map((r: any) => ({ ...r, type: 'friend', sender_nickname: 'Пользователь' })));
+    const { data: accepted } = await supabase.from('friend_requests').select('*').or(`sender_id.eq.${userIdNum},receiver_id.eq.${userIdNum}`).eq('status', 'accepted');
+    const friendIds = (accepted || []).map((r: any) => r.sender_id === userIdNum ? r.receiver_id : r.sender_id);
+    const friendsData = await Promise.all(friendIds.map(async (id: number) => {
+      const { data: u } = await supabase.from('users').select('id, nickname, owned_currencies, max_balance, first_login, custom_avatar_url, vip_status').eq('id', id).single();
+      return { ...u, netWorth: calculateNetWorth(u) };
+    }));
     setFriends(friendsData);
   };
 
@@ -872,130 +968,110 @@ const saveProgress = async () => {
         const { data, error } = await supabase.from('users').select('*').eq('id', userIdNum).single();
         if (error) throw error;
         if (data) {
-          setBalance(data.balance || 0); 
-          setRubBalance(data.rub_balance || 1000); 
+          setBalance(data.balance || 0);
+          setRubBalance(data.rub_balance || 1000);
           setMaxBalance(data.max_balance || 100);
-          
           // Крипта
-          let owned = []; 
+          let owned = [];
           try { if (data.owned_currencies) owned = typeof data.owned_currencies === 'string' ? JSON.parse(data.owned_currencies) : data.owned_currencies; } catch { owned = []; }
           setOwnedCurrencies(Array.isArray(owned) ? owned : []);
-          
           // Мультипликаторы
-          let mults = {}; 
+          let mults = {};
           try { if (data.price_multipliers) mults = typeof data.price_multipliers === 'string' ? JSON.parse(data.price_multipliers) : data.price_multipliers; } catch { mults = {}; }
           setPriceMultipliers(mults);
-          
-          setSelectedCurrencyId(data.selected_currency || 'btc'); 
+          setSelectedCurrencyId(data.selected_currency || 'btc');
           setTotalSpent(data.total_spent || 0);
-          setReferrerId(data.referrer_id || null); 
+          setReferrerId(data.referrer_id || null);
           setReferralBonusGiven(data.referral_bonus_awarded || false);
-          
           if (data.custom_avatar_url) setAvatarUrl(`${data.custom_avatar_url}?t=${Date.now()}`);
           else if (WebApp.initDataUnsafe?.user?.photo_url) setAvatarUrl(WebApp.initDataUnsafe.user.photo_url);
           else setAvatarUrl(null);
-          
           if (data.vip_status) setVipStatus(data.vip_status);
-          if (data.boost_expires_at) { 
-            const exp = new Date(data.boost_expires_at).getTime(); 
-            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); } 
+          if (data.boost_expires_at) {
+            const exp = new Date(data.boost_expires_at).getTime();
+            if (exp > Date.now()) { setBoostMultiplier(data.boost_multiplier || 2); setBoostExpiresAt(exp); }
           }
-          
           // Квесты
           if (data.daily_quests) { try { setDailyQuests(JSON.parse(data.daily_quests)); } catch { setDailyQuests([]); } }
           if (data.quest_start_treasury !== undefined) setQuestStartTreasury(data.quest_start_treasury || 0);
-          
           // 🔥 НОВЫЕ ПОЛЯ (БАНК, СТЕЙКИНГ, КАЗИНО, МАГАЗИН)
-          setBankUsd(data.bank_usd || 0); 
+          setBankUsd(data.bank_usd || 0);
           setBankRub(data.bank_rub || 0);
-          
           // 🔥 ЗАГРУЗКА СТЕЙКИНГА С ОБНОВЛЕНИЕМ REF
           setStakedAmount(data.staked_amount || 0);
           stakedAmountRef.current = data.staked_amount || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           setCasinoChips(data.casino_chips || 0);
           casinoChipsRef.current = data.casino_chips || 0; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           // 🔥 ЗАГРУЗКА КУПЛЕННЫХ ПРЕДМЕТОВ (ИСПРАВЛЕНО)
           try {
-            const loadedItems = typeof data.owned_items === 'string' 
-              ? JSON.parse(data.owned_items || '[]') 
+            const loadedItems = typeof data.owned_items === 'string'
+              ? JSON.parse(data.owned_items || '[]')
               : data.owned_items || [];
-            
             console.log('🔍 Loaded ownedItems from DB:', loadedItems);
-            
             // 🔥 Гарантируем, что у каждого предмета есть category
             const processedItems = loadedItems.map((item: any) => ({
               ...item,
               category: item.category || 'other' // если category не указан, ставим 'other'
             }));
-            
             setOwnedItems(processedItems);
             console.log('✅ Processed ownedItems:', processedItems);
           } catch (error) {
             console.error('❌ Error loading ownedItems:', error);
             setOwnedItems([]);
           }
-          
           // 🔥 ЗАГРУЗКА КРИПТО-ПОРТФЕЛЯ С ОБНОВЛЕНИЕМ REF
-          let crypto = {}; 
-          try { 
+          let crypto = {};
+          try {
             if (data.crypto_holdings) {
-              crypto = typeof data.crypto_holdings === 'string' 
-                ? JSON.parse(data.crypto_holdings) 
-                : data.crypto_holdings; 
-            } 
+              crypto = typeof data.crypto_holdings === 'string'
+                ? JSON.parse(data.crypto_holdings)
+                : data.crypto_holdings;
+            }
           } catch { crypto = {}; }
           setCryptoHoldings(crypto);
           cryptoHoldingsRef.current = crypto; // 🔥 ОБНОВЛЯЕМ REF ПРИ ЗАГРУЗКЕ!
-          
           setBusinessMaintenance(typeof data.business_maintenance === 'string' ? JSON.parse(data.business_maintenance || '{}') : data.business_maintenance || {});
           setManagerHired(data.manager_hired || false);
           setJobCooldowns(typeof data.job_cooldowns === 'string' ? JSON.parse(data.job_cooldowns || '{}') : data.job_cooldowns || {});
           setHustleCooldowns(typeof data.hustle_cooldowns === 'string' ? JSON.parse(data.hustle_cooldowns || '{}') : data.hustle_cooldowns || {});
-
-// 🔥 БИЗНЕСЫ - ПОЛНОЕ ИСПРАВЛЕНИЕ
-
-// 1. Загрузка бизнесов
-let businesses = [];
-try { 
-  if (data.owned_businesses) {
-    businesses = typeof data.owned_businesses === 'string' 
-      ? JSON.parse(data.owned_businesses) 
-      : data.owned_businesses; 
-  } 
-} catch { businesses = []; }
-setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
-// 🔥 КРИТИЧНО: Обновляем Ref!
-ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
-console.log('💼 Loaded businesses:', businesses);
-
-// 2. Загрузка maintenance (обслуживание)
-let maint = {};
-try { 
-  if (data.business_maintenance) {
-    maint = typeof data.business_maintenance === 'string' 
-      ? JSON.parse(data.business_maintenance) 
-      : data.business_maintenance; 
-  } 
-} catch { maint = {}; }
-setBusinessMaintenance(maint);
-// 🔥 КРИТИЧНО: Обновляем Ref!
-businessMaintenanceRef.current = maint;
-console.log('🔧 Loaded maintenance:', maint);
-
-// 3. Загрузка менеджера
-setManagerHired(data.manager_hired || false);
-
+          // 🔥 БИЗНЕСЫ - ПОЛНОЕ ИСПРАВЛЕНИЕ
+          // 1. Загрузка бизнесов
+          let businesses = [];
+          try {
+            if (data.owned_businesses) {
+              businesses = typeof data.owned_businesses === 'string'
+                ? JSON.parse(data.owned_businesses)
+                : data.owned_businesses;
+            }
+          } catch { businesses = []; }
+          setOwnedBusinesses(Array.isArray(businesses) ? businesses : []);
+          // 🔥 КРИТИЧНО: Обновляем Ref!
+          ownedBusinessesRef.current = Array.isArray(businesses) ? businesses : [];
+          console.log('💼 Loaded businesses:', businesses);
+          // 2. Загрузка maintenance (обслуживание)
+          let maint = {};
+          try {
+            if (data.business_maintenance) {
+              maint = typeof data.business_maintenance === 'string'
+                ? JSON.parse(data.business_maintenance)
+                : data.business_maintenance;
+            }
+          } catch { maint = {}; }
+          setBusinessMaintenance(maint);
+          // 🔥 КРИТИЧНО: Обновляем Ref!
+          businessMaintenanceRef.current = maint;
+          console.log('🔧 Loaded maintenance:', maint);
+          // 3. Загрузка менеджера
+          setManagerHired(data.manager_hired || false);
           // Оффлайн доход
           if (data.last_login && owned.length > 0) {
             const diff = Math.floor((Date.now() - new Date(data.last_login).getTime()) / 1000);
-            if (diff > 60) { 
-              const tier = getLevelInfo(data.max_balance || 0).tier; 
-              const mult = getGlobalMultiplier(tier); 
-              const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0); 
-              const off = inc * diff * 0.2; 
-              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); } 
+            if (diff > 60) {
+              const tier = getLevelInfo(data.max_balance || 0).tier;
+              const mult = getGlobalMultiplier(tier);
+              const inc = owned.reduce((t: number, o: OwnedCurrency) => { const c = currencies.find(cur => cur.id === o.currencyId); return t + (c ? c.incomePerSecond * o.amount * mult : 0); }, 0);
+              const off = inc * diff * 0.2;
+              if (off > 0) { setOfflineAmount(off); setBalance(p => p + off); setShowOfflineEarnings(true); setTimeout(() => setShowOfflineEarnings(false), 5000); }
             }
           }
         }
@@ -1004,51 +1080,42 @@ setManagerHired(data.manager_hired || false);
     loadProgress();
   }, [userIdNum]);
 
-useEffect(() => {
-  if (!isAuthenticated || isLoading) return;
-  
-  const interval = setInterval(() => {
-    let income = 0;
-    const now = Date.now();
-    
-    // 🔥 Используем Ref для актуальных данных
-    const businesses = ownedBusinessesRef.current;
-    const maint = businessMaintenanceRef.current;
-    
-    businesses.forEach(biz => {
-      const conf = BUSINESSES.find(c => c.id === biz.id);
-      if (!conf) return;
-      
-      const bizMaint = maint[biz.id] || { electricity: 0, repair: 0 };
-      const elecDiff = (now - bizMaint.electricity) / 1000 / 3600;
-      const repDiff = (now - bizMaint.repair) / 1000 / 3600 / 24;
-      
-      // 🔥 Бизнес работает если электричество и ремонт оплачены
-      if (elecDiff <= 36 && repDiff <= 7) {
-        income += conf.incomePerHour;
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    const interval = setInterval(() => {
+      let income = 0;
+      const now = Date.now();
+      // 🔥 Используем Ref для актуальных данных
+      const businesses = ownedBusinessesRef.current;
+      const maint = businessMaintenanceRef.current;
+      businesses.forEach(biz => {
+        const conf = BUSINESSES.find(c => c.id === biz.id);
+        if (!conf) return;
+        const bizMaint = maint[biz.id] || { electricity: 0, repair: 0 };
+        const elecDiff = (now - bizMaint.electricity) / 1000 / 3600;
+        const repDiff = (now - bizMaint.repair) / 1000 / 3600 / 24;
+        // 🔥 Бизнес работает если электричество и ремонт оплачены
+        if (elecDiff <= 36 && repDiff <= 7) {
+          income += conf.incomePerHour;
+        }
+      });
+      if (income > 0) {
+        // 🔥 Начисляем доход каждую минуту (1/60 от часового дохода)
+        const perMinute = income / 60;
+        setBankRub(prev => prev + perMinute);
+        setRubBalance(prev => prev + perMinute);
+        setTotalBusinessIncome(prev => prev + perMinute);
       }
-    });
-    
-    if (income > 0) {
-      // 🔥 Начисляем доход каждую минуту (1/60 от часового дохода)
-      const perMinute = income / 60;
-      setBankRub(prev => prev + perMinute);
-      setRubBalance(prev => prev + perMinute);
-      setTotalBusinessIncome(prev => prev + perMinute);
-    }
-  }, 60000); // Каждую минуту
-  
-  return () => clearInterval(interval);
-}, [isAuthenticated, isLoading]); // 🔥 Убрали ownedBusinesses и businessMaintenance из зависимостей
+    }, 60000); // Каждую минуту
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading]); // 🔥 Убрали ownedBusinesses и businessMaintenance из зависимостей
 
   // 🔥 НАЧИСЛЕНИЕ ПРОЦЕНТОВ ПО СТЕЙКИНГУ (3.5% в день)
   useEffect(() => {
     if (!isAuthenticated || isLoading || stakedAmount <= 0) return;
-    
     const interval = setInterval(() => {
       // 3.5% в день = 3.5 / 100 / 24 = 0.0014583 в час
       const hourlyYield = stakedAmount * 0.0014583;
-      
       if (hourlyYield > 0) {
         setBalance(prev => prev + hourlyYield);
         // 🔥 Обновляем Ref для баланса
@@ -1056,7 +1123,6 @@ useEffect(() => {
         console.log(`💰 Стейкинг: +$${hourlyYield.toFixed(4)} в час`);
       }
     }, 3600000); // Каждый час (3600000 мс)
-    
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, stakedAmount]);
 
@@ -1133,7 +1199,7 @@ useEffect(() => {
             const newCooldowns = { ...hustleCooldowns, [activeHustle.id]: Date.now() + 60000 };
             setHustleCooldowns(newCooldowns);
             setActiveHustle(null);
-            saveProgress(); 
+            saveProgress();
             alert(`Вы заработали ${earned.toLocaleString()} ₽!`);
             return 0;
           }
@@ -1146,57 +1212,52 @@ useEffect(() => {
 
   const handleAuthComplete = (nickname: string, refId?: number | null) => { localStorage.setItem('cryptoNexus_nickname', nickname); if (refId && refId !== userIdNum) setReferrerId(refId); setIsAuthenticated(true); setTimeout(() => { saveNicknameToDB(); saveProgress(); }, 500); };
   
-  const handleBuy = (currencyId: string, amount: number) => { 
-    const base = currencies.find(c => c.id === currencyId); 
-    if (!base) return; 
+  const handleBuy = (currencyId: string, amount: number) => {
+    const base = currencies.find(c => c.id === currencyId);
+    if (!base) return;
     const currentOwned = ownedCurrencies.find(c => c.currencyId === currencyId);
     const currentAmount = currentOwned?.amount || 0;
     if (currentAmount + amount > 50) { alert(`Максимум 50 штук! У вас уже есть ${currentAmount} шт.`); return; }
-    const mult = priceMultipliers[currencyId] || 1; 
-    const price = base.price * mult * amount; 
-    if (balance >= price) { 
-      setBalance(p => p - price); 
-      setTotalSpent(p => p + price); 
-      setOwnedCurrencies(prev => { 
-        const ex = prev.find(c => c.currencyId === currencyId); 
-        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}]; 
-      }); 
-      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15})); 
-      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId); 
-      setTimeout(() => saveProgress(), 50); 
-    } 
+    const mult = priceMultipliers[currencyId] || 1;
+    const price = base.price * mult * amount;
+    if (balance >= price) {
+      setBalance(p => p - price);
+      setTotalSpent(p => p + price);
+      setOwnedCurrencies(prev => {
+        const ex = prev.find(c => c.currencyId === currencyId);
+        return ex ? prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount + amount} : c) : [...prev, {currencyId, amount}];
+      });
+      setPriceMultipliers(prev => ({...prev, [currencyId]: mult * 1.15}));
+      if (!ownedCurrencies.find(c => c.currencyId === currencyId)) setSelectedCurrencyId(currencyId);
+      setTimeout(() => saveProgress(), 50);
+    }
   };
 
   const handleSell = (currencyId: string, amount: number) => {
-  // 🔥 ПРОВЕРКА: есть ли у игрока эта крипта
-  const owned = ownedCurrencies.find(c => c.currencyId === currencyId);
-  if (!owned || owned.amount < amount) {
-    alert('У тебя нет этой криптовалюты в таком количестве!');
-    return;
-  }
-  
-  const currency = currencies.find(c => c.id === currencyId);
-  if (!currency) return;
-  
-  const price = currency.price * (priceMultipliers[currencyId] || 1) * amount;
-  
-  // Снимаем крипту
-  setOwnedCurrencies(prev => {
-    const ex = prev.find(c => c.currencyId === currencyId);
-    if (!ex) return prev;
-    if (ex.amount === amount) {
-      return prev.filter(c => c.currencyId !== currencyId);
+    // 🔥 ПРОВЕРКА: есть ли у игрока эта крипта
+    const owned = ownedCurrencies.find(c => c.currencyId === currencyId);
+    if (!owned || owned.amount < amount) {
+      alert('У тебя нет этой криптовалюты в таком количестве!');
+      return;
     }
-    return prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount - amount} : c);
-  });
-  
-  // Начисляем доллары
-  setBalance(p => p + price);
-  setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
-  
-  setTimeout(() => saveProgress(), 50);
-  alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
-};
+    const currency = currencies.find(c => c.id === currencyId);
+    if (!currency) return;
+    const price = currency.price * (priceMultipliers[currencyId] || 1) * amount;
+    // Снимаем крипту
+    setOwnedCurrencies(prev => {
+      const ex = prev.find(c => c.currencyId === currencyId);
+      if (!ex) return prev;
+      if (ex.amount === amount) {
+        return prev.filter(c => c.currencyId !== currencyId);
+      }
+      return prev.map(c => c.currencyId === currencyId ? {...c, amount: c.amount - amount} : c);
+    });
+    // Начисляем доллары
+    setBalance(p => p + price);
+    setTotalSpent(p => p - price); // опционально: уменьшаем "потрачено"
+    setTimeout(() => saveProgress(), 50);
+    alert(`Продано ${amount} шт. ${currency.name} за $${price.toFixed(2)}`);
+  };
 
   const handleSellBusiness = (bizId: string) => {
     const bizConfig = BUSINESSES.find(b => b.id === bizId);
@@ -1231,52 +1292,43 @@ useEffect(() => {
     // Определяем итоговое имя и иконку
     let finalName = item.name;
     let finalIcon = item.icon;
-    
     // Если выбран цвет (для кепки/банданы)
     if (color) {
       finalName = `${item.name} (${color.name})`;
       // Можно менять иконку в зависимости от цвета, но оставим базовую для простоты
     }
-
     if (rubBalance >= item.price) {
       setRubBalance(p => p - item.price);
-      
       const newItem = {
         ...item,
         name: finalName, // Сохраняем название с цветом
-        category: activeShopTab || 'other', 
+        category: activeShopTab || 'other',
         id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // уникальный ID
         ownedAt: Date.now(),
         customColor: color ? color.name : null // Сохраняем цвет в данных
       };
-      
       console.log('🛒 Покупка предмета:', newItem);
       setOwnedItems(prev => [...prev, newItem]);
       ownedItemsRef.current = [...ownedItems, newItem]; // 🔥 Обновляем ref
       saveProgress();
       alert(`Куплено: ${finalName} за ${item.price.toLocaleString()} ₽`);
-      
       // Закрываем модалку если она была открыта
       if (showColorPicker) {
         setShowColorPicker(false);
         setPendingItem(null);
       }
-    } else { 
-      alert('Недостаточно рублей!'); 
+    } else {
+      alert('Недостаточно рублей!');
     }
   };
 
   // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОДАЖИ
   const handleSellItemFromState = (item: any) => {
     const refund = Math.floor(item.price * 0.5);
-    
     if (!confirm(`Продать ${item.name} за ${refund.toLocaleString()} ₽?`)) return;
-    
     console.log('💰 Продажа предмета:', item);
-    
     // Возвращаем деньги
     setRubBalance(prev => prev + refund);
-    
     // 🔥 Удаляем предмет по уникальному ID или ownedAt
     setOwnedItems(prev => {
       const filtered = prev.filter(i => {
@@ -1287,7 +1339,6 @@ useEffect(() => {
       ownedItemsRef.current = filtered; // 🔥 Обновляем ref
       return filtered;
     });
-    
     saveProgress();
     alert(`✅ Продано за ${refund.toLocaleString()} ₽`);
   };
@@ -1337,42 +1388,35 @@ useEffect(() => {
   const searchClans = async (query: string) => { if (!query.trim()) { setClanSearchResults([]); return; } try { const { data, error } = await supabase.from('clans').select('*').ilike('name', `%${query}%`).limit(10); if (error) throw error; const clansWithCount = await Promise.all((data || []).map(async (clan: any) => { const { count } = await supabase.from('clan_members').select('*', { count: 'exact', head: true }).eq('clan_id', clan.id); return { ...clan, members_count: count || 0 }; })); setClanSearchResults(clansWithCount); } catch (err) { console.error('Clan search error:', err); setClanSearchResults([]); } };
   const openProfile = (user: any) => { setSelectedUser({ ...user, avatarUrl: user.custom_avatar_url, level: getLevelInfo(user.max_balance || 0).level, vip_status: user.vip_status || 'none', netWorth: user.netWorth || totalNetWorth }); setShowProfile(true); };
   const getFontSize = (text: string) => text.length > 15 ? '14px' : text.length > 10 ? '16px' : '20px';
-const handleExchange = async (usdChange: number, rubChange: number) => {
-  console.log('💱 handleExchange STARTED');
-  console.log('  usdChange:', usdChange);
-  console.log('  rubChange:', rubChange);
-  console.log('  balance (state):', balance);
-  console.log('  rubBalance (state):', rubBalance);
-  
-  const newUsd = balance + usdChange;
-  const newRub = rubBalance + rubChange;
-  
-  console.log('  newUsd:', newUsd);
-  console.log('  newRub:', newRub);
-
-  if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
-
-  // 🔥 ОБНОВЛЯЕМ REFS
-  console.log('  Updating Refs...');
-  balanceRef.current = newUsd;
-  rubBalanceRef.current = newRub;
-  
-  console.log('  balanceRef.current:', balanceRef.current);
-  console.log('  rubBalanceRef.current:', rubBalanceRef.current);
-
-  // Обновляем стейт
-  setBalance(newUsd);
-  setRubBalance(newRub);
-
-  // Сохраняем
-  console.log('  Calling saveProgress...');
-  try {
-    await saveProgress();
-    console.log('✅ Exchange saved successfully');
-  } catch (err) {
-    console.error('❌ Ошибка сохранения обмена:', err);
-  }
-};
+  const handleExchange = async (usdChange: number, rubChange: number) => {
+    console.log('💱 handleExchange STARTED');
+    console.log('  usdChange:', usdChange);
+    console.log('  rubChange:', rubChange);
+    console.log('  balance (state):', balance);
+    console.log('  rubBalance (state):', rubBalance);
+    const newUsd = balance + usdChange;
+    const newRub = rubBalance + rubChange;
+    console.log('  newUsd:', newUsd);
+    console.log('  newRub:', newRub);
+    if (newUsd < 0 || newRub < 0) return alert('Недостаточно средств!');
+    // 🔥 ОБНОВЛЯЕМ REFS
+    console.log('  Updating Refs...');
+    balanceRef.current = newUsd;
+    rubBalanceRef.current = newRub;
+    console.log('  balanceRef.current:', balanceRef.current);
+    console.log('  rubBalanceRef.current:', rubBalanceRef.current);
+    // Обновляем стейт
+    setBalance(newUsd);
+    setRubBalance(newRub);
+    // Сохраняем
+    console.log('  Calling saveProgress...');
+    try {
+      await saveProgress();
+      console.log('✅ Exchange saved successfully');
+    } catch (err) {
+      console.error('❌ Ошибка сохранения обмена:', err);
+    }
+  };
   const handlePurchase = (type: string, currency: string, days: number) => { let payload = `buy_${type}_${currency}`; let price = 0; if (type === 'vip') price = currency === 'stars' ? 15 : 50; if (type === 'platinum') price = currency === 'stars' ? 50 : 150; if (type === 'premium') price = currency === 'stars' ? 150 : 250; if (type.includes('boost')) { price = currency === 'stars' ? 15 * days : 50 * days; payload += `_days_${days}`; } payload += `_${price}`; const botUsername = "CryptoNexusWsp_Bot"; const deepLink = `https://t.me/${botUsername}?start=${payload}`; if (WebApp && WebApp.openTelegramLink) WebApp.openTelegramLink(deepLink); else window.open(deepLink, '_blank'); };
 
   const renderClanMenu = () => {
@@ -1533,11 +1577,9 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
     const newBiz = {...biz, ownedAt: Date.now()};
     setOwnedBusinesses(prev => [...prev, newBiz]);
     ownedBusinessesRef.current = [...ownedBusinessesRef.current, newBiz];
-
     // 🔥 СНИМАЕМ РУБЛИ
     setRubBalance(prev => prev - biz.price);
     rubBalanceRef.current -= biz.price; // Безопасно обновляем Ref
-
     // 🔥 СОХРАНЯЕМ В БАЗУ
     saveProgress();
   }} 
@@ -1572,14 +1614,11 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
     console.log('🔄 onChipExchange called');
     console.log('  newChips:', newChips);
     console.log('  newUsd:', newUsd);
-    
     // 🔥 СИНХРОННО ОБНОВЛЯЕМ REFS СРАЗУ!
     casinoChipsRef.current = newChips;
     balanceRef.current = newUsd;
-    
     console.log('  casinoChipsRef.current:', casinoChipsRef.current);
     console.log('  balanceRef.current:', balanceRef.current);
-    
     // Теперь обновляем стейт (для отображения)
     setCasinoChips(newChips); 
     setBalance(newUsd);
@@ -1661,7 +1700,8 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           key={tab} 
           onClick={() => { 
             setActiveShopTab(tab); 
-            if (tab !== 'cars') setSelectedCarBrand(null); 
+            if (tab !== 'cars') setSelectedCarBrand(null);
+            if (tab !== 'phones') setSelectedPhoneBrand(null);
           }} 
           style={activeShopTab === tab ? styles.shopTabActive : styles.shopTab}
         >
@@ -1756,7 +1796,65 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           </div>
         )}
 
-        {activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button></div>))}</div>)}
+        {/* 🔥 НОВЫЙ СПИСОК ТЕЛЕФОНОВ С БРЕНДАМИ И ЛОГОТИПАМИ */}
+        {activeShopTab === 'phones' && (
+          <>
+            {!selectedPhoneBrand ? (
+              // 🔥 ЭКРАН 1: СПИСОК БРЕНДОВ С ЛОГОТИПАМИ
+              <div style={styles.brandGrid}>
+                {PHONE_BRANDS.map(brand => (
+                  <button 
+                    key={brand.id} 
+                    style={styles.brandCard}
+                    onClick={() => setSelectedPhoneBrand(brand.id)}
+                  >
+                    <div style={styles.brandLogoContainer}>
+                      <img 
+                        src={brand.logo} 
+                        alt={brand.name}
+                        style={styles.brandLogo}
+                        onError={(e) => {
+                          // 🔥 Если логотип не загрузился, показываем первую букву
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.brand-fallback');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                        }}
+                      />
+                      <div className="brand-fallback" style={{...styles.brandFallback, display: 'none'}}>
+                        {brand.name[0]}
+                      </div>
+                    </div>
+                    <div style={styles.brandName}>{brand.name}</div>
+                    <div style={styles.brandCount}>{brand.models.length} моделей</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              // 🔥 ЭКРАН 2: СПИСОК МОДЕЛЕЙ
+              <div>
+                <div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16}}>
+                  <button style={styles.backBtnSmall} onClick={() => setSelectedPhoneBrand(null)}>
+                    <ChevronLeft size={20} color="#fff" /> Назад
+                  </button>
+                  <h3 style={{color: '#fff', margin: 0}}>
+                    {PHONE_BRANDS.find(b => b.id === selectedPhoneBrand)?.name}
+                  </h3>
+                </div>
+                <div style={styles.shopGrid}>
+                  {PHONE_BRANDS.find(b => b.id === selectedPhoneBrand)?.models.map((item, idx) => (
+                    <div key={idx} style={styles.shopItem}>
+                      <div style={styles.shopItemIcon}>📱</div>
+                      <div style={styles.shopItemName}>{item.name}</div>
+                      <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                      <button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
