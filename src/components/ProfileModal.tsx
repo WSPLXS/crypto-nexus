@@ -57,11 +57,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <p style={styles.level}>Уровень {user.level || 1}</p>
         </div>
 
-        {/* 🔥 ТОЛЬКО ДОХОД В МИНУТУ */}
+        {/* 🔥 ОБЩЕЕ СОСТОЯНИЕ (вместо дохода в минуту) */}
         <div style={styles.statsBox}>
           <div style={styles.statItem}>
-            <span style={styles.statLabel}>💰 Доход в минуту</span>
-            <span style={styles.statValue}>+${user.incomePerMin?.toFixed(2) || '0.00'}</span>
+            <span style={styles.statLabel}>💰 Общее состояние</span>
+            <span style={styles.statValue}>
+              ₽{(user.netWorth || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
 
