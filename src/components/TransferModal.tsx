@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, CircleDollarSign, DollarSign, Search } from 'lucide-react';
+import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface TransferModalProps {
@@ -9,8 +9,13 @@ interface TransferModalProps {
   usdBalance: number;
   rubBalance: number;
   onTransferSuccess: (newUsd: number, newRub: number) => void;
-  onSaveProgress?: () => void; // 🔥 НОВЫЙ ПРОПС
+  onSaveProgress?: () => void;
 }
+
+// 🔥 ФУНКЦИЯ ЭКРАНИРОВАНИЯ СПЕЦСИМВОЛОВ ДЛЯ ILIKE
+const escapeIlike = (str: string) => {
+  return str.replace(/%/g, '\\%').replace(/_/g, '\\_').replace(/\\/g, '\\\\');
+};
 
 export const TransferModal: React.FC<TransferModalProps> = ({
   isOpen, onClose, currentUserId, usdBalance, rubBalance, onTransferSuccess, onSaveProgress
@@ -22,6 +27,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [currency, setCurrency] = useState<'usd' | 'rub'>('usd');
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(''); // 🔥 ОШИБКА ПОИСКА
 
   useEffect(() => {
     if (isOpen) {
@@ -30,6 +36,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setSelectedUser(null);
       setAmount('');
       setCurrency('usd');
+      setSearchError('');
     }
   }, [isOpen]);
 
@@ -72,7 +79,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
       if (receiverError || !receiver) throw new Error('Пользователь не найден!');
 
-      // 🔥 ИСПРАВЛЕНИЕ: типизация для динамического доступа
       const receiverCurrent = (receiver as Record<string, any>)?.[colName] || 0;
       
       const { error: updateError } = await supabase
@@ -93,12 +99,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
       alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname || target}!`);
       
-      // 🔥 ВЫЗЫВАЕМ КАЛБЭК С НОВЫМИ БАЛАНСАМИ
       const newUsd = currency === 'usd' ? usdBalance - num : usdBalance;
       const newRub = currency === 'rub' ? rubBalance - num : rubBalance;
       onTransferSuccess(newUsd, newRub);
       
-      onSaveProgress?.(); // 🔥 Сохраняем в базу
+      onSaveProgress?.();
       
       onClose();
     } catch (err: any) {
@@ -109,32 +114,50 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     }
   };
 
-  // Поиск пользователя
+  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК
   useEffect(() => {
     const searchUser = async () => {
-      if (searchQuery.length < 3) {
+      // 🔥 Убираем пробелы и проверяем длину
+      const trimmed = searchQuery.trim();
+      
+      if (trimmed.length < 1) {
         setSearchResults([]);
+        setSearchError('');
         return;
       }
 
       setSearching(true);
+      setSearchError('');
+      
       try {
+        // 🔥 Экранируем спецсимволы для ilike
+        const escaped = escapeIlike(trimmed);
+        
         const { data, error } = await supabase
           .from('users')
           .select('id, nickname, balance, rub_balance')
-          .ilike('nickname', `%${searchQuery}%`)
+          .ilike('nickname', `%${escaped}%`)
           .neq('id', currentUserId)
           .limit(5);
 
         if (error) throw error;
-        setSearchResults(data || []);
-      } catch (err) {
+        
+        if (data && data.length > 0) {
+          setSearchResults(data);
+        } else {
+          setSearchResults([]);
+          setSearchError('Пользователь не найден');
+        }
+      } catch (err: any) {
         console.error('Search error:', err);
+        setSearchError('Ошибка поиска');
+        setSearchResults([]);
       } finally {
         setSearching(false);
       }
     };
 
+    // Debounce 300ms чтобы не спамить запросами
     const timeoutId = setTimeout(searchUser, 300);
     return () => clearTimeout(timeoutId);
   }, [searchQuery, currentUserId]);
@@ -179,6 +202,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               onChange={e => {
                 setSearchQuery(e.target.value);
                 setSelectedUser(null);
+                setSearchError('');
               }}
               disabled={loading}
             />
@@ -186,6 +210,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         </label>
 
         {searching && <div style={styles.searching}>🔍 Поиск...</div>}
+        
+        {/* 🔥 СООБЩЕНИЕ ОБ ОШИБКЕ ПОИСКА */}
+        {searchError && !searching && searchResults.length === 0 && (
+          <div style={styles.errorMsg}>
+            <AlertCircle size={14} style={{marginRight: 4}} /> {searchError}
+          </div>
+        )}
         
         {searchResults.length > 0 && !selectedUser && (
           <div style={styles.searchResults}>
@@ -197,6 +228,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                   setSelectedUser(user);
                   setSearchResults([]);
                   setSearchQuery(user.nickname || `Player${String(user.id).slice(-4)}`);
+                  setSearchError('');
                 }}
               >
                 <div style={styles.searchAvatar}>{(user.nickname || '?')[0].toUpperCase()}</div>
@@ -221,6 +253,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               onClick={() => {
                 setSelectedUser(null);
                 setSearchQuery('');
+                setSearchError('');
               }}
               style={styles.clearBtn}
               disabled={loading}
@@ -273,6 +306,18 @@ const styles: any = {
   input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: 16 },
   btn: { width: '100%', padding: '14px', borderRadius: 12, border: 'none', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8, transition: 'opacity 0.2s' },
   searching: { textAlign: 'center', color: '#737373', padding: '8px 0', fontSize: 13 },
+  errorMsg: { 
+    textAlign: 'center', 
+    color: '#ef4444', 
+    padding: '8px 12px', 
+    fontSize: 13,
+    background: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 8,
+    marginBottom: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
   searchResults: { background: '#1a1a1a', borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: '1px solid #404040' },
   searchItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid #262626' },
   searchAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
