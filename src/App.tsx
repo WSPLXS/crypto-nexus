@@ -970,7 +970,8 @@ function App() {
         if (data) {
           setBalance(data.balance || 0);
           setRubBalance(data.rub_balance || 1000);
-          setMaxBalance(data.max_balance || 100);
+          const loadedMaxBalance = data.max_balance || 100;
+          setMaxBalance(Math.max(loadedMaxBalance, data.rub_balance || 1000));
           // Крипта
           let owned = [];
           try { if (data.owned_currencies) owned = typeof data.owned_currencies === 'string' ? JSON.parse(data.owned_currencies) : data.owned_currencies; } catch { owned = []; }
@@ -1140,6 +1141,12 @@ function App() {
   useEffect(() => { try { if (WebApp?.ready) { WebApp.ready(); WebApp.expand(); } } catch {} document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); }, [isDark]);
   useEffect(() => { if (!isAuthenticated || isLoading) return; const i = setInterval(() => { if (totalIncome > 0) { setBalance(p => { const n = p + totalIncome; setMaxBalance(m => Math.max(m, n)); return n; }); } }, 1000); return () => clearInterval(i); }, [isAuthenticated, totalIncome, isLoading]);
   
+// 🔥 НОВЫЙ: Синхронизация maxBalance с rubBalance
+useEffect(() => {
+  if (!isAuthenticated || isLoading) return;
+  setMaxBalance(prev => Math.max(prev, rubBalance));
+}, [rubBalance, isAuthenticated, isLoading]);
+
   useEffect(() => {
     if (!isAuthenticated || isLoading || !myClan) return;
     const now = Date.now();

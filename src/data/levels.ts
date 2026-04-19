@@ -47,4 +47,4 @@ export const getGlobalMultiplier = (tier: number) => {
   // 🔥 Мультипликатор дохода от тира
   const multipliers = [1, 1.2, 1.5, 1.8, 2.2]; // Tier 1-5
   return multipliers[Math.min(tier - 1, multipliers.length - 1)];
-}; 
+};
