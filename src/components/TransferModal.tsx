@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle } from 'lucide-react';
+import { X, Send, CircleDollarSign, DollarSign, Search, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface TransferModalProps {
@@ -27,8 +27,9 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [currency, setCurrency] = useState<'usd' | 'rub'>('usd');
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState(''); // 🔥 ОШИБКА ПОИСКА
+  const [showSuggestions, setShowSuggestions] = useState(false); // 🔥 ПОКАЗ ВЫПАДАЮЩЕГО СПИСКА
 
+  // Сброс при открытии
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
@@ -36,17 +37,94 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setSelectedUser(null);
       setAmount('');
       setCurrency('usd');
-      setSearchError('');
+      setShowSuggestions(false);
     }
   }, [isOpen]);
 
+  // 🔥 ПОИСК С АВТОДОПОЛНЕНИЕМ (срабатывает при вводе)
+  useEffect(() => {
+    const searchUser = async () => {
+      const trimmed = searchQuery.trim();
+      
+      // 🔥 Ищем даже с 1 символа!
+      if (trimmed.length < 1) {
+        setSearchResults([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      setSearching(true);
+      
+      try {
+        const escaped = escapeIlike(trimmed);
+        
+        // 🔥 Ищем ТОЛЬКО по nickname (не по телеграм-данным!)
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, nickname, balance, rub_balance')
+          .ilike('nickname', `%${escaped}%`)
+          .neq('id', currentUserId)
+          .limit(10); // 🔥 Показываем до 10 результатов
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setSearchResults(data);
+          setShowSuggestions(true); // 🔥 Показываем выпадающий список
+        } else {
+          setSearchResults([]);
+          setShowSuggestions(false);
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+        setSearchResults([]);
+        setShowSuggestions(false);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    // Debounce 200ms для плавности
+    const timeoutId = setTimeout(searchUser, 200);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, currentUserId]);
+
+  // 🔥 ЗАКРЫТЬ ПОДСКАЗКИ ПРИ КЛИКЕ ВНЕ
+  useEffect(() => {
+    const handleClickOutside = () => setShowSuggestions(false);
+    if (showSuggestions) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showSuggestions]);
+
   const handleSend = async () => {
-    if (!selectedUser) return alert('Выберите получателя из списка');
+    if (!selectedUser) {
+      // 🔥 Если пользователь не выбран из списка — ищем точное совпадение
+      const trimmed = searchQuery.trim();
+      if (!trimmed) return alert('Введите никнейм получателя');
+      
+      setSearching(true);
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, nickname')
+          .eq('nickname', trimmed) // 🔥 ТОЧНОЕ совпадение (без ilike)
+          .neq('id', currentUserId)
+          .single();
+          
+        if (error || !data) {
+          return alert('Пользователь не найден! Выберите из подсказок.');
+        }
+        setSelectedUser(data);
+      } finally {
+        setSearching(false);
+      }
+    }
+
     if (selectedUser.id === currentUserId) return alert('Нельзя перевести деньги самому себе!');
     
     const num = parseFloat(amount);
-    const target = selectedUser.id;
-
     if (!num || num <= 0 || isNaN(num)) return alert('Введите корректную сумму больше 0');
     
     const currentBalance = currency === 'usd' ? usdBalance : rubBalance;
@@ -70,34 +148,34 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       
       if (senderError) throw senderError;
 
-      // 2. Находим получателя и начисляем
+      // 2. Начисляем получателю
       const { data: receiver, error: receiverError } = await supabase
         .from('users')
         .select(`id, ${colName}`)
-        .eq('id', target)
+        .eq('id', selectedUser.id)
         .single();
 
-      if (receiverError || !receiver) throw new Error('Пользователь не найден!');
+      if (receiverError || !receiver) throw new Error('Получатель не найден!');
 
       const receiverCurrent = (receiver as Record<string, any>)?.[colName] || 0;
       
       const { error: updateError } = await supabase
         .from('users')
         .update({ [colName]: receiverCurrent + num })
-        .eq('id', target);
+        .eq('id', selectedUser.id);
       
       if (updateError) throw updateError;
 
       // 3. Логируем перевод
       await supabase.from('transactions').insert({
-        sender_id: currentUserId,
-        receiver_id: target,
-        amount: num,
-        currency: dbCurrency,
-        status: 'completed'
-      });
+  sender_id: currentUserId,
+  receiver_id: selectedUser.id,
+  amount: num,
+  currency: dbCurrency,
+  status: 'completed'
+});
 
-      alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname || target}!`);
+      alert(`✅ Успешно переведено ${num}${symbol} игроку ${selectedUser.nickname}!`);
       
       const newUsd = currency === 'usd' ? usdBalance - num : usdBalance;
       const newRub = currency === 'rub' ? rubBalance - num : rubBalance;
@@ -114,53 +192,12 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     }
   };
 
-  // 🔥 ИСПРАВЛЕННЫЙ ПОИСК
-  useEffect(() => {
-    const searchUser = async () => {
-      // 🔥 Убираем пробелы и проверяем длину
-      const trimmed = searchQuery.trim();
-      
-      if (trimmed.length < 1) {
-        setSearchResults([]);
-        setSearchError('');
-        return;
-      }
-
-      setSearching(true);
-      setSearchError('');
-      
-      try {
-        // 🔥 Экранируем спецсимволы для ilike
-        const escaped = escapeIlike(trimmed);
-        
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, nickname, balance, rub_balance')
-          .ilike('nickname', `%${escaped}%`)
-          .neq('id', currentUserId)
-          .limit(5);
-
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          setSearchResults(data);
-        } else {
-          setSearchResults([]);
-          setSearchError('Пользователь не найден');
-        }
-      } catch (err: any) {
-        console.error('Search error:', err);
-        setSearchError('Ошибка поиска');
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
-    };
-
-    // Debounce 300ms чтобы не спамить запросами
-    const timeoutId = setTimeout(searchUser, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, currentUserId]);
+  // 🔥 ВЫБОР ПОЛЬЗОВАТЕЛЯ ИЗ ПОДСКАЗОК
+  const handleSelectUser = (user: any) => {
+    setSelectedUser(user);
+    setSearchQuery(user.nickname); // Заполняем поле никнеймом
+    setShowSuggestions(false); // Скрываем подсказки
+  };
 
   if (!isOpen) return null;
 
@@ -190,10 +227,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
         <p style={styles.balanceHint}>Ваш баланс: <b>{currentBalance.toFixed(2)}{symbol}</b></p>
 
+        {/* 🔥 ПОЛЕ ПОИСКА С ПОДСКАЗКАМИ */}
         <label style={styles.label}>
           Никнейм получателя:
           <div style={{position: 'relative'}}>
-            <Search size={18} color="#737373" style={{position: 'absolute', left: 12, top: 12}} />
+            <Search size={18} color="#737373" style={{position: 'absolute', left: 12, top: 12, zIndex: 2}} />
             <input
               style={{...styles.input, paddingLeft: 40}}
               type="text"
@@ -202,58 +240,66 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               onChange={e => {
                 setSearchQuery(e.target.value);
                 setSelectedUser(null);
-                setSearchError('');
+                setShowSuggestions(true);
               }}
+              onFocus={() => searchResults.length > 0 && setShowSuggestions(true)}
               disabled={loading}
             />
+            
+            {/* 🔥 ВЫПАДАЮЩИЙ СПИСОК ПОДСКАЗОК */}
+            {showSuggestions && searchResults.length > 0 && (
+              <div style={styles.suggestionsList}>
+                {searchResults.map(user => (
+                  <div
+                    key={user.id}
+                    style={styles.suggestionItem}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Чтобы не закрылся при клике
+                      handleSelectUser(user);
+                    }}
+                  >
+                    <div style={styles.suggestionAvatar}>
+                      {(user.nickname || '?')[0].toUpperCase()}
+                    </div>
+                    <div style={{flex: 1}}>
+                      <div style={styles.suggestionName}>{user.nickname}</div>
+                      <div style={styles.suggestionBalance}>
+                        ${(user.balance || 0).toFixed(0)} | ₽{(user.rub_balance || 0).toFixed(0)}
+                      </div>
+                    </div>
+                    {selectedUser?.id === user.id && (
+                      <div style={styles.selectedCheck}>✓</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {searching && searchResults.length === 0 && (
+              <div style={styles.searching}>🔍 Поиск...</div>
+            )}
+            
+            {!searching && searchQuery.trim().length >= 1 && searchResults.length === 0 && showSuggestions && (
+              <div style={styles.noResults}>Никнейм не найден</div>
+            )}
           </div>
         </label>
 
-        {searching && <div style={styles.searching}>🔍 Поиск...</div>}
-        
-        {/* 🔥 СООБЩЕНИЕ ОБ ОШИБКЕ ПОИСКА */}
-        {searchError && !searching && searchResults.length === 0 && (
-          <div style={styles.errorMsg}>
-            <AlertCircle size={14} style={{marginRight: 4}} /> {searchError}
-          </div>
-        )}
-        
-        {searchResults.length > 0 && !selectedUser && (
-          <div style={styles.searchResults}>
-            {searchResults.map(user => (
-              <div
-                key={user.id}
-                style={styles.searchItem}
-                onClick={() => {
-                  setSelectedUser(user);
-                  setSearchResults([]);
-                  setSearchQuery(user.nickname || `Player${String(user.id).slice(-4)}`);
-                  setSearchError('');
-                }}
-              >
-                <div style={styles.searchAvatar}>{(user.nickname || '?')[0].toUpperCase()}</div>
-                <div style={{flex: 1}}>
-                  <div style={styles.searchName}>{user.nickname || 'Player'}</div>
-                  <div style={styles.searchBalance}>
-                    ${(user.balance || 0).toFixed(0)} | ₽{(user.rub_balance || 0).toFixed(0)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
+        {/* 🔥 ОТОБРАЖЕНИЕ ВЫБРАННОГО ПОЛЬЗОВАТЕЛЯ */}
         {selectedUser && (
           <div style={styles.selectedUser}>
             <div style={styles.searchAvatar}>{(selectedUser.nickname || '?')[0].toUpperCase()}</div>
             <div style={{flex: 1}}>
-              <div style={styles.searchName}>{selectedUser.nickname || 'Player'}</div>
+              <div style={styles.searchName}>{selectedUser.nickname}</div>
+              <div style={styles.searchBalance}>
+                ${(selectedUser.balance || 0).toFixed(0)} | ₽{(selectedUser.rub_balance || 0).toFixed(0)}
+              </div>
             </div>
             <button
               onClick={() => {
                 setSelectedUser(null);
                 setSearchQuery('');
-                setSearchError('');
+                setShowSuggestions(false);
               }}
               style={styles.clearBtn}
               disabled={loading}
@@ -271,7 +317,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             placeholder="0.00"
             value={amount}
             onChange={e => setAmount(e.target.value)}
-            disabled={loading || !selectedUser}
+            disabled={loading}
             min="0.01"
             step="0.01"
           />
@@ -305,24 +351,64 @@ const styles: any = {
   label: { display: 'flex', flexDirection: 'column', gap: 6, color: '#a3a3a3', fontSize: 13, marginBottom: 12 },
   input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: 16 },
   btn: { width: '100%', padding: '14px', borderRadius: 12, border: 'none', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8, transition: 'opacity 0.2s' },
-  searching: { textAlign: 'center', color: '#737373', padding: '8px 0', fontSize: 13 },
-  errorMsg: { 
-    textAlign: 'center', 
-    color: '#ef4444', 
-    padding: '8px 12px', 
-    fontSize: 13,
-    background: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 8,
-    marginBottom: 12,
+  searching: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', color: '#737373', padding: '8px 12px', fontSize: 13, borderRadius: '0 0 12px 12px', border: '1px solid #404040', borderTop: 'none', zIndex: 10 },
+  noResults: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', color: '#ef4444', padding: '8px 12px', fontSize: 13, borderRadius: '0 0 12px 12px', border: '1px solid #404040', borderTop: 'none', zIndex: 10 },
+  
+  // 🔥 СТИЛИ ДЛЯ ВЫПАДАЮЩЕГО СПИСКА
+  suggestionsList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: '#1a1a1a',
+    borderRadius: '0 0 12px 12px',
+    border: '1px solid #404040',
+    borderTop: 'none',
+    maxHeight: 200,
+    overflowY: 'auto',
+    zIndex: 10,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+  },
+  suggestionItem: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center'
+    gap: 12,
+    padding: '12px',
+    cursor: 'pointer',
+    transition: 'background 0.2s',
+    borderBottom: '1px solid #262626'
   },
-  searchResults: { background: '#1a1a1a', borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: '1px solid #404040' },
-  searchItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid #262626' },
+  suggestionAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    background: '#3b82f6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    flexShrink: 0
+  },
+  suggestionName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
+  suggestionBalance: { color: '#737373', fontSize: 12, marginTop: 2 },
+  selectedCheck: {
+    background: '#22c55e',
+    color: 'white',
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: 'bold'
+  },
+  
+  selectedUser: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#1a1a1a', borderRadius: 12, marginBottom: 12, border: '1px solid #22c55e' },
   searchAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
   searchName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
   searchBalance: { color: '#737373', fontSize: 12, marginTop: 2 },
-  selectedUser: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#1a1a1a', borderRadius: 12, marginBottom: 12, border: '1px solid #22c55e' },
   clearBtn: { background: '#ef4444', border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }
 };
