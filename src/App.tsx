@@ -272,6 +272,22 @@ const CAR_BRANDS = [
   ]}
 ];
 
+// 🔥 ДАННЫЕ ДЛЯ НЕДВИЖИМОСТИ
+const REAL_ESTATE_LIST = [
+  { id: 're_studio', name: 'Студия', price: 6000000, icon: '🏢' },
+  { id: 're_1room', name: '1-комнатная квартира', price: 9000000, icon: '🏠' },
+  { id: 're_2room', name: '2-х комнатная квартира', price: 14000000, icon: '🏘️' },
+  { id: 're_3room', name: '3-х комнатная квартира', price: 20000000, icon: '🏙️' },
+  { id: 're_4room_city', name: '4-х комнатная квартира в Москва-Сити', price: 65000000, icon: '' },
+  { id: 're_5room_city', name: '5-комнатная квартира в Москва-Сити', price: 95000000, icon: '' },
+  { id: 're_cottage_sub', name: 'Коттедж за городом', price: 18000000, icon: '🏡' },
+  { id: 're_cottage_rub', name: 'Коттедж на Рублёвке', price: 150000000, icon: '🏰' },
+  { id: 're_cottage_sea', name: 'Коттедж у моря', price: 45000000, icon: '🏖️' },
+  { id: 're_mansion_sub', name: 'Особняк за городом', price: 80000000, icon: '🏰' },
+  { id: 're_mansion_rub', name: 'Особняк на Рублёвке', price: 450000000, icon: '👑' },
+  { id: 're_island', name: 'Частный остров', price: 3000000000, icon: '🏝️' }
+];
+
 function App() {
   let userIdNum: number;
   try {
@@ -1441,7 +1457,20 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
           </>
         )}
 
-        {activeShopTab === 'realestate' && (<div style={styles.shopGrid}>{[{ id: 'house1', name: 'Студия', price: 3000000, category: 'realestate', icon: '🏢' }, { id: 'house2', name: '2-комнатная', price: 7500000, category: 'realestate', icon: '🏠' }, { id: 'house3', name: 'Коттедж', price: 15000000, category: 'realestate', icon: '🏡' }, { id: 'house4', name: 'Особняк', price: 50000000, category: 'realestate', icon: '🏰' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+        {/* 🔥 ОБНОВЛЕННЫЙ СПИСОК НЕДВИЖИМОСТИ */}
+        {activeShopTab === 'realestate' && (
+          <div style={styles.shopGrid}>
+            {REAL_ESTATE_LIST.map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {activeShopTab === 'accessories' && (<div style={styles.shopGrid}>{[{ id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' }, { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' }, { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' }, { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
         {activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
         {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
