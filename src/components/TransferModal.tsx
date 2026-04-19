@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle, User } from 'lucide-react';
+import { X, Send, CircleDollarSign, DollarSign, Search, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface TransferModalProps {
@@ -22,7 +22,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [currency, setCurrency] = useState<'usd' | 'rub'>('usd');
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [error, setError] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Сброс при открытии
@@ -33,17 +32,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setSelectedUser(null);
       setAmount('');
       setCurrency('usd');
-      setError('');
       setShowSuggestions(false);
     }
   }, [isOpen]);
 
-  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЯ С АВТОДОПОЛНЕНИЕМ
+  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЕЙ ПРИ ВВОДЕ (с 1-го символа)
   useEffect(() => {
     const searchUser = async () => {
       const trimmed = searchQuery.trim();
       
-      if (trimmed.length < 2) {
+      // 🔥 Ищем начиная с 1 символа
+      if (trimmed.length < 1) {
         setSearchResults([]);
         setShowSuggestions(false);
         return;
@@ -52,17 +51,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setSearching(true);
       
       try {
-        // 🔥 Используем eq вместо ilike для избежания ошибки 406
-        // Ищем пользователей, чей никнейм НАЧИНАЕТСЯ с введенного текста
-        const { data, error: searchError } = await supabase
+        // 🔥 Используем ilike для поиска без учета регистра
+        // % - это wildcard, ищем совпадения в любом месте никнейма
+        const { data, error } = await supabase
           .from('users')
           .select('id, nickname, balance, rub_balance')
-          .like('nickname', `${trimmed}%`)
+          .ilike('nickname', `%${trimmed}%`)
           .neq('id', currentUserId)
           .limit(10);
 
-        if (searchError) {
-          console.error('Search error:', searchError);
+        if (error) {
+          console.error('Search error:', error);
           setSearchResults([]);
           setShowSuggestions(false);
           return;
@@ -84,8 +83,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       }
     };
 
-    // Debounce 300ms
-    const timeoutId = setTimeout(searchUser, 300);
+    // Debounce 200ms для плавности
+    const timeoutId = setTimeout(searchUser, 200);
     return () => clearTimeout(timeoutId);
   }, [searchQuery, currentUserId]);
 
@@ -94,23 +93,22 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     setSelectedUser(user);
     setSearchQuery(user.nickname);
     setShowSuggestions(false);
-    setError('');
   };
 
   const handleSend = async () => {
     if (!selectedUser) {
-      setError('Выберите получателя из списка');
+      alert('Выберите получателя из списка');
       return;
     }
     
     if (selectedUser.id === currentUserId) {
-      setError('Нельзя перевести деньги самому себе!');
+      alert('Нельзя перевести деньги самому себе!');
       return;
     }
     
     const num = parseFloat(amount);
     if (!num || num <= 0 || isNaN(num)) {
-      setError('Введите корректную сумму больше 0');
+      alert('Введите корректную сумму больше 0');
       return;
     }
     
@@ -118,12 +116,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     const symbol = currency === 'usd' ? '$' : '₽';
     
     if (num > currentBalance) {
-      setError(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)}${symbol}`);
+      alert(`Недостаточно средств! Доступно: ${currentBalance.toFixed(2)}${symbol}`);
       return;
     }
 
     setLoading(true);
-    setError('');
     
     try {
       const colName = currency === 'usd' ? 'balance' : 'rub_balance';
@@ -156,7 +153,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       if (updateError) throw updateError;
 
       // 3. Логируем перевод
-      await supabase.from('transactions').insert({
+await supabase.from('transactions').insert({
   sender_id: currentUserId,
   receiver_id: selectedUser.id,
   amount: num,
@@ -175,7 +172,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Transfer error:', err);
-      setError(err.message || 'Не удалось выполнить перевод');
+      alert(`❌ Ошибка: ${err.message || 'Не удалось выполнить перевод'}`);
     } finally {
       setLoading(false);
     }
@@ -209,7 +206,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
         <p style={styles.balanceHint}>Ваш баланс: <b>{currentBalance.toFixed(2)}{symbol}</b></p>
 
-        {/* 🔥 ПОЛЕ ПОИСКА С ПОДСКАЗКАМИ */}
+        {/* 🔥 ПОЛЕ ПОИСКА С ВЫПАДАЮЩИМ СПИСКОМ */}
         <label style={styles.label}>
           Никнейм получателя:
           <div style={{position: 'relative'}}>
@@ -222,13 +219,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               onChange={e => {
                 setSearchQuery(e.target.value);
                 setSelectedUser(null);
-                setError('');
+                setShowSuggestions(true);
               }}
               onFocus={() => searchResults.length > 0 && setShowSuggestions(true)}
               disabled={loading}
             />
             
-            {/* 🔥 ВЫПАДАЮЩИЙ СПИСОК ПОДСКАЗОК */}
+            {/* 🔥 ВЫПАДАЮЩИЙ СПИСОК С ПОЛЬЗОВАТЕЛЯМИ */}
             {showSuggestions && searchResults.length > 0 && (
               <div style={styles.suggestionsList}>
                 {searchResults.map(user => (
@@ -261,10 +258,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <div style={styles.searching}>🔍 Поиск...</div>
             )}
             
-            {!searching && error && searchResults.length === 0 && (
-              <div style={styles.errorMsg}>
-                <AlertCircle size={14} style={{marginRight: 4}} /> {error}
-              </div>
+            {!searching && searchQuery.trim().length >= 1 && searchResults.length === 0 && showSuggestions && (
+              <div style={styles.noResults}>Никнейм не найден</div>
             )}
           </div>
         </label>
@@ -283,7 +278,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               onClick={() => {
                 setSelectedUser(null);
                 setSearchQuery('');
-                setError('');
+                setShowSuggestions(false);
               }}
               style={styles.clearBtn}
               disabled={loading}
@@ -306,12 +301,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             step="0.01"
           />
         </label>
-
-        {error && !selectedUser && (
-          <div style={{...styles.errorMsg, marginBottom: 12}}>
-            <AlertCircle size={14} style={{marginRight: 4}} /> {error}
-          </div>
-        )}
 
         <button
           onClick={handleSend}
@@ -342,17 +331,9 @@ const styles: any = {
   input: { width: '100%', padding: '12px', borderRadius: 12, background: '#0a0a0a', border: '1px solid #404040', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: 16 },
   btn: { width: '100%', padding: '14px', borderRadius: 12, border: 'none', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8, transition: 'opacity 0.2s' },
   searching: { textAlign: 'center', color: '#737373', padding: '8px 12px', fontSize: 13, background: '#1a1a1a', borderRadius: '0 0 12px 12px', border: '1px solid #404040', borderTop: 'none' },
-  errorMsg: { 
-    textAlign: 'center', 
-    color: '#ef4444', 
-    padding: '8px 12px', 
-    fontSize: 13,
-    background: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
+  noResults: { textAlign: 'center', color: '#ef4444', padding: '8px 12px', fontSize: 13, background: '#1a1a1a', borderRadius: '0 0 12px 12px', border: '1px solid #404040', borderTop: 'none' },
+  
+  // 🔥 СТИЛИ ДЛЯ ВЫПАДАЮЩЕГО СПИСКА
   suggestionsList: {
     position: 'absolute',
     top: '100%',
@@ -403,6 +384,7 @@ const styles: any = {
     fontSize: 12,
     fontWeight: 'bold'
   },
+  
   selectedUser: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#1a1a1a', borderRadius: 12, marginBottom: 12, border: '1px solid #22c55e' },
   searchAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
   searchName: { color: '#e5e5e5', fontSize: 14, fontWeight: '500' },
