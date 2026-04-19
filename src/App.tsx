@@ -22,6 +22,55 @@ import { getLevelInfo, getGlobalMultiplier } from './data/levels';
 import { BUSINESSES, STAKING_CONFIG } from './data/economy';
 import { supabase } from './lib/supabase';
 
+// 🔥 ЦВЕТА ДЛЯ КАСТОМИЗАЦИИ
+const CAP_COLORS = [
+  { name: 'Черный', hex: '#000000' },
+  { name: 'Белый', hex: '#FFFFFF' },
+  { name: 'Красный', hex: '#FF0000' },
+  { name: 'Синий', hex: '#0000FF' },
+  { name: 'Зеленый', hex: '#008000' },
+  { name: 'Желтый', hex: '#FFFF00' },
+  { name: 'Оранжевый', hex: '#FFA500' },
+  { name: 'Фиолетовый', hex: '#800080' }
+];
+
+// 🔥 СПИСОК АКСЕССУАРОВ
+const ACCESSORIES_LIST = [
+  // Очки
+  { id: 'acc_glasses_black', name: 'Черные очки', price: 15000, icon: '🕶️' },
+  { id: 'acc_glasses_white', name: 'Белые очки', price: 15000, icon: '👓' },
+  
+  // Сумки
+  { id: 'acc_bag_carhartt', name: 'Сумка Carhartt', price: 45000, icon: '👜' },
+  { id: 'acc_bag_gucci', name: 'Сумка Gucci', price: 120000, icon: '👜' },
+  { id: 'acc_bag_lv', name: 'Сумка Louis Vuitton', price: 180000, icon: '👜' },
+  { id: 'acc_bag_leather', name: 'Кожаная сумка', price: 35000, icon: '💼' },
+
+  // Часы
+  { id: 'watch_rolex', name: 'Часы Rolex', price: 850000, icon: '⌚' },
+  { id: 'watch_casio', name: 'Часы Casio', price: 8000, icon: '⌚' },
+  { id: 'watch_tissot', name: 'Часы Tissot', price: 45000, icon: '⌚' },
+  { id: 'watch_apple_se', name: 'Apple Watch SE', price: 35000, icon: '🍎' },
+  { id: 'watch_apple_3', name: 'Apple Watch Series 3', price: 25000, icon: '🍎' },
+  { id: 'watch_apple_5', name: 'Apple Watch Series 5', price: 30000, icon: '🍎' },
+  { id: 'watch_apple_9', name: 'Apple Watch Series 9', price: 55000, icon: '🍎' },
+  { id: 'watch_apple_ultra', name: 'Apple Watch Ultra', price: 90000, icon: '🍎' },
+
+  // Цепи и браслеты
+  { id: 'chain_silver', name: 'Серебряная цепь', price: 25000, icon: '📿' },
+  { id: 'chain_gold', name: 'Золотая цепь', price: 85000, icon: '📿' },
+  { id: 'brace_silver', name: 'Серебряный браслет', price: 15000, icon: '📿' },
+  { id: 'brace_gold', name: 'Золотой браслет', price: 60000, icon: '📿' },
+
+  // Серьги
+  { id: 'earrings_silver', name: 'Серьги (Серебро)', price: 12000, icon: '💎' },
+  { id: 'earrings_gold', name: 'Серьги (Золото)', price: 45000, icon: '💎' },
+
+  // Головные уборы (с выбором цвета)
+  { id: 'acc_cap', name: 'Кепка (Выбор цвета)', price: 8000, icon: '🧢', custom: true },
+  { id: 'acc_bandana', name: 'Бандана (Выбор цвета)', price: 4000, icon: '', custom: true }
+];
+
 // 🔥 ДАННЫЕ ДЛЯ МАШИН (БРЕНДЫ И МОДЕЛИ) С ЛОГОТИПАМИ
 const CAR_BRANDS = [
   { id: 'lada', name: 'LADA', logo: '/logos/lada.png', models: [
@@ -288,6 +337,193 @@ const REAL_ESTATE_LIST = [
   { id: 're_island', name: 'Частный остров', price: 3000000000, icon: '🏝️' }
 ];
 
+// 🔥 СТИЛИ (ПЕРЕМЕЩЕНЫ ВЫШЕ MessageTabs)
+const styles: { [key: string]: React.CSSProperties } = {
+  container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
+  sliderWrapper: { display: 'flex', width: '200vw', height: '100%', transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)' },
+  screen: { width: '100vw', height: '100%', position: 'relative', flexShrink: 0, overflowY: 'auto' },
+  secondaryHeader: { paddingTop: 60, paddingLeft: 24, paddingRight: 24, paddingBottom: 20 },
+  grid20: { padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
+  card: { background: '#1a1a1a', border: '1px solid rgba(156,163,175,0.1)', borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, cursor: 'pointer', position: 'relative' },
+  cardIcon: { width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  cardTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  cardSub: { color: '#737373', fontSize: 12 },
+  levelBar: { position: 'absolute', top: 12, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 100 },
+  levelText: { fontSize: 12, fontWeight: '600', color: 'var(--text-secondary)' },
+  progressTrack: { width: 140, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.5s ease' },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' },
+  userSection: { display: 'flex', alignItems: 'center', gap: 12, pointerEvents: 'auto', cursor: 'pointer' },
+  avatarWrapper: { width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' },
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  userInfo: { flex: 1 },
+  nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+  levelBadge: { fontSize: 11, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 6px', borderRadius: 4, marginLeft: 4 },
+  balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
+  leftButtons: { position: 'absolute', left: 16, top: 110, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 100 },
+  leftBtn: { position: 'relative', width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
+  center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginTop: 16 },
+  newBottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(12, 12, 12, 0.85)', backdropFilter: 'blur(12px)', padding: '14px 16px', borderTop: '1px solid rgba(156,163,175,0.15)', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  menuOpenBtn: { background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 14, padding: '12px 24px', color: '#fff', fontWeight: '600', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(0,0,0,0.4)' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
+  modal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 24, maxWidth: '95%', width: 380, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' },
+  closeBtn: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 16, textAlign: 'center' },
+  btnPrimary: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
+  btnSecondary: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnSmall: { width: 36, height: 36, borderRadius: 10, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
+  clanTopActions: { display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 },
+  clanInfoBlock: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8, width: '100%' },
+  clanAvatar: { width: 52, height: 52, borderRadius: 14, background: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0, border: '1px solid rgba(156,163,175,0.1)' },
+  clanDetails: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  clanName: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', margin: 0, lineHeight: 1.2, wordBreak: 'break-word', width: '100%' },
+  clanIncome: { fontSize: 13, color: '#22c55e', margin: 0, fontWeight: '500', whiteSpace: 'nowrap' },
+  clanDescription: { fontSize: 13, color: '#a3a3a3', margin: '0 0 16px 0', lineHeight: 1.5, fontStyle: 'normal', padding: '0 2px' },
+  iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
+  badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #141414' },
+  memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
+  memberItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(38,38,38,0.4)', borderRadius: 12, cursor: 'pointer' },
+  memberAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white', overflow: 'hidden' },
+  memberImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  memberName: { fontSize: 14, fontWeight: '500', color: '#e5e5e5' },
+  memberRole: { fontSize: 11, color: '#737373' },
+  memberIncome: { fontSize: 12, color: '#22c55e', fontWeight: '600' },
+  list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 },
+  listItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px', background: 'rgba(38,38,38,0.4)', borderRadius: 10 },
+  listAvatar: { width: 32, height: 32, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'white', overflow: 'hidden' },
+  listName: { fontSize: 14, color: '#e5e5e5', fontWeight: '500' },
+  listSub: { fontSize: 11, color: '#737373' },
+  leaderboardItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px', background: 'rgba(38,38,38,0.4)', borderRadius: 10, cursor: 'pointer' },
+  rank: { fontSize: 18, fontWeight: 'bold', color: '#737373', width: 28, textAlign: 'center' },
+  topRank: { color: '#fbbf24', fontSize: 20 },
+  input: { width: '100%', padding: '10px', borderRadius: 8, background: '#0a0a0a', border: '1px solid rgba(156,163,175,0.2)', color: 'white', marginBottom: 8, boxSizing: 'border-box' },
+  label: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3a3a3', fontSize: 13, marginBottom: 8, flexDirection: 'column' },
+  offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
+  offlineModal: { position: 'relative', background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%' },
+  offlineIcon: { fontSize: 48, marginBottom: 12 },
+  offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
+  offlineAmount: { fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)', transition: 'font-size 0.3s ease' },
+  offlineText: { fontSize: 14, color: '#9ca3af' },
+  btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
+  btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
+  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' },
+  tabBtn: { flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'transparent', color:'#737373', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', fontSize:14 },
+  tabActive: { background:'#3b82f6', color:'white', boxShadow:'0 2px 8px rgba(59, 130, 246, 0.4)' },
+  subscribeModal: { background: '#141414', border: '2px solid #3b82f6', borderRadius: 24, padding: 28, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(59, 130, 246, 0.3)' },
+  subscribeIcon: { fontSize: 48, marginBottom: 16 },
+  subscribeTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 12, margin: '0 0 12px 0' },
+  subscribeText: { fontSize: 14, color: '#a3a3a3', marginBottom: 16, lineHeight: 1.5 },
+  subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
+  subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
+  subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' },
+  walletTotal: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 20, border: '1px solid rgba(139, 92, 246, 0.3)' },
+  walletTotalLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  walletTotalValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' },
+  walletList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 },
+  walletItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(38, 38, 38, 0.6)', borderRadius: 12, border: '1px solid rgba(156, 163, 175, 0.1)' },
+  walletItemLeft: { display: 'flex', alignItems: 'center', gap: 12 },
+  walletItemIcon: { width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: 'white' },
+  walletItemName: { fontSize: 15, fontWeight: '600', color: '#e5e5e5' },
+  walletItemAmount: { fontSize: 12, color: '#737373', marginTop: 2 },
+  walletItemRight: { textAlign: 'right' },
+  walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
+  walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' },
+  hustleList: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
+  hustleCard: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 16 },
+  hustleHeader: { display: 'flex', alignItems: 'center', marginBottom: 12 },
+  hustleName: { fontSize: 16, fontWeight: 'bold', color: '#fff', margin: 0 },
+  hustleSalary: { fontSize: 14, color: '#22c55e', margin: '4px 0 0 0', fontWeight: '600' },
+  hustleInfo: { display: 'flex', gap: 16, marginBottom: 12, fontSize: 12 },
+  hustleDetail: { color: '#a3a3a3' },
+  hustleBtn: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
+  hustleBtnDisabled: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'rgba(156, 163, 175, 0.2)', color: '#737373', fontWeight: 'bold', cursor: 'not-allowed' },
+  hustleGameModal: { background: '#141414', border: '2px solid #fbbf24', borderRadius: 24, padding: 24, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(251, 191, 36, 0.3)' },
+  hustleGameHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  hustleTimer: { marginBottom: 24 },
+  hustleTimerBar: { width: '100%', height: 8, background: 'rgba(251, 191, 36, 0.2)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+  hustleTimerProgress: { height: '100%', background: 'linear-gradient(90deg, #fbbf24, #f59e0b)', transition: 'width 1s linear' },
+  hustleTimeText: { fontSize: 18, fontWeight: 'bold', color: '#fbbf24' },
+  hustleClicker: { cursor: 'pointer', userSelect: 'none', padding: '40px 20px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: 16, marginBottom: 16, transition: 'transform 0.1s' },
+  hustleCoin: { fontSize: 80, marginBottom: 12 },
+  hustleClicks: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 },
+  shopTabs: { display: 'flex', gap: 4, marginBottom: 16, background: '#262626', padding: 4, borderRadius: 12, overflowX: 'auto' },
+  shopTab: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' },
+  shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
+  shopContent: { flex: 1, overflowY: 'auto' },
+  shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  
+  // 🔥 НОВЫЕ СТИЛИ ДЛЯ БРЕНДОВ С ЛОГОТИПАМИ
+  brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
+  brandCard: { 
+    background: '#1C1C1E', 
+    border: '1px solid rgba(156,163,175,0.1)', 
+    borderRadius: 16, 
+    padding: 16, 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    cursor: 'pointer',
+    transition: 'transform 0.1s, background 0.2s',
+    minHeight: 140
+  },
+  brandLogoContainer: { 
+    width: 64, 
+    height: 64, 
+    marginBottom: 12,
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  brandLogo: { 
+    width: '100%', 
+    height: '100%', 
+    objectFit: 'contain',
+  },
+  brandFallback: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    position: 'absolute',
+    top: 0,
+    left: 0
+  },
+  brandName: { 
+    fontSize: 12, 
+    fontWeight: 'bold', 
+    color: '#fff', 
+    marginBottom: 4,
+    textAlign: 'center'
+  },
+  brandCount: { 
+    fontSize: 10, 
+    color: '#737373',
+    textAlign: 'center'
+  },
+  
+  backBtnSmall: { background: 'transparent', border: '1px solid rgba(156,163,175,0.2)', borderRadius: 8, padding: '6px 12px', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
+  shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
+  shopItemIcon: { fontSize: 32, marginBottom: 8 },
+  shopItemName: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 4 },
+  shopItemPrice: { fontSize: 12, color: '#22c55e', fontWeight: 'bold', marginBottom: 8 },
+  shopBuyBtn: { width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', fontSize: 12, cursor: 'pointer' },
+  netWorthPanel: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 16, border: '1px solid rgba(139, 92, 246, 0.3)', textAlign: 'center' },
+  netWorthLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8 },
+  netWorthValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' }
+};
+
 function App() {
   let userIdNum: number;
   try {
@@ -373,6 +609,11 @@ function App() {
   
   // 🔥 СОСТОЯНИЕ ДЛЯ МАГАЗИНА МАШИН (БРЕНД)
   const [selectedCarBrand, setSelectedCarBrand] = useState<string | null>(null);
+
+  // 🔥 СОСТОЯНИЯ ДЛЯ КАСТОМИЗАЦИИ АКСЕССУАРОВ (ЦВЕТА)
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [pendingItem, setPendingItem] = useState<any>(null);
+  const [selectedColor, setSelectedColor] = useState<any>(null);
 
   const [questStartTreasury, setQuestStartTreasury] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
@@ -972,24 +1213,54 @@ useEffect(() => {
     }
   };
 
-  // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ
-  const handleBuyItem = (item: any) => {
+  // 🔥 ФУНКЦИЯ ПОКУПКИ ПРЕДМЕТОВ (С КАСТОМИЗАЦИЕЙ)
+  const handleShopBuy = (item: any) => {
+    // Если товар требует кастомизации (кепка/бандана)
+    if (item.custom) {
+      setPendingItem(item);
+      setSelectedColor(null);
+      setShowColorPicker(true);
+    } else {
+      // Если обычный товар - покупаем сразу
+      finalizePurchase(item, null);
+    }
+  };
+
+  // 🔥 ФУНКЦИЯ ФИНАЛЬНОЙ ПОКУПКИ
+  const finalizePurchase = (item: any, color: any) => {
+    // Определяем итоговое имя и иконку
+    let finalName = item.name;
+    let finalIcon = item.icon;
+    
+    // Если выбран цвет (для кепки/банданы)
+    if (color) {
+      finalName = `${item.name} (${color.name})`;
+      // Можно менять иконку в зависимости от цвета, но оставим базовую для простоты
+    }
+
     if (rubBalance >= item.price) {
       setRubBalance(p => p - item.price);
       
-      // 🔥 ДОБАВЛЯЕМ category и уникальный ID
       const newItem = {
         ...item,
-        category: activeShopTab || 'other', // используем текущую вкладку как category
-        id: item.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // уникальный ID
-        ownedAt: Date.now()
+        name: finalName, // Сохраняем название с цветом
+        category: activeShopTab || 'other', 
+        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // уникальный ID
+        ownedAt: Date.now(),
+        customColor: color ? color.name : null // Сохраняем цвет в данных
       };
       
       console.log('🛒 Покупка предмета:', newItem);
       setOwnedItems(prev => [...prev, newItem]);
       ownedItemsRef.current = [...ownedItems, newItem]; // 🔥 Обновляем ref
       saveProgress();
-      alert(`Куплено: ${item.name} за ${item.price.toLocaleString()} ₽`);
+      alert(`Куплено: ${finalName} за ${item.price.toLocaleString()} ₽`);
+      
+      // Закрываем модалку если она была открыта
+      if (showColorPicker) {
+        setShowColorPicker(false);
+        setPendingItem(null);
+      }
     } else { 
       alert('Недостаточно рублей!'); 
     }
@@ -1448,7 +1719,7 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                       <div style={styles.shopItemIcon}>{CAR_BRANDS.find(b => b.id === selectedCarBrand)?.name[0]}</div>
                       <div style={styles.shopItemName}>{item.name}</div>
                       <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                      <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
+                      <button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button>
                     </div>
                   ))}
                 </div>
@@ -1465,15 +1736,28 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
                 <div style={styles.shopItemIcon}>{item.icon}</div>
                 <div style={styles.shopItemName}>{item.name}</div>
                 <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
-                <button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button>
+                <button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button>
               </div>
             ))}
           </div>
         )}
 
-        {activeShopTab === 'accessories' && (<div style={styles.shopGrid}>{[{ id: 'acc1', name: 'Золотые часы', price: 150000, category: 'accessories', icon: '⌚' }, { id: 'acc2', name: 'Цепь из золота', price: 300000, category: 'accessories', icon: '📿' }, { id: 'acc3', name: 'Брендовые очки', price: 50000, category: 'accessories', icon: '🕶️' }, { id: 'acc4', name: 'Кожаный портфель', price: 80000, category: 'accessories', icon: '👜' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
-        {activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
-        {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleBuyItem(item)}>Купить</button></div>))}</div>)}
+        {/* 🔥 НОВЫЙ СПИСОК АКСЕССУАРОВ */}
+        {activeShopTab === 'accessories' && (
+          <div style={styles.shopGrid}>
+            {ACCESSORIES_LIST.map(item => (
+              <div key={item.id} style={styles.shopItem}>
+                <div style={styles.shopItemIcon}>{item.icon}</div>
+                <div style={styles.shopItemName}>{item.name}</div>
+                <div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div>
+                <button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeShopTab === 'phones' && (<div style={styles.shopGrid}>{[{ id: 'phone1', name: 'iPhone 14', price: 90000, category: 'phones', icon: '📱' }, { id: 'phone2', name: 'Samsung S23', price: 85000, category: 'phones', icon: '📲' }, { id: 'phone3', name: 'Google Pixel 8', price: 75000, category: 'phones', icon: '📳' }, { id: 'phone4', name: 'OnePlus 11', price: 60000, category: 'phones', icon: '📴' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button></div>))}</div>)}
+        {activeShopTab === 'other' && (<div style={styles.shopGrid}>{[{ id: 'other1', name: 'Подарочная карта', price: 5000, category: 'other', icon: '🎁' }, { id: 'other2', name: 'Премиум-аккаунт', price: 50000, category: 'other', icon: '⭐' }, { id: 'other3', name: 'Буст дохода х2', price: 25000, category: 'other', icon: '🚀' }, { id: 'other4', name: 'Уникальный аватар', price: 10000, category: 'other', icon: '🖼️' }].map(item => (<div key={item.id} style={styles.shopItem}><div style={styles.shopItemIcon}>{item.icon}</div><div style={styles.shopItemName}>{item.name}</div><div style={styles.shopItemPrice}>{item.price.toLocaleString()} ₽</div><button style={styles.shopBuyBtn} onClick={() => handleShopBuy(item)}>Купить</button></div>))}</div>)}
       </div></div></div>)}
 
       {/* 🔥 ИСПРАВЛЕННЫЙ БЛОК "МОЁ СОСТОЯНИЕ" */}
@@ -1554,6 +1838,57 @@ const handleExchange = async (usdChange: number, rubChange: number) => {
         </div>
       )}
 
+      {/* 🔥 МОДАЛЬНОЕ ОКНО ВЫБОРА ЦВЕТА */}
+      {showColorPicker && pendingItem && (
+        <div style={styles.overlay} onClick={() => setShowColorPicker(false)}>
+          <div style={{...styles.modal, width: '90%', maxWidth: 350}} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowColorPicker(false)} style={styles.closeBtn}>
+              <X size={24} color="#9ca3af" />
+            </button>
+            <h3 style={{color: '#fff', textAlign: 'center', marginBottom: 20}}>Выберите цвет</h3>
+            
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 24}}>
+              {CAP_COLORS.map(color => (
+                <div 
+                  key={color.name}
+                  onClick={() => setSelectedColor(color)}
+                  style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: '50%',
+                    backgroundColor: color.hex,
+                    border: selectedColor?.name === color.name ? '3px solid #fff' : '3px solid transparent',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  {selectedColor?.name === color.name && <Check size={20} color={color.hex === '#FFFFFF' ? '#000' : '#fff'} />}
+                </div>
+              ))}
+            </div>
+
+            <button 
+              style={{
+                width: '100%', 
+                padding: '14px', 
+                borderRadius: 12, 
+                border: 'none', 
+                background: selectedColor ? '#22c55e' : '#333', 
+                color: '#fff', 
+                fontWeight: 'bold',
+                fontSize: 16,
+                cursor: selectedColor ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!selectedColor}
+              onClick={() => finalizePurchase(pendingItem, selectedColor)}
+            >
+              Купить за {pendingItem.price.toLocaleString()} ₽
+            </button>
+          </div>
+        </div>
+      )}
+
       {showSubscribeModal && (<div style={styles.overlay} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeModal} onClick={(e) => e.stopPropagation()}><div style={styles.subscribeIcon}>📢</div><h3 style={styles.subscribeTitle}>Подпишитесь на канал</h3><p style={styles.subscribeText}>Чтобы продолжить игру, подпишитесь на наш канал с новостями и обновлениями:</p><p style={styles.subscribeChannel}>@cryptonexusbotgame</p><button onClick={() => window.open('https://t.me/cryptonexusbotgame', '_blank')} style={styles.subscribeBtnPrimary}>Подписаться на канал</button><button onClick={handleSubscribeConfirm} style={styles.subscribeBtnSecondary}>✓ Я подписался</button></div></div>)}
     </>
   );
@@ -1611,192 +1946,6 @@ const MessageTabs = ({ currentUserId, handleFriendResponse, calculateNetWorth, r
       )}
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: { width: '100vw', height: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', transition: 'background 0.3s' },
-  sliderWrapper: { display: 'flex', width: '200vw', height: '100%', transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)' },
-  screen: { width: '100vw', height: '100%', position: 'relative', flexShrink: 0, overflowY: 'auto' },
-  secondaryHeader: { paddingTop: 60, paddingLeft: 24, paddingRight: 24, paddingBottom: 20 },
-  grid20: { padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
-  card: { background: '#1a1a1a', border: '1px solid rgba(156,163,175,0.1)', borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, cursor: 'pointer', position: 'relative' },
-  cardIcon: { width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  cardTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  cardSub: { color: '#737373', fontSize: 12 },
-  levelBar: { position: 'absolute', top: 12, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 100 },
-  levelText: { fontSize: 12, fontWeight: '600', color: 'var(--text-secondary)' },
-  progressTrack: { width: 140, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.5s ease' },
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, padding: '16px', paddingTop: 40, background: 'linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%)', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' },
-  userSection: { display: 'flex', alignItems: 'center', gap: 12, pointerEvents: 'auto', cursor: 'pointer' },
-  avatarWrapper: { width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' },
-  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  userInfo: { flex: 1 },
-  nickname: { fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
-  levelBadge: { fontSize: 11, color: 'var(--accent)', background: 'rgba(156,163,175,0.1)', padding: '2px 6px', borderRadius: 4, marginLeft: 4 },
-  balances: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
-  rightMenuContainer: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'auto' },
-  leftButtons: { position: 'absolute', left: 16, top: 110, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 100 },
-  leftBtn: { position: 'relative', width: 44, height: 44, borderRadius: 12, background: 'rgba(38,38,38,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(156,163,175,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.1s' },
-  center: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', paddingTop: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  incomeDisplay: { fontSize: 18, fontWeight: 'bold', color: 'var(--success)', marginTop: 16 },
-  newBottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(12, 12, 12, 0.85)', backdropFilter: 'blur(12px)', padding: '14px 16px', borderTop: '1px solid rgba(156,163,175,0.15)', display: 'flex', justifyContent: 'center', alignItems: 'center' },
-  menuOpenBtn: { background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 14, padding: '12px 24px', color: '#fff', fontWeight: '600', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(0,0,0,0.4)' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
-  modal: { background: '#141414', border: '1px solid rgba(156,163,175,0.15)', borderRadius: 20, padding: 24, maxWidth: '95%', width: 380, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' },
-  closeBtn: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 16, textAlign: 'center' },
-  btnPrimary: { flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
-  btnSecondary: { flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(156,163,175,0.2)', background: 'transparent', color: '#a3a3a3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  btnSmall: { width: 36, height: 36, borderRadius: 10, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  clanTopActions: { display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 },
-  clanInfoBlock: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8, width: '100%' },
-  clanAvatar: { width: 52, height: 52, borderRadius: 14, background: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0, border: '1px solid rgba(156,163,175,0.1)' },
-  clanDetails: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  clanName: { fontSize: 18, fontWeight: 'bold', color: '#e5e5e5', margin: 0, lineHeight: 1.2, wordBreak: 'break-word', width: '100%' },
-  clanIncome: { fontSize: 13, color: '#22c55e', margin: 0, fontWeight: '500', whiteSpace: 'nowrap' },
-  clanDescription: { fontSize: 13, color: '#a3a3a3', margin: '0 0 16px 0', lineHeight: 1.5, fontStyle: 'normal', padding: '0 2px' },
-  iconBtn: { width: 36, height: 36, borderRadius: 10, background: 'rgba(38,38,38,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a3a3a3', position: 'relative' },
-  badge: { position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold', width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #141414' },
-  memberList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
-  memberItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(38,38,38,0.4)', borderRadius: 12, cursor: 'pointer' },
-  memberAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white', overflow: 'hidden' },
-  memberImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  memberName: { fontSize: 14, fontWeight: '500', color: '#e5e5e5' },
-  memberRole: { fontSize: 11, color: '#737373' },
-  memberIncome: { fontSize: 12, color: '#22c55e', fontWeight: '600' },
-  list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 },
-  listItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px', background: 'rgba(38,38,38,0.4)', borderRadius: 10 },
-  listAvatar: { width: 32, height: 32, borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'white', overflow: 'hidden' },
-  listName: { fontSize: 14, color: '#e5e5e5', fontWeight: '500' },
-  listSub: { fontSize: 11, color: '#737373' },
-  leaderboardItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px', background: 'rgba(38,38,38,0.4)', borderRadius: 10, cursor: 'pointer' },
-  rank: { fontSize: 18, fontWeight: 'bold', color: '#737373', width: 28, textAlign: 'center' },
-  topRank: { color: '#fbbf24', fontSize: 20 },
-  input: { width: '100%', padding: '10px', borderRadius: 8, background: '#0a0a0a', border: '1px solid rgba(156,163,175,0.2)', color: 'white', marginBottom: 8, boxSizing: 'border-box' },
-  label: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#a3a3a3', fontSize: 13, marginBottom: 8, flexDirection: 'column' },
-  offlineOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)' },
-  offlineModal: { position: 'relative', background: '#141414', border: '2px solid #22c55e', borderRadius: 24, padding: '32px 24px', textAlign: 'center', boxShadow: '0 0 50px rgba(34,197,94,0.4)', minWidth: 280, maxWidth: '90%' },
-  offlineIcon: { fontSize: 48, marginBottom: 12 },
-  offlineTitle: { fontSize: 22, fontWeight: 'bold', color: '#22c55e', marginBottom: 8 },
-  offlineAmount: { fontWeight: 'bold', color: '#4ade80', marginBottom: 8, textShadow: '0 0 20px rgba(74,222,128,0.5)', transition: 'font-size 0.3s ease' },
-  offlineText: { fontSize: 14, color: '#9ca3af' },
-  btnYes: { background: '#22c55e', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  btnNo: { background: '#ef4444', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' },
-  btnDanger: { padding: '12px', borderRadius: 12, border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  vipBadge: { fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', boxShadow: '0 0 5px rgba(0,0,0,0.3)' },
-  tabBtn: { flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'transparent', color:'#737373', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', fontSize:14 },
-  tabActive: { background:'#3b82f6', color:'white', boxShadow:'0 2px 8px rgba(59, 130, 246, 0.4)' },
-  subscribeModal: { background: '#141414', border: '2px solid #3b82f6', borderRadius: 24, padding: 28, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(59, 130, 246, 0.3)' },
-  subscribeIcon: { fontSize: 48, marginBottom: 16 },
-  subscribeTitle: { fontSize: 20, fontWeight: 'bold', color: '#e5e5e5', marginBottom: 12, margin: '0 0 12px 0' },
-  subscribeText: { fontSize: 14, color: '#a3a3a3', marginBottom: 16, lineHeight: 1.5 },
-  subscribeChannel: { fontSize: 16, fontWeight: 'bold', color: '#3b82f6', marginBottom: 24, background: 'rgba(59, 130, 246, 0.1)', padding: '8px 16px', borderRadius: 10, display: 'inline-block' },
-  subscribeBtnPrimary: { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', fontSize: 16, cursor: 'pointer', marginBottom: 12, transition: 'transform 0.1s' },
-  subscribeBtnSecondary: { width: '100%', padding: '12px', borderRadius: 14, border: '2px solid #22c55e', background: 'transparent', color: '#22c55e', fontWeight: 'bold', fontSize: 15, cursor: 'pointer' },
-  walletTotal: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 20, border: '1px solid rgba(139, 92, 246, 0.3)' },
-  walletTotalLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  walletTotalValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' },
-  walletList: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 },
-  walletItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(38, 38, 38, 0.6)', borderRadius: 12, border: '1px solid rgba(156, 163, 175, 0.1)' },
-  walletItemLeft: { display: 'flex', alignItems: 'center', gap: 12 },
-  walletItemIcon: { width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold', color: 'white' },
-  walletItemName: { fontSize: 15, fontWeight: '600', color: '#e5e5e5' },
-  walletItemAmount: { fontSize: 12, color: '#737373', marginTop: 2 },
-  walletItemRight: { textAlign: 'right' },
-  walletItemPrice: { fontSize: 12, color: '#a3a3a3', marginBottom: 4 },
-  walletItemTotal: { fontSize: 16, fontWeight: 'bold', color: '#22c55e' },
-  hustleList: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
-  hustleCard: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 16 },
-  hustleHeader: { display: 'flex', alignItems: 'center', marginBottom: 12 },
-  hustleName: { fontSize: 16, fontWeight: 'bold', color: '#fff', margin: 0 },
-  hustleSalary: { fontSize: 14, color: '#22c55e', margin: '4px 0 0 0', fontWeight: '600' },
-  hustleInfo: { display: 'flex', gap: 16, marginBottom: 12, fontSize: 12 },
-  hustleDetail: { color: '#a3a3a3' },
-  hustleBtn: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#22c55e', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
-  hustleBtnDisabled: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'rgba(156, 163, 175, 0.2)', color: '#737373', fontWeight: 'bold', cursor: 'not-allowed' },
-  hustleGameModal: { background: '#141414', border: '2px solid #fbbf24', borderRadius: 24, padding: 24, width: '90%', maxWidth: 340, textAlign: 'center', boxShadow: '0 0 40px rgba(251, 191, 36, 0.3)' },
-  hustleGameHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  hustleTimer: { marginBottom: 24 },
-  hustleTimerBar: { width: '100%', height: 8, background: 'rgba(251, 191, 36, 0.2)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
-  hustleTimerProgress: { height: '100%', background: 'linear-gradient(90deg, #fbbf24, #f59e0b)', transition: 'width 1s linear' },
-  hustleTimeText: { fontSize: 18, fontWeight: 'bold', color: '#fbbf24' },
-  hustleClicker: { cursor: 'pointer', userSelect: 'none', padding: '40px 20px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: 16, marginBottom: 16, transition: 'transform 0.1s' },
-  hustleCoin: { fontSize: 80, marginBottom: 12 },
-  hustleClicks: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  hustleInstruction: { color: '#a3a3a3', fontSize: 14, margin: 0 },
-  shopTabs: { display: 'flex', gap: 4, marginBottom: 16, background: '#262626', padding: 4, borderRadius: 12, overflowX: 'auto' },
-  shopTab: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: 'transparent', color: '#737373', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' },
-  shopTabActive: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)' },
-  shopContent: { flex: 1, overflowY: 'auto' },
-  shopGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  
-  // 🔥 НОВЫЕ СТИЛИ ДЛЯ БРЕНДОВ С ЛОГОТИПАМИ
-  brandGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
-  brandCard: { 
-    background: '#1C1C1E', 
-    border: '1px solid rgba(156,163,175,0.1)', 
-    borderRadius: 16, 
-    padding: 16, 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'center', 
-    cursor: 'pointer',
-    transition: 'transform 0.1s, background 0.2s',
-    minHeight: 140
-  },
-  brandLogoContainer: { 
-    width: 64, 
-    height: 64, 
-    marginBottom: 12,
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  brandLogo: { 
-    width: '100%', 
-    height: '100%', 
-    objectFit: 'contain',
-  },
-  brandFallback: {
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    position: 'absolute',
-    top: 0,
-    left: 0
-  },
-  brandName: { 
-    fontSize: 12, 
-    fontWeight: 'bold', 
-    color: '#fff', 
-    marginBottom: 4,
-    textAlign: 'center'
-  },
-  brandCount: { 
-    fontSize: 10, 
-    color: '#737373',
-    textAlign: 'center'
-  },
-  
-  backBtnSmall: { background: 'transparent', border: '1px solid rgba(156,163,175,0.2)', borderRadius: 8, padding: '6px 12px', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
-  shopItem: { background: 'rgba(38, 38, 38, 0.6)', border: '1px solid rgba(156, 163, 175, 0.1)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
-  shopItemIcon: { fontSize: 32, marginBottom: 8 },
-  shopItemName: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  shopItemPrice: { fontSize: 12, color: '#22c55e', fontWeight: 'bold', marginBottom: 8 },
-  shopBuyBtn: { width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontWeight: '600', fontSize: 12, cursor: 'pointer' },
-  netWorthPanel: { background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: 16, padding: '20px', marginBottom: 16, border: '1px solid rgba(139, 92, 246, 0.3)', textAlign: 'center' },
-  netWorthLabel: { fontSize: 13, color: '#a3a3a3', marginBottom: 8 },
-  netWorthValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', textShadow: '0 0 20px rgba(139, 92, 246, 0.5)' }
 };
 
 export default App;
