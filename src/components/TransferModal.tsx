@@ -12,6 +12,11 @@ interface TransferModalProps {
   onSaveProgress?: () => void;
 }
 
+// 🔥 ФУНКЦИЯ ЭКРАНИРОВАНИЯ СПЕЦСИМВОЛОВ ДЛЯ ILIKE
+const escapeIlike = (str: string) => {
+  return str.replace(/%/g, '\\%').replace(/_/g, '\\_').replace(/\\/g, '\\\\');
+};
+
 export const TransferModal: React.FC<TransferModalProps> = ({
   isOpen, onClose, currentUserId, usdBalance, rubBalance, onTransferSuccess, onSaveProgress
 }) => {
@@ -24,6 +29,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
 
+  // Сброс при открытии
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
@@ -35,7 +41,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     }
   }, [isOpen]);
 
-  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЯ
+  // 🔥 ПОИСК ПОЛЬЗОВАТЕЛЯ С ПОДДЕРЖКОЙ РУССКИХ НИКОВ
   useEffect(() => {
     const searchUser = async () => {
       const trimmed = searchQuery.trim();
@@ -50,18 +56,21 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setError('');
       
       try {
-        // 🔥 Используем eq вместо ilike для точного поиска
-        // Это решает проблему с кодировкой и спецсимволами
+        // 🔥 Экранируем спецсимволы для ilike
+        const escaped = escapeIlike(trimmed);
+        
+        // 🔥 Используем ilike для поиска без учёта регистра
+        // Работает и с кириллицей, и с латиницей
         const { data, error: searchError } = await supabase
           .from('users')
           .select('id, nickname, balance, rub_balance')
-          .ilike('nickname', `%${trimmed}%`)
+          .ilike('nickname', `%${escaped}%`)
           .neq('id', currentUserId)
           .limit(10);
 
         if (searchError) {
           console.error('Search error:', searchError);
-          // Если ilike не работает, пробуем простой поиск
+          // Если ilike не работает (ошибка 406), пробуем точный поиск
           if (searchError.code === '406') {
             const { data: fallbackData } = await supabase
               .from('users')
@@ -238,7 +247,6 @@ await supabase.from('transactions').insert({
                 setSelectedUser(null);
                 setError('');
               }}
-              onFocus={() => searchResults.length > 0 && setError('')}
               disabled={loading}
             />
             
